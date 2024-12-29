@@ -57,7 +57,7 @@ require (
 	github.com/libdns/ovh v0.0.3
 	github.com/libdns/porkbun v0.2.0
 	github.com/libdns/powerdns v0.1.3
-	github.com/libdns/rfc2136 v0.1.0
+	github.com/libdns/rfc2136 v0.1.1
 	github.com/libdns/route53 v1.5.1
 	github.com/libdns/scaleway v0.1.11
 	github.com/libdns/selectel v1.0.0

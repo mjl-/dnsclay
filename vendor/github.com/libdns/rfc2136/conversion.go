@@ -18,10 +18,23 @@ func recordToRR(rec libdns.Record, zone string) (dns.RR, error) {
 
 func recordFromRR(rr dns.RR, zone string) libdns.Record {
 	hdr := rr.Header()
+
+	// The record value is the full record string representation with the header string
+	// prefix stripped. Package dns represents private-use and unknown records as
+	// RFC3597 records. When those are formatted as string, their header prefix has a
+	// different form than when the header is formatted separately, so account for
+	// that.
+	hdrStr := hdr.String()
+	typ := dns.TypeToString[hdr.Rrtype]
+	if _, ok := rr.(*dns.RFC3597); ok {
+		name := strings.SplitN(hdrStr, "\t", 2)[0]
+		typ = fmt.Sprintf("TYPE%d", hdr.Rrtype)
+		hdrStr = fmt.Sprintf("%s\t%d\tCLASS%d\t%s\t", name, hdr.Ttl, hdr.Class, typ)
+	}
 	return libdns.Record{
-		Type:  dns.TypeToString[hdr.Rrtype],
+		Type:  typ,
 		Name:  libdns.RelativeName(hdr.Name, zone),
 		TTL:   time.Duration(hdr.Ttl) * time.Second,
-		Value: strings.TrimPrefix(rr.String(), hdr.String()),
+		Value: strings.TrimPrefix(rr.String(), hdrStr),
 	}
 }

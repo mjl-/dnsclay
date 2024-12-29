@@ -100,21 +100,15 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.Record
 
 	for _, lr := range latest {
 		log.Debug("latest record", "record", lr)
-		var text string
-		// todo: get rfc2136 fixed
-		if pc.ProviderName == "rfc2136" && strings.Contains(lr.Value, "\tCLASS1\tTYPE") {
-			text = lr.Value
-		} else {
-			name := lr.Name
-			if strings.HasSuffix(name, ".") {
-				if !strings.EqualFold(name, z.Name) && (len(name) <= len(z.Name) || !strings.EqualFold(name[len(name)-len(z.Name)-1:], "."+z.Name)) {
-					return false, nil, nil, nil, fmt.Errorf("received out of zone absolute name %q", name)
-				}
-			} else {
-				name = libdns.AbsoluteName(name, z.Name)
+		name := lr.Name
+		if strings.HasSuffix(name, ".") {
+			if !strings.EqualFold(name, z.Name) && (len(name) <= len(z.Name) || !strings.EqualFold(name[len(name)-len(z.Name)-1:], "."+z.Name)) {
+				return false, nil, nil, nil, fmt.Errorf("received out of zone absolute name %q", name)
 			}
-			text = fmt.Sprintf("%s %d %s %s", name, lr.TTL/time.Second, lr.Type, lr.Value)
+		} else {
+			name = libdns.AbsoluteName(name, z.Name)
 		}
+		text := fmt.Sprintf("%s %d %s %s", name, lr.TTL/time.Second, lr.Type, lr.Value)
 		rr, err := dns.NewRR(text)
 		if err != nil {
 			return false, nil, nil, nil, fmt.Errorf("parsing record %q from remote: %v", text, err)
@@ -126,7 +120,7 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.Record
 		}
 
 		h := rr.Header()
-		name, err := cleanAbsName(h.Name)
+		name, err = cleanAbsName(h.Name)
 		if err != nil {
 			return false, nil, nil, nil, fmt.Errorf("clean name for %q: %v", h.Name, err)
 		}
