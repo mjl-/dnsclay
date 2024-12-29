@@ -264,7 +264,7 @@ func TestAXFR(t *testing.T) {
 				err = dc.SetDeadline(time.Now().Add(3 * time.Second))
 				tcheck(t, err, "set deadline")
 				im, err := dc.ReadMsg()
-				tcheck(t, err, "read axfr respones")
+				tcheck(t, err, "read axfr response")
 				tcompare(t, im.Rcode, dns.RcodeSuccess)
 				tcompare(t, len(im.Answer) > 0, true)
 				if n == 0 {
