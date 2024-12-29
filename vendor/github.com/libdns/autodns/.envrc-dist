@@ -1,0 +1,4 @@
+export AUTODNS_USERNAME=
+export AUTODNS_PASSWORD=
+export AUTODNS_CONTEXT=
+export TEST_ZONE=

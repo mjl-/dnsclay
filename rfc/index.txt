@@ -1,0 +1,30 @@
+# Generic DNS
+1034	DOMAIN NAMES - CONCEPTS AND FACILITIES
+1035	DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
+2181	Clarifications to the DNS Specification
+7766	DNS Transport over TCP - Implementation Requirements
+8906	A Common Operational Problem in DNS Servers: Failure to Communicate
+8914	Extended DNS Errors
+9076	DNS Privacy Considerations
+9499	DNS Terminology
+
+# AXFR/IXFR
+1995	Incremental Zone Transfer in DNS
+5936	DNS Zone Transfer Protocol (AXFR)
+9103	DNS Zone Transfer over TLS
+
+# NOTIFY
+1996	A Mechanism for Prompt Notification of Zone Changes (DNS NOTIFY)
+
+# UPDATE
+2136	Dynamic Updates in the Domain Name System (DNS UPDATE)
+
+# TSIG
+8945	Secret Key Transaction Authentication for DNS (TSIG)
+
+# TLS
+7858	Specification for DNS over Transport Layer Security (TLS)
+8310	Usage Profiles for DNS over TLS and DNS over DTLS
+
+# Catalog
+9432	DNS Catalog Zones

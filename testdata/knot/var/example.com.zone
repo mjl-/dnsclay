@@ -1,0 +1,8 @@
+;; Zone dump (Knot DNS 3.4.3)
+example.com.        	3600	SOA	ns0.localhost. test.example.com. 2024072553 3600 300 1209600 300
+example.com.        	300	NS	ns0.localhost.
+host.example.com.   	300	A	10.20.30.40
+testhost.example.com.	300	A	10.20.30.40
+testhost.example.com.	300	TXT	"this is a test"
+;; Written 5 records
+;; Time 2024-12-28 21:43:07 CET

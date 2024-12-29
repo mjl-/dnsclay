@@ -1,0 +1,14 @@
+/dnsclay
+/cover.html
+/cover.out
+/local
+/dnsclay.db
+/node_modules/
+/testdata/dnsclay.db
+/adminpassword
+/server.privkey-ed25519.pkcs8.pem
+/rfc/[0-9][0-9][0-9][0-9]
+/testdata/dnsclay-test.ed25519.cert.pem
+/testdata/dnsclay-test.ed25519.privkey-pkcs8.pem
+/testdata/knot/db/
+/testdata/knot/run/

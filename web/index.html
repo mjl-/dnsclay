@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Dnsclay</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<style>
+html, body { margin: 0; padding: 0; }
+* { font-size: inherit; font-family: 'ubuntu', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+h1, h2, h3, h4 { margin-bottom: 1ex; }
+h1 { font-size: 1.1rem; }
+h2 { font-size: 1rem; }
+ul { padding-left: 1rem; }
+pre { padding: .5em 1em; border: 1px solid #aaa; border-radius: .15em; white-space: pre-wrap; font-family: 'ubuntu mono', monospace; tab-size: 4; }
+.mono { font-family: 'ubuntu mono', monospace; tab-size: 4; }
+tt { font-family: 'ubuntu mono', monospace; }
+table { border-spacing: 0; }
+table.wide { width: 100%; }
+table td, table th { padding: .2em .5em; text-align: right; }
+table.striped tr:nth-child(even) { background-color: #f8f8f8; }
+table.hover tbody tr:hover { background-color: #eee; }
+p { margin-bottom: 1em; max-width: 50em; }
+ul { margin-bottom: 1em; }
+button { font-size: .95em; }
+fieldset { border: 0; }
+.scriptswitch { text-decoration: underline #dca053 2px; }
+.indent { padding-left: 2em; }
+[title]:hover { text-decoration: underline; text-decoration-style: dotted; }
+.silenttitle { text-decoration: none; }
+fieldset { border: 0; }
+.loading { opacity: 0.1; animation: fadeout 1s ease-out; }
+@keyframes fadein { 0% { opacity: 0 } 100% { opacity: 1 } }
+@keyframes fadeout { 0% { opacity: 1 } 100% { opacity: 0.1 } }
+		</style>
+	</head>
+	<body>
+		<div id="rootElem"><div style="padding: 1em; text-align: center">Loading...</div></div>
+		<script src="dnsclay.js"></script>
+	</body>
+</html>

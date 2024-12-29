@@ -1,0 +1,4 @@
+.envrc
+_gitignore/
+*~
+coverage.out

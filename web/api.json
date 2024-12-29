@@ -1,0 +1,3042 @@
+{
+	"Name": "API",
+	"Docs": "API is the webapi used by the admin frontend.",
+	"Functions": [
+		{
+			"Name": "Zones",
+			"Docs": "Zones returns all zones.",
+			"Params": [],
+			"Returns": [
+				{
+					"Name": "r0",
+					"Typewords": [
+						"[]",
+						"Zone"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Zone",
+			"Docs": "Zone returns details about a single zone, including all records (including deleted), credentials, and dns notify destinations.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "z",
+					"Typewords": [
+						"Zone"
+					]
+				},
+				{
+					"Name": "pc",
+					"Typewords": [
+						"ProviderConfig"
+					]
+				},
+				{
+					"Name": "notifies",
+					"Typewords": [
+						"[]",
+						"ZoneNotify"
+					]
+				},
+				{
+					"Name": "credentials",
+					"Typewords": [
+						"[]",
+						"Credential"
+					]
+				},
+				{
+					"Name": "records",
+					"Typewords": [
+						"[]",
+						"Record"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneRefresh",
+			"Docs": "ZoneRefresh starts a sync of the records from the provider into the local\ndatabase, sending dns notify if needed. ZoneRefresh returns all records\n(included deleted) from after the synchronization.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "z",
+					"Typewords": [
+						"Zone"
+					]
+				},
+				{
+					"Name": "records",
+					"Typewords": [
+						"[]",
+						"Record"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZonePurgeHistory",
+			"Docs": "ZonePurgeHistory removes historic records from the database, those marked \"deleted\".",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "z",
+					"Typewords": [
+						"Zone"
+					]
+				},
+				{
+					"Name": "records",
+					"Typewords": [
+						"[]",
+						"Record"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneAdd",
+			"Docs": "ZoneAdd adds a new zone to the database. A TSIG credential is created\nautomatically. Records are fetched returning the new zone, in the background.\n\nIf pc.ProviderName is non-empty, a new ProviderConfig is added.",
+			"Params": [
+				{
+					"Name": "z",
+					"Typewords": [
+						"Zone"
+					]
+				},
+				{
+					"Name": "notifies",
+					"Typewords": [
+						"[]",
+						"ZoneNotify"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "nzone",
+					"Typewords": [
+						"Zone"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneDelete",
+			"Docs": "ZoneDelete removes a zone and all its records, credentials and dns notify addresses, from the database.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": []
+		},
+		{
+			"Name": "ZoneUpdate",
+			"Docs": "ZoneUpdate updates the provider config and refresh \u0026 sync interval for a zone.",
+			"Params": [
+				{
+					"Name": "z",
+					"Typewords": [
+						"Zone"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "nz",
+					"Typewords": [
+						"Zone"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneNotify",
+			"Docs": "ZoneNotify send a DNS notify message to an address.",
+			"Params": [
+				{
+					"Name": "zoneNotifyID",
+					"Typewords": [
+						"int64"
+					]
+				}
+			],
+			"Returns": []
+		},
+		{
+			"Name": "ZoneNotifyAdd",
+			"Docs": "ZoneNotifyAdd adds a new DNS NOTIFY destination to a zone.",
+			"Params": [
+				{
+					"Name": "zn",
+					"Typewords": [
+						"ZoneNotify"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "nzn",
+					"Typewords": [
+						"ZoneNotify"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneNotifyDelete",
+			"Docs": "ZoneNotifyDelete removes a DNS NOTIFY destination from a zone.",
+			"Params": [
+				{
+					"Name": "zoneNotifyID",
+					"Typewords": [
+						"int64"
+					]
+				}
+			],
+			"Returns": []
+		},
+		{
+			"Name": "ZoneCredentialAdd",
+			"Docs": "ZoneCredentialAdd adds a new TSIG or TLS public key credential to a zone.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "c",
+					"Typewords": [
+						"Credential"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "nc",
+					"Typewords": [
+						"Credential"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneCredentialDelete",
+			"Docs": "ZoneCredentialDelete removes a TSIG/TLS public key credential from a zone.",
+			"Params": [
+				{
+					"Name": "credentialID",
+					"Typewords": [
+						"int64"
+					]
+				}
+			],
+			"Returns": []
+		},
+		{
+			"Name": "ZoneImportRecords",
+			"Docs": "ZoneImportRecords parses records in zonefile, assuming standard zone file syntax,\nand adds the records via the provider and syncs the newly added records to the\nlocal database. The latest records, included historic/deleted records after the\nsync are returned.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "zonefile",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "r0",
+					"Typewords": [
+						"[]",
+						"Record"
+					]
+				}
+			]
+		},
+		{
+			"Name": "RecordAdd",
+			"Docs": "RecordAdd adds a single record through the provider, then waits for it to\nsynchronize back to the local database. The newly added database record is\nreturned.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "nr",
+					"Typewords": [
+						"RecordNew"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "r",
+					"Typewords": [
+						"Record"
+					]
+				}
+			]
+		},
+		{
+			"Name": "RecordUpdate",
+			"Docs": "RecordUpdate updates and existing record, replacing it with the new version. The\nname and type must be the same. Only the TTL and value can be changed for an\nexisting record. The updated or new local database record is returned after a sync.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "recordID",
+					"Typewords": [
+						"int64"
+					]
+				},
+				{
+					"Name": "rn",
+					"Typewords": [
+						"RecordNew"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "xr",
+					"Typewords": [
+						"Record"
+					]
+				}
+			]
+		},
+		{
+			"Name": "RecordDelete",
+			"Docs": "RecordDelete removes a record through the provider and waits for the change to\nbe synced to the local database. The historic/deleted record is returned.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "recordID",
+					"Typewords": [
+						"int64"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "r",
+					"Typewords": [
+						"Record"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Version",
+			"Docs": "Version returns the version of this build of the application.",
+			"Params": [],
+			"Returns": [
+				{
+					"Name": "r0",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "DNSTypeNames",
+			"Docs": "DNSTypeNames returns a mapping of DNS type numbers to strings.",
+			"Params": [],
+			"Returns": [
+				{
+					"Name": "r0",
+					"Typewords": [
+						"{}",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "KnownProviders",
+			"Docs": "KnownProviders is a dummy method whose sole purpose is to get an API description\nof all known providers in the API documentation, for use in TypeScript.",
+			"Params": [],
+			"Returns": [
+				{
+					"Name": "r0",
+					"Typewords": [
+						"KnownProviders"
+					]
+				},
+				{
+					"Name": "r1",
+					"Typewords": [
+						"sherpadocSection"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Docs",
+			"Docs": "Docs returns the API docs. The TypeScript code uses this documentation to build\na UI for the fields in configurations for providers (as included through\nKnownProviders).",
+			"Params": [],
+			"Returns": [
+				{
+					"Name": "r0",
+					"Typewords": [
+						"sherpadocSection"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ProviderConfigTest",
+			"Docs": "ProviderConfigTest tests the provider configuration for zone. Used before\ncreating a zone with a new config or updating the config for an existing zone.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "provider",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "providerConfigJSON",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "nrecords",
+					"Typewords": [
+						"int32"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ProviderConfigs",
+			"Docs": "ProviderConfigs returns all provider configs.",
+			"Params": [],
+			"Returns": [
+				{
+					"Name": "providerConfigs",
+					"Typewords": [
+						"[]",
+						"ProviderConfig"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ProviderConfigAdd",
+			"Docs": "ProviderConfigAdd adds a new provider config.",
+			"Params": [
+				{
+					"Name": "pc",
+					"Typewords": [
+						"ProviderConfig"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "npc",
+					"Typewords": [
+						"ProviderConfig"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ProviderConfigUpdate",
+			"Docs": "ProviderConfigUpdate updates a provider config.",
+			"Params": [
+				{
+					"Name": "pc",
+					"Typewords": [
+						"ProviderConfig"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "npc",
+					"Typewords": [
+						"ProviderConfig"
+					]
+				}
+			]
+		}
+	],
+	"Sections": [],
+	"Structs": [
+		{
+			"Name": "Zone",
+			"Docs": "Zone for which DNS records are managed, for which a delegation with NS records\nexists. Commonly called \"domains\". Subdomains are not necessarily zones, they\nare just names with dots in a zone.",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "Absolute name with trailing dot. In lower-case form.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "ProviderConfigName",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "SerialLocal",
+					"Docs": "Locally known serial. Will be 0 for newly created zones. Can be different from SerialRemote since not all name servers change serials on zone changes.",
+					"Typewords": [
+						"Serial"
+					]
+				},
+				{
+					"Name": "SerialRemote",
+					"Docs": "Serial as known at remote. Used during refresh to decide whether to sync. Not meaningful when \u003c= 1 (e.g. always for AWS Route53).",
+					"Typewords": [
+						"Serial"
+					]
+				},
+				{
+					"Name": "LastSync",
+					"Docs": "Last time an attempt to sync was made. Used for periodic sync.",
+					"Typewords": [
+						"nullable",
+						"timestamp"
+					]
+				},
+				{
+					"Name": "LastRecordChange",
+					"Docs": "Last time a change in records was detected.",
+					"Typewords": [
+						"nullable",
+						"timestamp"
+					]
+				},
+				{
+					"Name": "SyncInterval",
+					"Docs": "Time between automatic synchronizations by getting all records.",
+					"Typewords": [
+						"int64"
+					]
+				},
+				{
+					"Name": "RefreshInterval",
+					"Docs": "Time between zone refresh: checks for an updated SOA record (after which a sync is initiated). After a detected record change, checks are done more often. For 1 RefreshInterval, during the first 1/10th of time, a check is done 5 times. For the remaining 9/10th of time, a check is also done every 10 times.",
+					"Typewords": [
+						"int64"
+					]
+				},
+				{
+					"Name": "NextSync",
+					"Docs": "",
+					"Typewords": [
+						"timestamp"
+					]
+				},
+				{
+					"Name": "NextRefresh",
+					"Docs": "",
+					"Typewords": [
+						"timestamp"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ProviderConfig",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "ProviderName",
+					"Docs": "Name of a libdns package.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "ProviderConfigJSON",
+					"Docs": "JSON encoding of the \"Provider\" type from the libdns package referenced by ProviderName.",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneNotify",
+			"Docs": "ZoneNotify is an address to DNS NOTIFY when a change to the zone is discovered.",
+			"Fields": [
+				{
+					"Name": "ID",
+					"Docs": "",
+					"Typewords": [
+						"int64"
+					]
+				},
+				{
+					"Name": "Created",
+					"Docs": "",
+					"Typewords": [
+						"timestamp"
+					]
+				},
+				{
+					"Name": "Zone",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Address",
+					"Docs": "E.g. 127.0.0.1:53",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Protocol",
+					"Docs": "\"tcp\" or \"udp\"",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Credential",
+			"Docs": "Credential is used for TSIG or mutual TLS authentication during DNS.",
+			"Fields": [
+				{
+					"Name": "ID",
+					"Docs": "",
+					"Typewords": [
+						"int64"
+					]
+				},
+				{
+					"Name": "Created",
+					"Docs": "",
+					"Typewords": [
+						"timestamp"
+					]
+				},
+				{
+					"Name": "Name",
+					"Docs": "Without trailing dot for TSIG, we add it during DNS. rfc/8945:245",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Type",
+					"Docs": "\"tsig\" or \"tlspubkey\"",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "TSIGSecret",
+					"Docs": "Base64-encoded.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "TLSPublicKey",
+					"Docs": "Raw-url-base64-encoded SHA-256 hash of TLS certificate subject public key info (\"SPKI\").",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Record",
+			"Docs": "Record is a DNS record that discovered through the API of the provider.",
+			"Fields": [
+				{
+					"Name": "ID",
+					"Docs": "",
+					"Typewords": [
+						"int64"
+					]
+				},
+				{
+					"Name": "Zone",
+					"Docs": "Name of zone, lower-case.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "SerialFirst",
+					"Docs": "Serial where this record first appeared. For SOA records, this is equal to its Serial field.",
+					"Typewords": [
+						"Serial"
+					]
+				},
+				{
+					"Name": "SerialDeleted",
+					"Docs": "Serial when record was removed. For future IXFR.",
+					"Typewords": [
+						"Serial"
+					]
+				},
+				{
+					"Name": "First",
+					"Docs": "",
+					"Typewords": [
+						"timestamp"
+					]
+				},
+				{
+					"Name": "Deleted",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"timestamp"
+					]
+				},
+				{
+					"Name": "AbsName",
+					"Docs": "Fully qualified, in lower-case.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Type",
+					"Docs": "eg A, etc.",
+					"Typewords": [
+						"Type"
+					]
+				},
+				{
+					"Name": "Class",
+					"Docs": "",
+					"Typewords": [
+						"Class"
+					]
+				},
+				{
+					"Name": "TTL",
+					"Docs": "",
+					"Typewords": [
+						"TTL"
+					]
+				},
+				{
+					"Name": "DataHex",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Value",
+					"Docs": "Human-readable.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "ProviderID",
+					"Docs": "From libdns.",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "RecordNew",
+			"Docs": "RecordNew is a new or updated record.",
+			"Fields": [
+				{
+					"Name": "RelName",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "TTL",
+					"Docs": "",
+					"Typewords": [
+						"TTL"
+					]
+				},
+				{
+					"Name": "Type",
+					"Docs": "",
+					"Typewords": [
+						"Type"
+					]
+				},
+				{
+					"Name": "Value",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "KnownProviders",
+			"Docs": "KnownProviders ensures all providers types are included in sherpadoc API documentation.",
+			"Fields": [
+				{
+					"Name": "Xalidns",
+					"Docs": "",
+					"Typewords": [
+						"Provider_alidns"
+					]
+				},
+				{
+					"Name": "Xautodns",
+					"Docs": "",
+					"Typewords": [
+						"Provider_autodns"
+					]
+				},
+				{
+					"Name": "Xazure",
+					"Docs": "",
+					"Typewords": [
+						"Provider_azure"
+					]
+				},
+				{
+					"Name": "Xbunny",
+					"Docs": "",
+					"Typewords": [
+						"Provider_bunny"
+					]
+				},
+				{
+					"Name": "Xcivo",
+					"Docs": "",
+					"Typewords": [
+						"Provider_civo"
+					]
+				},
+				{
+					"Name": "Xcloudflare",
+					"Docs": "",
+					"Typewords": [
+						"Provider_cloudflare"
+					]
+				},
+				{
+					"Name": "Xddnss",
+					"Docs": "",
+					"Typewords": [
+						"Provider_ddnss"
+					]
+				},
+				{
+					"Name": "Xdesec",
+					"Docs": "",
+					"Typewords": [
+						"Provider_desec"
+					]
+				},
+				{
+					"Name": "Xdigitalocean",
+					"Docs": "",
+					"Typewords": [
+						"Provider_digitalocean"
+					]
+				},
+				{
+					"Name": "Xdirectadmin",
+					"Docs": "",
+					"Typewords": [
+						"Provider_directadmin"
+					]
+				},
+				{
+					"Name": "Xdnsimple",
+					"Docs": "",
+					"Typewords": [
+						"Provider_dnsimple"
+					]
+				},
+				{
+					"Name": "Xdnsmadeeasy",
+					"Docs": "",
+					"Typewords": [
+						"Provider_dnsmadeeasy"
+					]
+				},
+				{
+					"Name": "Xdnspod",
+					"Docs": "",
+					"Typewords": [
+						"Provider_dnspod"
+					]
+				},
+				{
+					"Name": "Xdnsupdate",
+					"Docs": "",
+					"Typewords": [
+						"Provider_dnsupdate"
+					]
+				},
+				{
+					"Name": "Xdreamhost",
+					"Docs": "",
+					"Typewords": [
+						"Provider_dreamhost"
+					]
+				},
+				{
+					"Name": "Xduckdns",
+					"Docs": "",
+					"Typewords": [
+						"Provider_duckdns"
+					]
+				},
+				{
+					"Name": "Xdynu",
+					"Docs": "",
+					"Typewords": [
+						"Provider_dynu"
+					]
+				},
+				{
+					"Name": "Xdynv6",
+					"Docs": "",
+					"Typewords": [
+						"Provider_dynv6"
+					]
+				},
+				{
+					"Name": "Xeasydns",
+					"Docs": "",
+					"Typewords": [
+						"Provider_easydns"
+					]
+				},
+				{
+					"Name": "Xexoscale",
+					"Docs": "",
+					"Typewords": [
+						"Provider_exoscale"
+					]
+				},
+				{
+					"Name": "Xgandi",
+					"Docs": "",
+					"Typewords": [
+						"Provider_gandi"
+					]
+				},
+				{
+					"Name": "Xglesys",
+					"Docs": "",
+					"Typewords": [
+						"Provider_glesys"
+					]
+				},
+				{
+					"Name": "Xgodaddy",
+					"Docs": "",
+					"Typewords": [
+						"Provider_godaddy"
+					]
+				},
+				{
+					"Name": "Xgoogleclouddns",
+					"Docs": "",
+					"Typewords": [
+						"Provider_googleclouddns"
+					]
+				},
+				{
+					"Name": "Xhe",
+					"Docs": "",
+					"Typewords": [
+						"Provider_he"
+					]
+				},
+				{
+					"Name": "Xhetzner",
+					"Docs": "",
+					"Typewords": [
+						"Provider_hetzner"
+					]
+				},
+				{
+					"Name": "Xhexonet",
+					"Docs": "",
+					"Typewords": [
+						"Provider_hexonet"
+					]
+				},
+				{
+					"Name": "Xhosttech",
+					"Docs": "",
+					"Typewords": [
+						"Provider_hosttech"
+					]
+				},
+				{
+					"Name": "Xhuaweicloud",
+					"Docs": "",
+					"Typewords": [
+						"Provider_huaweicloud"
+					]
+				},
+				{
+					"Name": "Xinfomaniak",
+					"Docs": "",
+					"Typewords": [
+						"Provider_infomaniak"
+					]
+				},
+				{
+					"Name": "Xinwx",
+					"Docs": "",
+					"Typewords": [
+						"Provider_inwx"
+					]
+				},
+				{
+					"Name": "Xionos",
+					"Docs": "",
+					"Typewords": [
+						"Provider_ionos"
+					]
+				},
+				{
+					"Name": "Xleaseweb",
+					"Docs": "",
+					"Typewords": [
+						"Provider_leaseweb"
+					]
+				},
+				{
+					"Name": "Xlinode",
+					"Docs": "",
+					"Typewords": [
+						"Provider_linode"
+					]
+				},
+				{
+					"Name": "Xloopia",
+					"Docs": "",
+					"Typewords": [
+						"Provider_loopia"
+					]
+				},
+				{
+					"Name": "Xluadns",
+					"Docs": "",
+					"Typewords": [
+						"Provider_luadns"
+					]
+				},
+				{
+					"Name": "Xmailinabox",
+					"Docs": "",
+					"Typewords": [
+						"Provider_mailinabox"
+					]
+				},
+				{
+					"Name": "Xmetaname",
+					"Docs": "",
+					"Typewords": [
+						"Provider_metaname"
+					]
+				},
+				{
+					"Name": "Xmythicbeasts",
+					"Docs": "",
+					"Typewords": [
+						"Provider_mythicbeasts"
+					]
+				},
+				{
+					"Name": "Xnamecheap",
+					"Docs": "",
+					"Typewords": [
+						"Provider_namecheap"
+					]
+				},
+				{
+					"Name": "Xnamedotcom",
+					"Docs": "",
+					"Typewords": [
+						"Provider_namedotcom"
+					]
+				},
+				{
+					"Name": "Xnamesilo",
+					"Docs": "",
+					"Typewords": [
+						"Provider_namesilo"
+					]
+				},
+				{
+					"Name": "Xnanelo",
+					"Docs": "",
+					"Typewords": [
+						"Provider_nanelo"
+					]
+				},
+				{
+					"Name": "Xnetcup",
+					"Docs": "",
+					"Typewords": [
+						"Provider_netcup"
+					]
+				},
+				{
+					"Name": "Xnetlify",
+					"Docs": "",
+					"Typewords": [
+						"Provider_netlify"
+					]
+				},
+				{
+					"Name": "Xnfsn",
+					"Docs": "",
+					"Typewords": [
+						"Provider_nfsn"
+					]
+				},
+				{
+					"Name": "Xnjalla",
+					"Docs": "",
+					"Typewords": [
+						"Provider_njalla"
+					]
+				},
+				{
+					"Name": "Xovh",
+					"Docs": "",
+					"Typewords": [
+						"Provider_ovh"
+					]
+				},
+				{
+					"Name": "Xporkbun",
+					"Docs": "",
+					"Typewords": [
+						"Provider_porkbun"
+					]
+				},
+				{
+					"Name": "Xpowerdns",
+					"Docs": "",
+					"Typewords": [
+						"Provider_powerdns"
+					]
+				},
+				{
+					"Name": "Xrfc2136",
+					"Docs": "",
+					"Typewords": [
+						"Provider_rfc2136"
+					]
+				},
+				{
+					"Name": "Xroute53",
+					"Docs": "",
+					"Typewords": [
+						"Provider_route53"
+					]
+				},
+				{
+					"Name": "Xscaleway",
+					"Docs": "",
+					"Typewords": [
+						"Provider_scaleway"
+					]
+				},
+				{
+					"Name": "Xselectel",
+					"Docs": "",
+					"Typewords": [
+						"Provider_selectel"
+					]
+				},
+				{
+					"Name": "Xtencentcloud",
+					"Docs": "",
+					"Typewords": [
+						"Provider_tencentcloud"
+					]
+				},
+				{
+					"Name": "Xtimeweb",
+					"Docs": "",
+					"Typewords": [
+						"Provider_timeweb"
+					]
+				},
+				{
+					"Name": "Xtotaluptime",
+					"Docs": "",
+					"Typewords": [
+						"Provider_totaluptime"
+					]
+				},
+				{
+					"Name": "Xvultr",
+					"Docs": "",
+					"Typewords": [
+						"Provider_vultr"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_alidns",
+			"Docs": "Provider implements the libdns interfaces for Alicloud.",
+			"Fields": [
+				{
+					"Name": "access_key_id",
+					"Docs": "The API Key ID Required by Aliyun's for accessing the Aliyun's API",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "access_key_secret",
+					"Docs": "The API Key Secret Required by Aliyun's for accessing the Aliyun's API",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "region_id",
+					"Docs": "Optional for identifing the region of the Aliyun's Service,The default is zh-hangzhou",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_autodns",
+			"Docs": "Provider facilitates DNS record manipulation with Autodns.",
+			"Fields": [
+				{
+					"Name": "username",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Endpoint",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "context",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "primary",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_azure",
+			"Docs": "Provider implements the libdns interfaces for Azure DNS",
+			"Fields": [
+				{
+					"Name": "subscription_id",
+					"Docs": "Subscription ID is the ID of the subscription in which the DNS zone is located. Required.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "resource_group_name",
+					"Docs": "Resource Group Name is the name of the resource group in which the DNS zone is located. Required.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "tenant_id",
+					"Docs": "(Optional) Tenant ID is the ID of the tenant of the Microsoft Entra ID in which the application is located. Required only when authenticating using a service principal with a secret. Do not set any value to authenticate using a managed identity.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "client_id",
+					"Docs": "(Optional) Client ID is the ID of the application. Required only when authenticating using a service principal with a secret. Do not set any value to authenticate using a managed identity.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "client_secret",
+					"Docs": "(Optional) Client Secret is the client secret of the application. Required only when authenticating using a service principal with a secret. Do not set any value to authenticate using a managed identity.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_bunny",
+			"Docs": "Provider facilitates DNS record manipulation with Bunny.net",
+			"Fields": [
+				{
+					"Name": "access_key",
+					"Docs": "AccessKey is the Bunny.net API key - see https://docs.bunny.net/reference/bunnynet-api-overview",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_civo",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_cloudflare",
+			"Docs": "Provider implements the libdns interfaces for Cloudflare.\nTODO: Support pagination and retries, handle rate limits.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "API token is used for authentication. Make sure to use a scoped API **token**, NOT a global API **key**. It will need two permissions: Zone-Zone-Read and Zone-DNS-Edit, unless you are only using `GetRecords()`, in which case the second can be changed to Read.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_ddnss",
+			"Docs": "Provider facilitates DNS record manipulation with ddnss.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "username",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_desec",
+			"Docs": "Provider facilitates DNS record manipulation with deSEC.",
+			"Fields": [
+				{
+					"Name": "token",
+					"Docs": "Token is a token created on https://desec.io/tokens. A basic token without the permission to manage tokens is sufficient.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_digitalocean",
+			"Docs": "Provider implements the libdns interfaces for DigitalOcean",
+			"Fields": [
+				{
+					"Name": "auth_token",
+					"Docs": "APIToken is the DigitalOcean API token - see https://www.digitalocean.com/docs/apis-clis/api/create-personal-access-token/",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_directadmin",
+			"Docs": "Provider facilitates DNS record manipulation with DirectAdmin.",
+			"Fields": [
+				{
+					"Name": "host",
+					"Docs": "ServerURL should be the hostname (with port if necessary) of the DirectAdmin instance you are trying to use",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "user",
+					"Docs": "User should be the DirectAdmin username that the Login Key is created under",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "login_key",
+					"Docs": "LoginKey is used for authentication  The key will need two permissions:  `CMD_API_SHOW_DOMAINS`  `CMD_API_DNS_CONTROL`  Unless you are only using `GetRecords()`, in which case `CMD_API_DNS_CONTROL` can be omitted",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "insecure_requests",
+					"Docs": "InsecureRequests is an optional parameter used to ignore SSL related errors on the DirectAdmin host",
+					"Typewords": [
+						"nullable",
+						"bool"
+					]
+				},
+				{
+					"Name": "debug",
+					"Docs": "Debug - can set this to stdout or stderr to dump debugging information about the API interaction with powerdns.  This will dump your auth token in plain text so be careful.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_dnsimple",
+			"Docs": "Provider facilitates DNS record manipulation with DNSimple.",
+			"Fields": [
+				{
+					"Name": "api_access_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "account_id",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_url",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_dnsmadeeasy",
+			"Docs": "Provider facilitates DNS record manipulation with DNSMadeEasy",
+			"Fields": [
+				{
+					"Name": "api_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "secret_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_endpoint",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"BaseURL"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_dnspod",
+			"Docs": "Provider implements the libdns interfaces for DNSPOD",
+			"Fields": [
+				{
+					"Name": "auth_token",
+					"Docs": "APIToken is the DNSPOD API token - see https://www.dnspod.cn/docs/info.html#common-parameters",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_dnsupdate",
+			"Docs": "Provider facilitates DNS record manipulation with the DNS UPDATE protocol.",
+			"Fields": [
+				{
+					"Name": "addr",
+					"Docs": "DNS server address",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_dreamhost",
+			"Docs": "Provider facilitates DNS record manipulation with Dreamhost.",
+			"Fields": [
+				{
+					"Name": "api_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_duckdns",
+			"Docs": "Provider implements the libdns interfaces for Duck DNS.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "override_domain",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_dynu",
+			"Docs": "Provider facilitates DNS record manipulation with dynu.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "config fields (with snake_case json struct tags on exported fields)",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "own_domain",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_dynv6",
+			"Docs": "Provider for dynv6 HTTP REST API",
+			"Fields": [
+				{
+					"Name": "token",
+					"Docs": "Token is required for authorization. You can generate one at: https://dynv6.com/keys",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_easydns",
+			"Docs": "Provider facilitates DNS record manipulation with EasyDNS.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "EasyDNS API Token (required)",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_key",
+					"Docs": "EasyDNS API Key (required)",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_url",
+					"Docs": "EasyDNS API URL (defaults to https://rest.easydns.net)",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_exoscale",
+			"Docs": "Provider facilitates DNS record manipulation with Exoscale.",
+			"Fields": [
+				{
+					"Name": "api_key",
+					"Docs": "Exoscale API Key (required)",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_secret",
+					"Docs": "Exoscale API Secret (required)",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_gandi",
+			"Docs": "Provider implements the libdns interfaces for Gandi.",
+			"Fields": [
+				{
+					"Name": "bearer_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_glesys",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "project",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_godaddy",
+			"Docs": "Provider godaddy dns provider",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_googleclouddns",
+			"Docs": "Provider facilitates DNS record manipulation with Google Cloud DNS.",
+			"Fields": [
+				{
+					"Name": "gcp_project",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "gcp_application_default",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_he",
+			"Docs": "Provider facilitates DNS record manipulation with Hurricane Electric.",
+			"Fields": [
+				{
+					"Name": "api_key",
+					"Docs": "Hurricane Electric DDNS key to use for authentication when modifying DNS records.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_hetzner",
+			"Docs": "Provider implements the libdns interfaces for Hetzner",
+			"Fields": [
+				{
+					"Name": "auth_api_token",
+					"Docs": "AuthAPIToken is the Hetzner Auth API token - see https://dns.hetzner.com/api-docs#section/Authentication/Auth-API-Token",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_hexonet",
+			"Docs": "Provider facilitates DNS record manipulation with Hexonet.",
+			"Fields": [
+				{
+					"Name": "username",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "debug",
+					"Docs": "Debug - can set this to stdout or stderr to dump debugging information about the API interaction with hexonet.  This will dump your auth token in plain text so be careful.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_hosttech",
+			"Docs": "Provider facilitates DNS record manipulation with Hosttech.ch.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_huaweicloud",
+			"Docs": "Provider facilitates DNS record manipulation with Huawei Cloud",
+			"Fields": [
+				{
+					"Name": "access_key_id",
+					"Docs": "AccessKeyId is required by the Huawei Cloud API for authentication.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "secret_access_key",
+					"Docs": "SecretAccessKey is required by the Huawei Cloud API for authentication.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "region_id",
+					"Docs": "RegionId is optional and defaults to \"cn-south-1\".",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_infomaniak",
+			"Docs": "Provider facilitates DNS record manipulation with infomaniak.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "infomaniak API token",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_inwx",
+			"Docs": "Provider facilitates DNS record manipulation with INWX.",
+			"Fields": [
+				{
+					"Name": "username",
+					"Docs": "Username of your INWX account.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "Password of your INWX account.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "shared_secret",
+					"Docs": "The shared secret is used to generate a TAN if you have activated \"Mobile TAN\" for your INWX account.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "endpoint_url",
+					"Docs": "URL of the JSON-RPC API endpoint. It defaults to the production endpoint.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_ionos",
+			"Docs": "Provider implements the libdns interfaces for IONOS",
+			"Fields": [
+				{
+					"Name": "auth_api_token",
+					"Docs": "AuthAPIToken is the IONOS Auth API token - see https://dns.ionos.com/api-docs#section/Authentication/Auth-API-Token",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_leaseweb",
+			"Docs": "Provider facilitates DNS record manipulation with Leaseweb.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "Leasewebs API key. Generate one in the Leaseweb customer portal -\u003e Administration -\u003e API Key",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_linode",
+			"Docs": "Provider facilitates DNS record manipulation with Linode.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "APIToken is the Linode Personal Access Token, see https://cloud.linode.com/profile/tokens.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_url",
+					"Docs": "APIURL is the Linode API hostname, i.e. \"api.linode.com\".",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_version",
+					"Docs": "APIVersion is the Linode API version, i.e. \"v4\".",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_loopia",
+			"Docs": "Provider facilitates DNS record manipulation with Loopia.",
+			"Fields": [
+				{
+					"Name": "username",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "customer",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_luadns",
+			"Docs": "Provider facilitates DNS record manipulation with LuaDNS.",
+			"Fields": [
+				{
+					"Name": "email",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_mailinabox",
+			"Docs": "Provider facilitates DNS record manipulation with Mail-In-A-Box.",
+			"Fields": [
+				{
+					"Name": "api_url",
+					"Docs": "APIURL is the URL provided by the mailinabox admin interface, found on your box here: https://box.[your-domain.com]/admin#custom_dns https://box.[your-domain.com]/admin/dns/custom",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "email_address",
+					"Docs": "EmailAddress of an admin account. It's recommended that a dedicated account be created especially for managing DNS.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "Password of the admin account that corresponds to the email.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_metaname",
+			"Docs": "Provider facilitates DNS record manipulation with Metaname",
+			"Fields": [
+				{
+					"Name": "api_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "account_reference",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "endpoint",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_mythicbeasts",
+			"Docs": "Provider facilitates DNS record manipulation with Mythic Beasts.",
+			"Fields": [
+				{
+					"Name": "key_id",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "secret",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_namecheap",
+			"Docs": "Provider facilitates DNS record manipulation with namecheap.\nThe libdns methods that return updated structs do not have\ntheir ID fields set since this information is not returned\nby the namecheap API.",
+			"Fields": [
+				{
+					"Name": "api_key",
+					"Docs": "APIKey is your namecheap API key. See: https://www.namecheap.com/support/api/intro/ for more details.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "user",
+					"Docs": "User is your namecheap API user. This can be the same as your username.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_endpoint",
+					"Docs": "APIEndpoint to use. If testing, you can use the \"sandbox\" endpoint instead of the production one.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "client_ip",
+					"Docs": "ClientIP is the IP address of the requesting client. If this is not set, a discovery service will be used to determine the public ip of the machine. You must first whitelist your IP in the namecheap console before using the API.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_namedotcom",
+			"Docs": "Provider implements the libdns interface for namedotcom",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "user",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "server",
+					"Docs": "e.g. https://api.name.com or https://api.dev.name.com",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_namesilo",
+			"Docs": "Provider facilitates DNS record manipulation with Namesilo.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_nanelo",
+			"Docs": "Provider facilitates DNS record manipulation with Nanelo",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_netcup",
+			"Docs": "Provider facilitates DNS record manipulation with netcup.\nCustomerNumber, APIKey and APIPassword have to be filled with the respective credentials from netcup.\nThe netcup API requires a session ID for all requests, so at the beginning of each method call\na login is performed to receive the session ID and at the end the session is stopped with a logout.\nThe mutex locks concurrent access on all four implemented methods to make sure there is\nno race condition in the netcup zone and record configuration.",
+			"Fields": [
+				{
+					"Name": "customer_number",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "api_key",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "api_password",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_netlify",
+			"Docs": "Provider implements the libdns interfaces for Netlify.",
+			"Fields": [
+				{
+					"Name": "personal_access_token",
+					"Docs": "Personal Access Token is required to Authenticate yourself to Netlify's API",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_nfsn",
+			"Docs": "Provider facilitates DNS record manipulation with nearlyfreespeech.net",
+			"Fields": [
+				{
+					"Name": "login",
+					"Docs": "NFSN Member Login.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_key",
+					"Docs": "NFSN API Key. API Keys can be generated from the \"Profile\" tab in the NFSN member interface.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_njalla",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_ovh",
+			"Docs": "Provider facilitates DNS record manipulation with OVH.",
+			"Fields": [
+				{
+					"Name": "endpoint",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "application_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "application_secret",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "consumer_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_porkbun",
+			"Docs": "Provider facilitates DNS record manipulation with Porkbun.",
+			"Fields": [
+				{
+					"Name": "api_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_secret_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_powerdns",
+			"Docs": "Provider facilitates DNS record manipulation with PowerDNS.",
+			"Fields": [
+				{
+					"Name": "server_url",
+					"Docs": "ServerURL is the location of the pdns server.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "server_id",
+					"Docs": "ServerID is the id of the server.  localhost will be used if this is omitted.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_token",
+					"Docs": "APIToken is the auth token.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "debug",
+					"Docs": "Debug - can set this to stdout or stderr to dump debugging information about the API interaction with powerdns.  This will dump your auth token in plain text so be careful.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_rfc2136",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "key_name",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "key_alg",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "server",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_route53",
+			"Docs": "Provider implements the libdns interfaces for Route53.\n\nBy default, the provider loads the AWS configuration from the environment.\nTo override these values, set the fields in the Provider struct.",
+			"Fields": [
+				{
+					"Name": "region",
+					"Docs": "Region is the AWS Region to use. If not set, it will use AWS_REGION environment variable.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "aws_profile",
+					"Docs": "AWSProfile is the AWS Profile to use. If not set, it will use AWS_PROFILE environment variable.  Deprecated: Use Profile instead",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "profile",
+					"Docs": "AWSProfile is the AWS Profile to use. If not set, it will use AWS_PROFILE environment variable.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "access_key_id",
+					"Docs": "AccessKeyId is the AWS Access Key ID to use. If not set, it will use AWS_ACCESS_KEY_ID",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "secret_access_key",
+					"Docs": "SecretAccessKey is the AWS Secret Access Key to use. If not set, it will use AWS_SECRET_ACCESS_KEY environment variable.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "token",
+					"Docs": "Token is the AWS Session Token to use. If not set, it will use AWS_SESSION_TOKEN environment variable.  Deprecated: Use SessionToken instead.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "session_token",
+					"Docs": "SessionToken is the AWS Session Token to use. If not set, it will use AWS_SESSION_TOKEN environment variable.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "max_retries",
+					"Docs": "MaxRetries is the maximum number of retries to make when a request fails. If not set, it will use 5 retries.",
+					"Typewords": [
+						"nullable",
+						"int32"
+					]
+				},
+				{
+					"Name": "max_wait_dur",
+					"Docs": "MaxWaitDur is the maximum amount of time in seconds to wait for a record to be propagated. If not set, it will 1 minute.",
+					"Typewords": [
+						"nullable",
+						"int64"
+					]
+				},
+				{
+					"Name": "wait_for_propagation",
+					"Docs": "WaitForPropagation if set to true, it will wait for the record to be propagated before returning.",
+					"Typewords": [
+						"nullable",
+						"bool"
+					]
+				},
+				{
+					"Name": "hosted_zone_id",
+					"Docs": "HostedZoneID is the ID of the hosted zone to use. If not set, it will be discovered from the zone name.  This option should contain only the ID; the \"/hostedzone/\" prefix will be added automatically.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_scaleway",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "secret_key",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "organization_id",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_selectel",
+			"Docs": "Provider facilitates DNS record manipulation with \u003cTODO: PROVIDER NAME\u003e.",
+			"Fields": [
+				{
+					"Name": "user",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "account_id",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "project_name",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "KeystoneToken",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_tencentcloud",
+			"Docs": "Provider is a libdns provider for Tencent Cloud DNS",
+			"Fields": [
+				{
+					"Name": "SecretId",
+					"Docs": "SecretId is the secret ID for Tencent Cloud DNS",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "SecretKey",
+					"Docs": "SecretKey is the secret key for Tencent Cloud DNS",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_timeweb",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "ApiURL",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "ApiToken",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_totaluptime",
+			"Docs": "Provider facilitates DNS record manipulation with Total Uptime.",
+			"Fields": [
+				{
+					"Name": "username",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_vultr",
+			"Docs": "Provider implements the libdns interfaces for Vultr\nAdapted from libdns/digitalocean to work with the Vultr API",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "APIToken is the Vultr API token see https://my.vultr.com/settings/#settingsapi",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "sherpadocSection",
+			"Docs": "Section represents documentation about a Sherpa API section, as returned by the \"_docs\" function.",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "Name of an API section.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Docs",
+					"Docs": "Explanation of the API in text or markdown.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Functions",
+					"Docs": "Functions in this section.",
+					"Typewords": [
+						"[]",
+						"nullable",
+						"sherpadocFunction"
+					]
+				},
+				{
+					"Name": "Sections",
+					"Docs": "Subsections, each with their own documentation.",
+					"Typewords": [
+						"[]",
+						"nullable",
+						"sherpadocSection"
+					]
+				},
+				{
+					"Name": "Structs",
+					"Docs": "Structs as named types.",
+					"Typewords": [
+						"[]",
+						"sherpadocStruct"
+					]
+				},
+				{
+					"Name": "Ints",
+					"Docs": "Int enums as named types.",
+					"Typewords": [
+						"[]",
+						"sherpadocInts"
+					]
+				},
+				{
+					"Name": "Strings",
+					"Docs": "String enums used as named types.",
+					"Typewords": [
+						"[]",
+						"sherpadocStrings"
+					]
+				},
+				{
+					"Name": "Version",
+					"Docs": "Version if this API, only relevant for the top-level section of an API. Typically filled in by server at startup.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "SherpaVersion",
+					"Docs": "Version of sherpa this API implements. Currently at 0. Typically filled in by server at startup.",
+					"Typewords": [
+						"int32"
+					]
+				},
+				{
+					"Name": "SherpadocVersion",
+					"Docs": "Version of the sherpadoc format. Currently at 1, the first defined version. Only relevant for the top-level section of an API.",
+					"Typewords": [
+						"nullable",
+						"int32"
+					]
+				}
+			]
+		},
+		{
+			"Name": "sherpadocFunction",
+			"Docs": "Function contains the documentation for a single function.",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "Name of the function.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Docs",
+					"Docs": "Text or markdown, describing the function, its parameters, return types and possible errors.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Params",
+					"Docs": "",
+					"Typewords": [
+						"[]",
+						"sherpadocArg"
+					]
+				},
+				{
+					"Name": "Returns",
+					"Docs": "",
+					"Typewords": [
+						"[]",
+						"sherpadocArg"
+					]
+				}
+			]
+		},
+		{
+			"Name": "sherpadocArg",
+			"Docs": "Arg is the name and type of a function parameter or return value.\n\nProduction rules:\n\n\tbasictype := \"bool\" | \"int8\", \"uint8\" | \"int16\" | \"uint16\" | \"int32\" | \"uint32\" | \"int64\" | \"uint64\" | \"int64s\" | \"uint64s\" | \"float32\" | \"float64\" | \"string\" | \"timestamp\"\n\tarray := \"[]\"\n\tmap := \"{}\"\n\tidentifier := [a-zA-Z][a-zA-Z0-9]*\n\ttype := \"nullable\"? (\"any\" | basictype | identifier | array type | map type)\n\nIt is not possible to have inline structs in an Arg. Those must be encoded as a\nnamed type.",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "Name of the argument.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Typewords",
+					"Docs": "Typewords is an array of tokens describing the type.",
+					"Typewords": [
+						"[]",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "sherpadocStruct",
+			"Docs": "Struct is a named compound type.",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Docs",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Fields",
+					"Docs": "",
+					"Typewords": [
+						"[]",
+						"sherpadocField"
+					]
+				}
+			]
+		},
+		{
+			"Name": "sherpadocField",
+			"Docs": "Field is a single field of a struct type.\nThe type can reference another named type.",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Docs",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Typewords",
+					"Docs": "",
+					"Typewords": [
+						"[]",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "sherpadocInts",
+			"Docs": "Ints is a type representing an enum with integers as types.",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Docs",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Values",
+					"Docs": "",
+					"Typewords": [
+						"[]",
+						"IntValue"
+					]
+				}
+			]
+		},
+		{
+			"Name": "IntValue",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Value",
+					"Docs": "",
+					"Typewords": [
+						"int64"
+					]
+				},
+				{
+					"Name": "Docs",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "sherpadocStrings",
+			"Docs": "Strings is a type representing an enum with strings as values.",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Docs",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Values",
+					"Docs": "",
+					"Typewords": [
+						"[]",
+						"StringValue"
+					]
+				}
+			]
+		},
+		{
+			"Name": "StringValue",
+			"Docs": "",
+			"Fields": [
+				{
+					"Name": "Name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Value",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Docs",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				}
+			]
+		}
+	],
+	"Ints": [
+		{
+			"Name": "Serial",
+			"Docs": "",
+			"Values": null
+		},
+		{
+			"Name": "Type",
+			"Docs": "",
+			"Values": null
+		},
+		{
+			"Name": "Class",
+			"Docs": "",
+			"Values": null
+		},
+		{
+			"Name": "TTL",
+			"Docs": "These are not typed in the \"dns\" package API. We keep them typed internally and\nconvert when needed to plain uints to/from package dns.",
+			"Values": null
+		}
+	],
+	"Strings": [
+		{
+			"Name": "BaseURL",
+			"Docs": "",
+			"Values": [
+				{
+					"Name": "Sandbox",
+					"Value": "https://api.sandbox.dnsmadeeasy.com/V2.0/",
+					"Docs": ""
+				},
+				{
+					"Name": "Prod",
+					"Value": "https://api.dnsmadeeasy.com/V2.0/",
+					"Docs": ""
+				}
+			]
+		}
+	],
+	"SherpaVersion": 0,
+	"SherpadocVersion": 1
+}

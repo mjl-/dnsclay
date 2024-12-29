@@ -1,0 +1,35 @@
+# example prometheus alerting rules
+
+groups:
+- name: dnsclay
+  rules:
+  - alert: dnsclay-panic
+    expr: increase(dnsclay_panics_total[1h]) > 0
+    annotations:
+      summary: unhandled panic
+    labels:
+      page: workhours
+
+  - alert: dnsclay-soa-get-errors
+    expr: (rate(dnsclay_soa_get_errors_total[4h]) / rate(dnsclay_soa_get_total[4h])) > 0
+    for: 4h
+    annotations:
+      summary: errors getting soa records from authoritative name servers
+    labels:
+      page: workhours
+
+  - alert: dnsclay-provider-errors
+    for: 4h
+    expr: sum by (provider, op) (increase(dnsclay_provider_op_errors_total[4h])) / sum by (provider, op) (increase(dnsclay_provider_op_duration_seconds_count[4h])) > 0.1
+    annotations:
+      summary: errors calling provider api methods
+    labels:
+      page: workhours
+
+  - alert: dnsclay-dns-errors
+    for: 4h
+    expr: sum by (kind) (increase(dnsclay_dns_request_total{rcode!='noerror'}[4h])) / sum by (kind) (increase(dnsclay_dns_request_total[4h])) > 0.1
+    annotations:
+      summary: errors handling dns requests
+    labels:
+      page: workhours
