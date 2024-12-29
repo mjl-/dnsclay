@@ -1076,6 +1076,13 @@
 					]
 				},
 				{
+					"Name": "Xkatapult",
+					"Docs": "",
+					"Typewords": [
+						"Provider_katapult"
+					]
+				},
+				{
 					"Name": "Xleaseweb",
 					"Docs": "",
 					"Typewords": [
@@ -1960,6 +1967,20 @@
 					"Name": "auth_api_token",
 					"Docs": "AuthAPIToken is the IONOS Auth API token - see https://dns.ionos.com/api-docs#section/Authentication/Auth-API-Token",
 					"Typewords": [
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_katapult",
+			"Docs": "Provider facilitates DNS record manipulation with Katapult.",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
 						"string"
 					]
 				}

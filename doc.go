@@ -170,6 +170,7 @@ implementations maintained at https://github.com/libdns:
   - infomaniak
   - inwx
   - ionos
+  - katapult
   - leaseweb
   - linode
   - loopia

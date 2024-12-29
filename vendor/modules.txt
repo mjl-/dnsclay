@@ -505,6 +505,9 @@ github.com/libdns/inwx
 # github.com/libdns/ionos v1.1.0
 ## explicit; go 1.18
 github.com/libdns/ionos
+# github.com/libdns/katapult v1.0.0
+## explicit; go 1.18
+github.com/libdns/katapult
 # github.com/libdns/leaseweb v0.4.0
 ## explicit; go 1.22
 github.com/libdns/leaseweb

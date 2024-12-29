@@ -30,6 +30,7 @@ huaweicloud
 infomaniak
 inwx
 ionos
+katapult
 leaseweb
 linode
 loopia

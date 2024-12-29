@@ -37,6 +37,7 @@ require (
 	github.com/libdns/infomaniak v0.1.3
 	github.com/libdns/inwx v0.2.1
 	github.com/libdns/ionos v1.1.0
+	github.com/libdns/katapult v1.0.0
 	github.com/libdns/leaseweb v0.4.0
 	github.com/libdns/libdns v0.2.2
 	github.com/libdns/linode v0.4.1

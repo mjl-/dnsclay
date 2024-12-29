@@ -35,6 +35,7 @@ import (
 	"github.com/libdns/infomaniak"
 	"github.com/libdns/inwx"
 	"github.com/libdns/ionos"
+	"github.com/libdns/katapult"
 	"github.com/libdns/leaseweb"
 	"github.com/libdns/linode"
 	"github.com/libdns/loopia"
@@ -97,6 +98,7 @@ type KnownProviders struct {
 	Xinfomaniak     infomaniak.Provider
 	Xinwx           inwx.Provider
 	Xionos          ionos.Provider
+	Xkatapult       katapult.Provider
 	Xleaseweb       leaseweb.Provider
 	Xlinode         linode.Provider
 	Xloopia         loopia.Provider
@@ -159,6 +161,7 @@ var providers = map[string]any{
 	"infomaniak":     infomaniak.Provider{},
 	"inwx":           inwx.Provider{},
 	"ionos":          ionos.Provider{},
+	"katapult":       katapult.Provider{},
 	"leaseweb":       leaseweb.Provider{},
 	"linode":         linode.Provider{},
 	"loopia":         loopia.Provider{},
