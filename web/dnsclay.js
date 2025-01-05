@@ -239,16 +239,18 @@ var api;
 		BaseURL["Sandbox"] = "https://api.sandbox.dnsmadeeasy.com/V2.0/";
 		BaseURL["Prod"] = "https://api.dnsmadeeasy.com/V2.0/";
 	})(BaseURL = api.BaseURL || (api.BaseURL = {}));
-	api.structTypes = { "Credential": true, "IntValue": true, "KnownProviders": true, "ProviderConfig": true, "Provider_alidns": true, "Provider_autodns": true, "Provider_azure": true, "Provider_bunny": true, "Provider_civo": true, "Provider_cloudflare": true, "Provider_ddnss": true, "Provider_desec": true, "Provider_digitalocean": true, "Provider_directadmin": true, "Provider_dnsimple": true, "Provider_dnsmadeeasy": true, "Provider_dnspod": true, "Provider_dnsupdate": true, "Provider_dreamhost": true, "Provider_duckdns": true, "Provider_dynu": true, "Provider_dynv6": true, "Provider_easydns": true, "Provider_exoscale": true, "Provider_gandi": true, "Provider_glesys": true, "Provider_godaddy": true, "Provider_googleclouddns": true, "Provider_he": true, "Provider_hetzner": true, "Provider_hexonet": true, "Provider_hosttech": true, "Provider_huaweicloud": true, "Provider_infomaniak": true, "Provider_inwx": true, "Provider_ionos": true, "Provider_katapult": true, "Provider_leaseweb": true, "Provider_linode": true, "Provider_loopia": true, "Provider_luadns": true, "Provider_mailinabox": true, "Provider_metaname": true, "Provider_mythicbeasts": true, "Provider_namecheap": true, "Provider_namedotcom": true, "Provider_namesilo": true, "Provider_nanelo": true, "Provider_netcup": true, "Provider_netlify": true, "Provider_nfsn": true, "Provider_njalla": true, "Provider_ovh": true, "Provider_porkbun": true, "Provider_powerdns": true, "Provider_rfc2136": true, "Provider_route53": true, "Provider_scaleway": true, "Provider_selectel": true, "Provider_tencentcloud": true, "Provider_timeweb": true, "Provider_totaluptime": true, "Provider_vultr": true, "Record": true, "RecordNew": true, "StringValue": true, "Zone": true, "ZoneNotify": true, "sherpadocArg": true, "sherpadocField": true, "sherpadocFunction": true, "sherpadocInts": true, "sherpadocSection": true, "sherpadocStrings": true, "sherpadocStruct": true };
+	api.structTypes = { "Credential": true, "IntValue": true, "KnownProviders": true, "PropagationState": true, "ProviderConfig": true, "Provider_alidns": true, "Provider_autodns": true, "Provider_azure": true, "Provider_bunny": true, "Provider_civo": true, "Provider_cloudflare": true, "Provider_ddnss": true, "Provider_desec": true, "Provider_digitalocean": true, "Provider_directadmin": true, "Provider_dnsimple": true, "Provider_dnsmadeeasy": true, "Provider_dnspod": true, "Provider_dnsupdate": true, "Provider_dreamhost": true, "Provider_duckdns": true, "Provider_dynu": true, "Provider_dynv6": true, "Provider_easydns": true, "Provider_exoscale": true, "Provider_gandi": true, "Provider_glesys": true, "Provider_godaddy": true, "Provider_googleclouddns": true, "Provider_he": true, "Provider_hetzner": true, "Provider_hexonet": true, "Provider_hosttech": true, "Provider_huaweicloud": true, "Provider_infomaniak": true, "Provider_inwx": true, "Provider_ionos": true, "Provider_katapult": true, "Provider_leaseweb": true, "Provider_linode": true, "Provider_loopia": true, "Provider_luadns": true, "Provider_mailinabox": true, "Provider_metaname": true, "Provider_mythicbeasts": true, "Provider_namecheap": true, "Provider_namedotcom": true, "Provider_namesilo": true, "Provider_nanelo": true, "Provider_netcup": true, "Provider_netlify": true, "Provider_nfsn": true, "Provider_njalla": true, "Provider_ovh": true, "Provider_porkbun": true, "Provider_powerdns": true, "Provider_rfc2136": true, "Provider_route53": true, "Provider_scaleway": true, "Provider_selectel": true, "Provider_tencentcloud": true, "Provider_timeweb": true, "Provider_totaluptime": true, "Provider_vultr": true, "Record": true, "RecordNew": true, "RecordSet": true, "StringValue": true, "Zone": true, "ZoneNotify": true, "sherpadocArg": true, "sherpadocField": true, "sherpadocFunction": true, "sherpadocInts": true, "sherpadocSection": true, "sherpadocStrings": true, "sherpadocStruct": true };
 	api.stringsTypes = { "BaseURL": true };
-	api.intsTypes = { "Class": true, "Serial": true, "TTL": true, "Type": true };
+	api.intsTypes = {};
 	api.types = {
-		"Zone": { "Name": "Zone", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderConfigName", "Docs": "", "Typewords": ["string"] }, { "Name": "SerialLocal", "Docs": "", "Typewords": ["Serial"] }, { "Name": "SerialRemote", "Docs": "", "Typewords": ["Serial"] }, { "Name": "LastSync", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "LastRecordChange", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "SyncInterval", "Docs": "", "Typewords": ["int64"] }, { "Name": "RefreshInterval", "Docs": "", "Typewords": ["int64"] }, { "Name": "NextSync", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "NextRefresh", "Docs": "", "Typewords": ["timestamp"] }] },
+		"Zone": { "Name": "Zone", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderConfigName", "Docs": "", "Typewords": ["string"] }, { "Name": "SerialLocal", "Docs": "", "Typewords": ["uint32"] }, { "Name": "SerialRemote", "Docs": "", "Typewords": ["uint32"] }, { "Name": "LastSync", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "LastRecordChange", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "SyncInterval", "Docs": "", "Typewords": ["int64"] }, { "Name": "RefreshInterval", "Docs": "", "Typewords": ["int64"] }, { "Name": "NextSync", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "NextRefresh", "Docs": "", "Typewords": ["timestamp"] }] },
 		"ProviderConfig": { "Name": "ProviderConfig", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderName", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderConfigJSON", "Docs": "", "Typewords": ["string"] }] },
 		"ZoneNotify": { "Name": "ZoneNotify", "Docs": "", "Fields": [{ "Name": "ID", "Docs": "", "Typewords": ["int64"] }, { "Name": "Created", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "Zone", "Docs": "", "Typewords": ["string"] }, { "Name": "Address", "Docs": "", "Typewords": ["string"] }, { "Name": "Protocol", "Docs": "", "Typewords": ["string"] }] },
 		"Credential": { "Name": "Credential", "Docs": "", "Fields": [{ "Name": "ID", "Docs": "", "Typewords": ["int64"] }, { "Name": "Created", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "Type", "Docs": "", "Typewords": ["string"] }, { "Name": "TSIGSecret", "Docs": "", "Typewords": ["string"] }, { "Name": "TLSPublicKey", "Docs": "", "Typewords": ["string"] }] },
-		"Record": { "Name": "Record", "Docs": "", "Fields": [{ "Name": "ID", "Docs": "", "Typewords": ["int64"] }, { "Name": "Zone", "Docs": "", "Typewords": ["string"] }, { "Name": "SerialFirst", "Docs": "", "Typewords": ["Serial"] }, { "Name": "SerialDeleted", "Docs": "", "Typewords": ["Serial"] }, { "Name": "First", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "Deleted", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "AbsName", "Docs": "", "Typewords": ["string"] }, { "Name": "Type", "Docs": "", "Typewords": ["Type"] }, { "Name": "Class", "Docs": "", "Typewords": ["Class"] }, { "Name": "TTL", "Docs": "", "Typewords": ["TTL"] }, { "Name": "DataHex", "Docs": "", "Typewords": ["string"] }, { "Name": "Value", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderID", "Docs": "", "Typewords": ["string"] }] },
-		"RecordNew": { "Name": "RecordNew", "Docs": "", "Fields": [{ "Name": "RelName", "Docs": "", "Typewords": ["string"] }, { "Name": "TTL", "Docs": "", "Typewords": ["TTL"] }, { "Name": "Type", "Docs": "", "Typewords": ["Type"] }, { "Name": "Value", "Docs": "", "Typewords": ["string"] }] },
+		"RecordSet": { "Name": "RecordSet", "Docs": "", "Fields": [{ "Name": "Records", "Docs": "", "Typewords": ["[]", "Record"] }, { "Name": "States", "Docs": "", "Typewords": ["[]", "PropagationState"] }] },
+		"Record": { "Name": "Record", "Docs": "", "Fields": [{ "Name": "ID", "Docs": "", "Typewords": ["int64"] }, { "Name": "Zone", "Docs": "", "Typewords": ["string"] }, { "Name": "SerialFirst", "Docs": "", "Typewords": ["uint32"] }, { "Name": "SerialDeleted", "Docs": "", "Typewords": ["uint32"] }, { "Name": "First", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "Deleted", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "AbsName", "Docs": "", "Typewords": ["string"] }, { "Name": "Type", "Docs": "", "Typewords": ["uint16"] }, { "Name": "Class", "Docs": "", "Typewords": ["uint16"] }, { "Name": "TTL", "Docs": "", "Typewords": ["uint32"] }, { "Name": "DataHex", "Docs": "", "Typewords": ["string"] }, { "Name": "Value", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderID", "Docs": "", "Typewords": ["string"] }] },
+		"PropagationState": { "Name": "PropagationState", "Docs": "", "Fields": [{ "Name": "Start", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "End", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "Negative", "Docs": "", "Typewords": ["bool"] }, { "Name": "Records", "Docs": "", "Typewords": ["[]", "Record"] }] },
+		"RecordNew": { "Name": "RecordNew", "Docs": "", "Fields": [{ "Name": "RelName", "Docs": "", "Typewords": ["string"] }, { "Name": "TTL", "Docs": "", "Typewords": ["uint32"] }, { "Name": "Type", "Docs": "", "Typewords": ["uint16"] }, { "Name": "Value", "Docs": "", "Typewords": ["string"] }] },
 		"KnownProviders": { "Name": "KnownProviders", "Docs": "", "Fields": [{ "Name": "Xalidns", "Docs": "", "Typewords": ["Provider_alidns"] }, { "Name": "Xautodns", "Docs": "", "Typewords": ["Provider_autodns"] }, { "Name": "Xazure", "Docs": "", "Typewords": ["Provider_azure"] }, { "Name": "Xbunny", "Docs": "", "Typewords": ["Provider_bunny"] }, { "Name": "Xcivo", "Docs": "", "Typewords": ["Provider_civo"] }, { "Name": "Xcloudflare", "Docs": "", "Typewords": ["Provider_cloudflare"] }, { "Name": "Xddnss", "Docs": "", "Typewords": ["Provider_ddnss"] }, { "Name": "Xdesec", "Docs": "", "Typewords": ["Provider_desec"] }, { "Name": "Xdigitalocean", "Docs": "", "Typewords": ["Provider_digitalocean"] }, { "Name": "Xdirectadmin", "Docs": "", "Typewords": ["Provider_directadmin"] }, { "Name": "Xdnsimple", "Docs": "", "Typewords": ["Provider_dnsimple"] }, { "Name": "Xdnsmadeeasy", "Docs": "", "Typewords": ["Provider_dnsmadeeasy"] }, { "Name": "Xdnspod", "Docs": "", "Typewords": ["Provider_dnspod"] }, { "Name": "Xdnsupdate", "Docs": "", "Typewords": ["Provider_dnsupdate"] }, { "Name": "Xdreamhost", "Docs": "", "Typewords": ["Provider_dreamhost"] }, { "Name": "Xduckdns", "Docs": "", "Typewords": ["Provider_duckdns"] }, { "Name": "Xdynu", "Docs": "", "Typewords": ["Provider_dynu"] }, { "Name": "Xdynv6", "Docs": "", "Typewords": ["Provider_dynv6"] }, { "Name": "Xeasydns", "Docs": "", "Typewords": ["Provider_easydns"] }, { "Name": "Xexoscale", "Docs": "", "Typewords": ["Provider_exoscale"] }, { "Name": "Xgandi", "Docs": "", "Typewords": ["Provider_gandi"] }, { "Name": "Xglesys", "Docs": "", "Typewords": ["Provider_glesys"] }, { "Name": "Xgodaddy", "Docs": "", "Typewords": ["Provider_godaddy"] }, { "Name": "Xgoogleclouddns", "Docs": "", "Typewords": ["Provider_googleclouddns"] }, { "Name": "Xhe", "Docs": "", "Typewords": ["Provider_he"] }, { "Name": "Xhetzner", "Docs": "", "Typewords": ["Provider_hetzner"] }, { "Name": "Xhexonet", "Docs": "", "Typewords": ["Provider_hexonet"] }, { "Name": "Xhosttech", "Docs": "", "Typewords": ["Provider_hosttech"] }, { "Name": "Xhuaweicloud", "Docs": "", "Typewords": ["Provider_huaweicloud"] }, { "Name": "Xinfomaniak", "Docs": "", "Typewords": ["Provider_infomaniak"] }, { "Name": "Xinwx", "Docs": "", "Typewords": ["Provider_inwx"] }, { "Name": "Xionos", "Docs": "", "Typewords": ["Provider_ionos"] }, { "Name": "Xkatapult", "Docs": "", "Typewords": ["Provider_katapult"] }, { "Name": "Xleaseweb", "Docs": "", "Typewords": ["Provider_leaseweb"] }, { "Name": "Xlinode", "Docs": "", "Typewords": ["Provider_linode"] }, { "Name": "Xloopia", "Docs": "", "Typewords": ["Provider_loopia"] }, { "Name": "Xluadns", "Docs": "", "Typewords": ["Provider_luadns"] }, { "Name": "Xmailinabox", "Docs": "", "Typewords": ["Provider_mailinabox"] }, { "Name": "Xmetaname", "Docs": "", "Typewords": ["Provider_metaname"] }, { "Name": "Xmythicbeasts", "Docs": "", "Typewords": ["Provider_mythicbeasts"] }, { "Name": "Xnamecheap", "Docs": "", "Typewords": ["Provider_namecheap"] }, { "Name": "Xnamedotcom", "Docs": "", "Typewords": ["Provider_namedotcom"] }, { "Name": "Xnamesilo", "Docs": "", "Typewords": ["Provider_namesilo"] }, { "Name": "Xnanelo", "Docs": "", "Typewords": ["Provider_nanelo"] }, { "Name": "Xnetcup", "Docs": "", "Typewords": ["Provider_netcup"] }, { "Name": "Xnetlify", "Docs": "", "Typewords": ["Provider_netlify"] }, { "Name": "Xnfsn", "Docs": "", "Typewords": ["Provider_nfsn"] }, { "Name": "Xnjalla", "Docs": "", "Typewords": ["Provider_njalla"] }, { "Name": "Xovh", "Docs": "", "Typewords": ["Provider_ovh"] }, { "Name": "Xporkbun", "Docs": "", "Typewords": ["Provider_porkbun"] }, { "Name": "Xpowerdns", "Docs": "", "Typewords": ["Provider_powerdns"] }, { "Name": "Xrfc2136", "Docs": "", "Typewords": ["Provider_rfc2136"] }, { "Name": "Xroute53", "Docs": "", "Typewords": ["Provider_route53"] }, { "Name": "Xscaleway", "Docs": "", "Typewords": ["Provider_scaleway"] }, { "Name": "Xselectel", "Docs": "", "Typewords": ["Provider_selectel"] }, { "Name": "Xtencentcloud", "Docs": "", "Typewords": ["Provider_tencentcloud"] }, { "Name": "Xtimeweb", "Docs": "", "Typewords": ["Provider_timeweb"] }, { "Name": "Xtotaluptime", "Docs": "", "Typewords": ["Provider_totaluptime"] }, { "Name": "Xvultr", "Docs": "", "Typewords": ["Provider_vultr"] }] },
 		"Provider_alidns": { "Name": "Provider_alidns", "Docs": "", "Fields": [{ "Name": "access_key_id", "Docs": "", "Typewords": ["string"] }, { "Name": "access_key_secret", "Docs": "", "Typewords": ["string"] }, { "Name": "region_id", "Docs": "", "Typewords": ["nullable", "string"] }] },
 		"Provider_autodns": { "Name": "Provider_autodns", "Docs": "", "Fields": [{ "Name": "username", "Docs": "", "Typewords": ["string"] }, { "Name": "password", "Docs": "", "Typewords": ["string"] }, { "Name": "Endpoint", "Docs": "", "Typewords": ["string"] }, { "Name": "context", "Docs": "", "Typewords": ["string"] }, { "Name": "primary", "Docs": "", "Typewords": ["string"] }] },
@@ -318,10 +320,6 @@ var api;
 		"IntValue": { "Name": "IntValue", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "Value", "Docs": "", "Typewords": ["int64"] }, { "Name": "Docs", "Docs": "", "Typewords": ["string"] }] },
 		"sherpadocStrings": { "Name": "sherpadocStrings", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "Docs", "Docs": "", "Typewords": ["string"] }, { "Name": "Values", "Docs": "", "Typewords": ["[]", "StringValue"] }] },
 		"StringValue": { "Name": "StringValue", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "Value", "Docs": "", "Typewords": ["string"] }, { "Name": "Docs", "Docs": "", "Typewords": ["string"] }] },
-		"Serial": { "Name": "Serial", "Docs": "", "Values": null },
-		"Type": { "Name": "Type", "Docs": "", "Values": null },
-		"Class": { "Name": "Class", "Docs": "", "Values": null },
-		"TTL": { "Name": "TTL", "Docs": "", "Values": null },
 		"BaseURL": { "Name": "BaseURL", "Docs": "", "Values": [{ "Name": "Sandbox", "Value": "https://api.sandbox.dnsmadeeasy.com/V2.0/", "Docs": "" }, { "Name": "Prod", "Value": "https://api.dnsmadeeasy.com/V2.0/", "Docs": "" }] },
 	};
 	api.parser = {
@@ -329,7 +327,9 @@ var api;
 		ProviderConfig: (v) => api.parse("ProviderConfig", v),
 		ZoneNotify: (v) => api.parse("ZoneNotify", v),
 		Credential: (v) => api.parse("Credential", v),
+		RecordSet: (v) => api.parse("RecordSet", v),
 		Record: (v) => api.parse("Record", v),
+		PropagationState: (v) => api.parse("PropagationState", v),
 		RecordNew: (v) => api.parse("RecordNew", v),
 		KnownProviders: (v) => api.parse("KnownProviders", v),
 		Provider_alidns: (v) => api.parse("Provider_alidns", v),
@@ -400,10 +400,6 @@ var api;
 		IntValue: (v) => api.parse("IntValue", v),
 		sherpadocStrings: (v) => api.parse("sherpadocStrings", v),
 		StringValue: (v) => api.parse("StringValue", v),
-		Serial: (v) => api.parse("Serial", v),
-		Type: (v) => api.parse("Type", v),
-		Class: (v) => api.parse("Class", v),
-		TTL: (v) => api.parse("TTL", v),
 		BaseURL: (v) => api.parse("BaseURL", v),
 	};
 	// API is the webapi used by the admin frontend.
@@ -437,11 +433,25 @@ var api;
 			const params = [];
 			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
 		}
-		// Zone returns details about a single zone, including all records (including deleted), credentials, and dns notify destinations.
+		// Zone returns details about a single zone, the provider config, dns notify
+		// destinations, credentials with access to the zone, and record sets. The returned
+		// record sets includes those no long active (i.e. deleted). The
+		// history/propagation state fo the record sets only includes those that may still
+		// be in caches. Use ZoneRecordSetHistory for the full history for a single record
+		// set.
 		async Zone(zone) {
 			const fn = "Zone";
 			const paramTypes = [["string"]];
-			const returnTypes = [["Zone"], ["ProviderConfig"], ["[]", "ZoneNotify"], ["[]", "Credential"], ["[]", "Record"]];
+			const returnTypes = [["Zone"], ["ProviderConfig"], ["[]", "ZoneNotify"], ["[]", "Credential"], ["[]", "RecordSet"]];
+			const params = [zone];
+			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
+		}
+		// ZoneRecords returns all records for a zone, including historic records, without
+		// grouping them into record sets.
+		async ZoneRecords(zone) {
+			const fn = "ZoneRecords";
+			const paramTypes = [["string"]];
+			const returnTypes = [["[]", "Record"]];
 			const params = [zone];
 			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
 		}
@@ -451,7 +461,7 @@ var api;
 		async ZoneRefresh(zone) {
 			const fn = "ZoneRefresh";
 			const paramTypes = [["string"]];
-			const returnTypes = [["Zone"], ["[]", "Record"]];
+			const returnTypes = [["Zone"], ["[]", "RecordSet"]];
 			const params = [zone];
 			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
 		}
@@ -459,7 +469,7 @@ var api;
 		async ZonePurgeHistory(zone) {
 			const fn = "ZonePurgeHistory";
 			const paramTypes = [["string"]];
-			const returnTypes = [["Zone"], ["[]", "Record"]];
+			const returnTypes = [["Zone"], ["[]", "RecordSet"]];
 			const params = [zone];
 			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
 		}
@@ -636,6 +646,25 @@ var api;
 			const paramTypes = [["ProviderConfig"]];
 			const returnTypes = [["ProviderConfig"]];
 			const params = [pc];
+			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
+		}
+		// ZoneRecordSets returns the current record sets including propagation states that
+		// are not the latest version but that may still be in caches. For the full history
+		// of a record set, see ZoneRecordSetHistory.
+		async ZoneRecordSets(zone) {
+			const fn = "ZoneRecordSets";
+			const paramTypes = [["string"]];
+			const returnTypes = [["[]", "RecordSet"]];
+			const params = [zone];
+			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
+		}
+		// ZoneRecordSetHistory returns the propagation state history for a record set,
+		// including the current value.
+		async ZoneRecordSetHistory(zone, relName, typ) {
+			const fn = "ZoneRecordSetHistory";
+			const paramTypes = [["string"], ["string"], ["uint16"]];
+			const returnTypes = [["[]", "PropagationState"]];
+			const params = [zone, relName, typ];
 			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
 		}
 	}
@@ -1043,7 +1072,7 @@ const popupOpts = (opaque, ...kids) => {
 			e.stopPropagation();
 			close();
 		},
-	], content = dom.div(attr.tabindex('0'), style({ backgroundColor: 'white', borderRadius: '.25em', padding: '1em', boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)', border: '1px solid #ddd', maxWidth: '95vw', overflowX: 'auto', maxHeight: '95vh', overflowY: 'auto' }), function click(e) {
+	], content = dom.div(attr.tabindex('0'), style({ backgroundColor: 'white', borderRadius: '.25em', padding: '1em', boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)', border: '1px solid #ddd', maxWidth: '95vw', overflowX: 'auto', maxHeight: '90vh', overflowY: 'auto' }), function click(e) {
 		e.stopPropagation();
 	}, kids));
 	document.body.appendChild(root);
@@ -1239,6 +1268,7 @@ const pageHome = async () => {
 	render();
 	return root;
 };
+// todo: add mechanims to keep age up to date while page is alive. with setInterval/setTimeout, and clearing those timers when we navigate away, like in ding. also use mechanism to keep propagation colors up to date.
 const formatAge = (start, end) => {
 	const second = 1;
 	const minute = 60 * second;
@@ -1256,6 +1286,11 @@ const formatAge = (start, end) => {
 	}
 	let e = end.getTime() / 1000;
 	let t = e - start.getTime() / 1000;
+	let ago = false;
+	if (t < 0) {
+		t = -t;
+		ago = true;
+	}
 	let s = '';
 	for (let i = 0; i < periods.length; i++) {
 		const p = periods[i];
@@ -1264,6 +1299,9 @@ const formatAge = (start, end) => {
 			s = '' + n + suffix[i];
 			break;
 		}
+	}
+	if (ago) {
+		s += ' ago';
 	}
 	return s;
 };
@@ -1275,13 +1313,34 @@ const formatDate = (dt) => {
 		day: 'numeric',
 		hour: 'numeric',
 		minute: 'numeric',
+		second: 'numeric',
 	}).format(dt);
 };
+const box = (color) => dom.div(style({ width: '.75em', height: '.75em', display: 'inline-block', backgroundColor: color }));
+const popupHistory = (absName, history) => {
+	// todo: show as a visual timeline.
+	const now = new Date();
+	history = [...history];
+	// Sort by last end time (still active record) first.
+	history.sort((a, b) => {
+		if (!a.End || !b.End) {
+			return !a.End ? -1 : 1;
+		}
+		return b.End.getTime() - a.End.getTime();
+	});
+	const wildcardAbsName = '*.' + absName.substring(absName.indexOf('.') + 1);
+	popup(dom.h1('History and propagation state'), dom.p('Previous versions or negative lookup results for this record set may still be in DNS resolver caches.'), dom.div(dom.div(box('#009fff'), ' Current record(s)'), dom.div(box('orange'), ' Previous records, potentially still in caches'), dom.div(box('#ffe300'), ' Negative lookup results potentially still in caches'), dom.div(box('#ccc'), ' Expired from caches')), dom.br(), dom.table(dom._class('striped'), dom.thead(dom.tr(dom.th('Status'), dom.th('Expiration'), dom.th('Since'), dom.th('Negative?'), dom.th('Wildcard?'), dom.th('TTL'), dom.th('Value(s)', style({ textAlign: 'left' })))), dom.tbody(history.map((state, index) => dom.tr(dom.td(box(!state.Negative && index === 0 && !state.Records[0].Deleted ? '#009fff' : (state.End && state.End.getTime() <= now.getTime() ? '#ccc' : (state.Negative ? '#ffe300' : 'orange')))), dom.td(!state.Negative && index === 0 && !state.Records[0].Deleted ? [] : [
+		state.End.getTime() > now.getTime() ? ' in ' : '',
+		formatAge(now, state.End),
+		attr.title(formatDate(state.End)),
+	]), dom.td(attr.title(formatAge(state.Start, now) + ' ago'), formatDate(state.Start)), dom.td(state.Negative ? 'Yes' : ''), dom.td(!state.Negative && state.Records[0].AbsName !== absName && state.Records[0].AbsName === wildcardAbsName ? 'Yes' : ''), dom.td(state.Negative ? [] : '' + state.Records[0].TTL), dom.td(style({ textAlign: 'left' }), state.Negative ? [] :
+		dom.ul(style({ marginBottom: 0 }), (state.Records || []).map(r => dom.li(r.Value)))))))));
+};
 const pageZone = async (zonestr) => {
-	let [zone, providerConfig, notifies0, credentials0, records0] = await client.Zone(zonestr + '.');
+	let [zone, providerConfig, notifies0, credentials0, sets0] = await client.Zone(zonestr + '.');
 	let notifies = notifies0 || [];
 	let credentials = credentials0 || [];
-	let records = records0 || [];
+	let sets = sets0 || [];
 	dom._kids(crumbElem, dom.a(attr.href('#'), 'Home'), ' / ', dom.a(attr.href('#zones/' + trimDot(zone.Name)), 'Zone ' + trimDot(zone.Name)));
 	document.title = 'Dnsclay - Zone ' + trimDot(zone.Name);
 	const shortname = (s) => {
@@ -1307,12 +1366,12 @@ const pageZone = async (zonestr) => {
 	let showDNSSEC;
 	let recordsTbody;
 	const refresh = async (elem) => {
-		const [nzone, npc, nnotifies, ncredentials, nrecords] = await check(elem, () => client.Zone(zone.Name));
+		const [nzone, npc, nnotifies, ncredentials, nsets] = await check(elem, () => client.Zone(zone.Name));
 		zone = nzone;
 		providerConfig = npc;
 		notifies = nnotifies || [];
 		credentials = ncredentials || [];
-		records = nrecords || [];
+		sets = nsets || [];
 		render();
 	};
 	const root = dom.div(dom.div(dom.p(`Provider config: ${zone.ProviderConfigName} (provider ${providerConfig.ProviderName})`), dom.clickbutton('Edit zone config', async function click(e) {
@@ -1422,8 +1481,8 @@ const pageZone = async (zonestr) => {
 		})));
 		return row;
 	}))))), dom.br(), dom.div(style({ display: 'flex', gap: '.5em', alignItems: 'baseline' }), dom.h2('Records'), ' ', dom.clickbutton('Fetch latest records', async function click(e) {
-		const [_, nrecords] = await check(e.target, () => client.ZoneRefresh(zone.Name));
-		records = nrecords || [];
+		const [_, nsets] = await check(e.target, () => client.ZoneRefresh(zone.Name));
+		sets = nsets || [];
 		render();
 	}), ' ', dom.clickbutton('Add record', function click() {
 		let xtype;
@@ -1444,9 +1503,7 @@ const pageZone = async (zonestr) => {
 				TTL: parseInt(ttl.value),
 				Value: value.value,
 			};
-			const r = await check(fieldset, () => client.RecordAdd(zone.Name, nr));
-			records.push(r);
-			render();
+			await check(fieldset, () => client.RecordAdd(zone.Name, nr));
 			await refresh(fieldset);
 			close();
 		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.div(dom.label(dom.div('Type'), xtype = dom.select(dom.optgroup(attr.label('Common'), Object.entries(dnsTypeNames).filter(t => firstTypes.includes(t[1])).sort((ta, tb) => firstTypes.indexOf(ta[1]) - firstTypes.indexOf(tb[1])).map(t => dom.option(attr.value(t[0]), t[1]))), dom.optgroup(attr.label('Others'), Object.entries(dnsTypeNames).filter(t => !firstTypes.includes(t[1]) && !skipTypes.includes(t[1])).sort((ta, tb) => ta[1] < tb[1] ? -1 : 1).map(t => dom.option(attr.value(t[0]), t[1])))))), dom.div(dom.label(dom.div('Name'), relName = dom.input(), '.' + zone.Name)), dom.div(dom.label(dom.div('TTL'), ttl = dom.input(attr.type('number'), attr.required(''), attr.value('300')))), dom.div(dom.label(dom.div('Value'), value = dom.input(style({ width: '60em' })))), dom.div(dom.submitbutton('Add record')))));
@@ -1457,9 +1514,7 @@ const pageZone = async (zonestr) => {
 		const close = popup(dom.h1('Import records from zone file'), dom.form(async function submit(e) {
 			e.preventDefault();
 			e.stopPropagation();
-			const rl = await check(fieldset, () => client.ZoneImportRecords(zone.Name, zonefile.value));
-			records.push(...(rl || []));
-			render();
+			await check(fieldset, () => client.ZoneImportRecords(zone.Name, zonefile.value));
 			await refresh(fieldset);
 			close();
 		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.div(dom.label(dom.div('Zone file'), zonefile = dom.textarea('$TTL 300 ; default 5m\n$ORIGIN ' + zone.Name + '\n\n; record syntax: name ttl type value\nshortname 300 A 1.2.3.4\n', style({ width: '60em' }), attr.rows('10')))), dom.div(dom.submitbutton('Import')))));
@@ -1468,8 +1523,8 @@ const pageZone = async (zonestr) => {
 		if (!confirm('Are you sure?')) {
 			return;
 		}
-		const [_, nrecords] = await check(e.target, () => client.ZonePurgeHistory(zone.Name));
-		records = nrecords || [];
+		const [_, nsets] = await check(e.target, () => client.ZonePurgeHistory(zone.Name));
+		sets = nsets || [];
 		render();
 	}), ' '), dom.div(dom.label(showHistoric = dom.input(attr.type('checkbox'), localStorage.getItem('showHistoric') === 'yes' ? attr.checked('') : [], function change() {
 		if (showHistoric.checked) {
@@ -1487,7 +1542,7 @@ const pageZone = async (zonestr) => {
 			localStorage.removeItem('showDNSSEC');
 		}
 		render();
-	}), ' Show DNSSEC signature records', attr.title('RRSIG, NSEC and NSEC3 records are hidden by default'))), dom.table(dom._class('hover'), style({ width: '100%' }), dom.thead(dom.tr(dom.th('Age'), dom.th('Name'), dom.th('Type'), dom.th('TTL'), dom.th('Value', style({ width: '100%' })), dom.th('Actions'))), recordsTbody = dom.tbody()), dom.br(), dom.h2('Danger'), dom.clickbutton('Remove zone', attr.title('Remove zone from management in dnsclay. The zone and its records are not changed at the provider.'), async function click(e) {
+	}), ' Show DNSSEC signature records', attr.title('RRSIG, NSEC and NSEC3 records are hidden by default'))), dom.table(dom._class('hover'), style({ width: '100%' }), dom.thead(dom.tr(dom.th(), dom.th('Age'), dom.th('Name'), dom.th('Type'), dom.th('TTL'), dom.th('Value', style({ width: '100%' })), dom.th('Actions', attr.colspan('2')))), recordsTbody = dom.tbody()), dom.br(), dom.h2('Danger'), dom.clickbutton('Remove zone', attr.title('Remove zone from management in dnsclay. The zone and its records are not changed at the provider.'), async function click(e) {
 		if (!confirm('Are you sure you want to remove this zone from management in dnsclay? The zone and its records are not changed at the provider.')) {
 			return;
 		}
@@ -1496,7 +1551,9 @@ const pageZone = async (zonestr) => {
 	}));
 	const render = () => {
 		// todo: implement sorting on other columns. at least type.
-		records = records.sort((a, b) => {
+		sets = sets.sort((sa, sb) => {
+			const a = sa.Records[0];
+			const b = sb.Records[0];
 			if (a.AbsName !== b.AbsName) {
 				return a.AbsName.split('/').reverse().join('/') < b.AbsName.split('/').reverse().join('/') ? -1 : 1;
 			}
@@ -1522,58 +1579,73 @@ const pageZone = async (zonestr) => {
 		const typeRRSIG = 46;
 		const typeNSEC = 47;
 		const typeNSEC3 = 50;
-		dom._kids(recordsTbody, records.filter(r => (showHistoric.checked || !r.Deleted) && (showDNSSEC.checked || (r.Type !== typeRRSIG && r.Type !== typeNSEC && r.Type !== typeNSEC3))).map((r, index) => {
-			const formName = 'form-record-' + index;
-			let ttl;
-			let value;
-			let fieldset;
-			const removedInputStyle = r.Deleted ? style({ color: '#888', backgroundColor: '#eee' }) : [];
-			return dom.tr(r.Deleted ? [style({ color: '#888' }), attr.title('Historic/deleted record')] : [], dom.td(age(r), style({ color: '#888' })), dom.td(shortname(r.AbsName), style({ textAlign: 'right' }), removedInputStyle), dom.td(dnsTypeNames[r.Type] || ('' + r.Type), attr.title('Type ' + r.Type + (r.ProviderID ? '\nID at provider: ' + r.ProviderID : '')), style({ textAlign: 'left' })), dom.td(ttl = dom.input(attr.value('' + r.TTL), attr.type('number'), attr.required(''), attr.form(formName), style({ width: '5em', textAlign: 'right' }), removedInputStyle)), dom.td(value = dom.input(attr.value(r.Value), attr.form(formName), style({ width: '100%' }), removedInputStyle)), dom.td(style({ whiteSpace: 'nowrap' }), r.Deleted ?
-				dom.form(style({ display: 'inline' }), // Prevent getting buttons on separate lines.
-				attr.id(formName), async function submit(e) {
-					e.preventDefault();
-					e.stopPropagation();
-					if (!confirm('Are you sure you want to recreate this record?')) {
-						return;
-					}
-					const nr = {
-						RelName: shortname(r.AbsName),
-						Type: r.Type,
-						TTL: parseInt(ttl.value),
-						Value: value.value,
-					};
-					const xr = await check(fieldset, () => client.RecordAdd(zone.Name, nr));
-					records.push(xr);
-					render();
-					await refresh(fieldset);
-				}, fieldset = dom.fieldset(dom.submitbutton('Recreate'))) :
-				dom.span(dom.form(style({ display: 'inline' }), // Prevent getting buttons on separate lines.
-				attr.id(formName), async function submit(e) {
-					e.preventDefault();
-					e.stopPropagation();
-					if (!confirm('Are you sure you want to update this record?')) {
-						return;
-					}
-					const nr = {
-						RelName: shortname(r.AbsName),
-						Type: r.Type,
-						TTL: parseInt(ttl.value),
-						Value: value.value,
-					};
-					const xr = await check(fieldset, () => client.RecordUpdate(zone.Name, r.ID, nr));
-					records.splice(records.indexOf(r), 1, xr);
-					render();
-					await refresh(fieldset);
-				}, fieldset = dom.fieldset(style({ display: 'inline' }), // Prevent getting buttons on separate lines.
-				dom.submitbutton('Update'))), ' ', dom.clickbutton('Delete', async function click(e) {
-					if (!confirm('Are you sure you want to delete this record?')) {
-						return;
-					}
-					const xr = await check(e.target, () => client.RecordDelete(zone.Name, r.ID));
-					records.splice(records.indexOf(r), 1, xr);
-					render();
-					await refresh(fieldset);
-				}))));
+		dom._kids(recordsTbody, sets
+			.filter(s => (showHistoric.checked || !s.Records[0].Deleted) && (showDNSSEC.checked || (s.Records[0].Type !== typeRRSIG && s.Records[0].Type !== typeNSEC && s.Records[0].Type !== typeNSEC3)))
+			.map((set, sindex) => {
+			return (set.Records || []).map((r, rindex) => {
+				const formName = 'form-set-' + sindex + '-record-' + rindex;
+				let ttl;
+				let value;
+				let fieldset;
+				const removedInputStyle = r.Deleted ? style({ color: '#888', backgroundColor: '#eee' }) : [];
+				const hasNegative = !!(set.States || []).find(state => state.Negative);
+				const hasPrevious = !!(set.States || []).find(state => !state.Negative);
+				let propagationText = [];
+				if (hasPrevious) {
+					propagationText.push('Due to TTLs, previous versions of this record may still be cached in resolvers.');
+				}
+				if (hasNegative) {
+					propagationText.push('Due to the TTL for lookups with negative result, absence of this record may still be cached in resolvers.');
+				}
+				return dom.tr(r.Deleted ? [style({ color: '#888' }), attr.title('Historic/deleted record')] : [], rindex > 0 ? [] : [
+					dom.td(attr.rowspan('' + (set.Records || []).length), hasNegative && hasPrevious ? style({ backgroundColor: 'orange', border: '3px solid #ffe300' }) : [], hasNegative && !hasPrevious ? style({ backgroundColor: '#ffe300' }) : [], !hasNegative && hasPrevious ? style({ backgroundColor: 'orange' }) : [], (hasNegative || hasPrevious) ? [] : style({ color: '#888' }), propagationText.length > 0 ? attr.title(propagationText.join('\n')) : []),
+					dom.td(attr.rowspan('' + (set.Records || []).length), age(r)),
+					dom.td(attr.rowspan('' + (set.Records || []).length), shortname(r.AbsName), style({ textAlign: 'right' }), removedInputStyle),
+					dom.td(attr.rowspan('' + (set.Records || []).length), dnsTypeNames[r.Type] || ('' + r.Type), attr.title('Type ' + r.Type + (r.ProviderID ? '\nID at provider: ' + r.ProviderID : '')), style({ textAlign: 'left' })),
+				], dom.td(ttl = dom.input(attr.value('' + r.TTL), attr.type('number'), attr.required(''), attr.form(formName), style({ width: '5em', textAlign: 'right' }), removedInputStyle)), dom.td(value = dom.input(attr.value(r.Value), attr.form(formName), style({ width: '100%' }), removedInputStyle)), dom.td(style({ whiteSpace: 'nowrap' }), r.Deleted ?
+					dom.form(style({ display: 'inline' }), // Prevent getting buttons on separate lines.
+					attr.id(formName), async function submit(e) {
+						e.preventDefault();
+						e.stopPropagation();
+						if (!confirm('Are you sure you want to recreate this record?')) {
+							return;
+						}
+						const nr = {
+							RelName: shortname(r.AbsName),
+							Type: r.Type,
+							TTL: parseInt(ttl.value),
+							Value: value.value,
+						};
+						await check(fieldset, () => client.RecordAdd(zone.Name, nr));
+						await refresh(fieldset);
+					}, fieldset = dom.fieldset(dom.submitbutton('Recreate'))) :
+					dom.span(dom.form(style({ display: 'inline' }), // Prevent getting buttons on separate lines.
+					attr.id(formName), async function submit(e) {
+						e.preventDefault();
+						e.stopPropagation();
+						if (!confirm('Are you sure you want to update this record?')) {
+							return;
+						}
+						const nr = {
+							RelName: shortname(r.AbsName),
+							Type: r.Type,
+							TTL: parseInt(ttl.value),
+							Value: value.value,
+						};
+						await check(fieldset, () => client.RecordUpdate(zone.Name, r.ID, nr));
+						await refresh(fieldset);
+					}, fieldset = dom.fieldset(style({ display: 'inline' }), // Prevent getting buttons on separate lines.
+					dom.submitbutton('Update'))), ' ', dom.clickbutton('Delete', async function click(e) {
+						if (!confirm('Are you sure you want to delete this record?')) {
+							return;
+						}
+						await check(e.target, () => client.RecordDelete(zone.Name, r.ID));
+						await refresh(fieldset);
+					}))), rindex > 0 ? [] : dom.td(attr.rowspan('' + (set.Records || []).length), dom.clickbutton('History', async function click(e) {
+					const hist = await check(e.target, () => client.ZoneRecordSetHistory(zone.Name, shortname(r.AbsName), r.Type));
+					popupHistory(r.AbsName, hist || []);
+				})));
+			});
 		}));
 	};
 	render();

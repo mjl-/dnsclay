@@ -62,7 +62,7 @@ const popupOpts = (opaque: boolean, ...kids: ElemArg[]) => {
 		],
 		content=dom.div(
 			attr.tabindex('0'),
-			style({backgroundColor: 'white', borderRadius: '.25em', padding: '1em', boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)', border: '1px solid #ddd', maxWidth: '95vw', overflowX: 'auto', maxHeight: '95vh', overflowY: 'auto'}),
+			style({backgroundColor: 'white', borderRadius: '.25em', padding: '1em', boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)', border: '1px solid #ddd', maxWidth: '95vw', overflowX: 'auto', maxHeight: '90vh', overflowY: 'auto'}),
 			function click(e: MouseEvent) {
 				e.stopPropagation()
 			},
@@ -415,6 +415,8 @@ const pageHome = async () => {
 	return root
 }
 
+// todo: add mechanims to keep age up to date while page is alive. with setInterval/setTimeout, and clearing those timers when we navigate away, like in ding. also use mechanism to keep propagation colors up to date.
+
 const formatAge = (start?: Date, end?: Date) => {
 	const second = 1
 	const minute = 60*second
@@ -433,6 +435,11 @@ const formatAge = (start?: Date, end?: Date) => {
 	}
 	let e = end.getTime()/1000
 	let t = e - start.getTime()/1000
+	let ago = false
+	if (t < 0) {
+		t = -t
+		ago = true
+	}
 	let s = ''
 	for (let i = 0; i < periods.length; i++) {
 		const p = periods[i]
@@ -441,6 +448,9 @@ const formatAge = (start?: Date, end?: Date) => {
 			s = '' + n + suffix[i]
 			break
 		}
+	}
+	if (ago) {
+		s += ' ago'
 	}
 	return s
 }
@@ -453,14 +463,91 @@ const formatDate = (dt: Date) => {
 		day: 'numeric',
 		hour: 'numeric',
 		minute: 'numeric',
+		second: 'numeric',
 	}).format(dt)
 }
 
+const box = (color: string) => dom.div(style({width: '.75em', height: '.75em', display: 'inline-block', backgroundColor: color}))
+
+const popupHistory = (absName: string, history: api.PropagationState[]) => {
+	// todo: show as a visual timeline.
+
+	const now = new Date()
+	history = [...history]
+	// Sort by last end time (still active record) first.
+	history.sort((a, b) => {
+		if (!a.End || !b.End) {
+			return !a.End ? -1 : 1
+		}
+		return b.End.getTime() - a.End.getTime()
+	})
+	const wildcardAbsName = '*.' + absName.substring(absName.indexOf('.')+1)
+	popup(
+		dom.h1('History and propagation state'),
+		dom.p('Previous versions or negative lookup results for this record set may still be in DNS resolver caches.'),
+		dom.div(
+			dom.div(box('#009fff'), ' Current record(s)'),
+			dom.div(box('orange'), ' Previous records, potentially still in caches'),
+			dom.div(box('#ffe300'), ' Negative lookup results potentially still in caches'),
+			dom.div(box('#ccc'), ' Expired from caches'),
+		),
+		dom.br(),
+		dom.table(
+			dom._class('striped'),
+			dom.thead(
+				dom.tr(
+					dom.th('Status'),
+					dom.th('Expiration'),
+					dom.th('Since'),
+					dom.th('Negative?'),
+					dom.th('Wildcard?'),
+					dom.th('TTL'),
+					dom.th('Value(s)', style({textAlign: 'left'})),
+				),
+			),
+			dom.tbody(
+				history.map((state, index) =>
+					dom.tr(
+						dom.td(
+							box(!state.Negative && index === 0 && !state.Records![0].Deleted ? '#009fff' : (
+									state.End && state.End.getTime() <= now.getTime() ? '#ccc' : (
+										state.Negative ? '#ffe300' : 'orange'
+									)
+								),
+							),
+						),
+						dom.td(
+							!state.Negative && index === 0 && !state.Records![0].Deleted ? [] : [
+								state.End!.getTime() > now.getTime() ? ' in ' : '',
+								formatAge(now, state.End!),
+								attr.title(formatDate(state.End!)),
+							]
+						),
+						dom.td(attr.title(formatAge(state.Start, now) + ' ago'), formatDate(state.Start)),
+						dom.td(state.Negative ? 'Yes' : ''),
+						dom.td(!state.Negative && state.Records![0].AbsName !== absName && state.Records![0].AbsName === wildcardAbsName ? 'Yes' : ''),
+						dom.td(state.Negative ? [] : ''+state.Records![0].TTL),
+						dom.td(
+							style({textAlign: 'left'}),
+							state.Negative ? [] :
+								dom.ul(
+									style({marginBottom: 0}),
+									(state.Records || []).map(r => dom.li(r.Value)),
+								),
+						),
+					)
+				),
+			),
+		),
+	)
+}
+
+
 const pageZone = async (zonestr: string) => {
-	let [zone, providerConfig, notifies0, credentials0, records0] = await client.Zone(zonestr+'.')
+	let [zone, providerConfig, notifies0, credentials0, sets0] = await client.Zone(zonestr+'.')
 	let notifies = notifies0 || []
 	let credentials = credentials0 || []
-	let records = records0 || []
+	let sets = sets0 || []
 
 	dom._kids(crumbElem,
 		dom.a(attr.href('#'), 'Home'), ' / ',
@@ -493,12 +580,12 @@ const pageZone = async (zonestr: string) => {
 	let recordsTbody: HTMLElement
 
 	const refresh = async (elem: {disabled: boolean}) => {
-		const [nzone, npc, nnotifies, ncredentials, nrecords] = await check(elem, () => client.Zone(zone.Name))
+		const [nzone, npc, nnotifies, ncredentials, nsets] = await check(elem, () => client.Zone(zone.Name))
 		zone = nzone
 		providerConfig = npc
 		notifies = nnotifies || []
 		credentials = ncredentials || []
-		records = nrecords || []
+		sets = nsets || []
 		render()
 	}
 
@@ -816,8 +903,8 @@ const pageZone = async (zonestr: string) => {
 			style({display: 'flex', gap: '.5em', alignItems: 'baseline'}),
 			dom.h2('Records'), ' ',
 			dom.clickbutton('Fetch latest records', async function click(e: {target: HTMLButtonElement}) {
-				const [_, nrecords] = await check(e.target, () => client.ZoneRefresh(zone.Name))
-				records = nrecords || []
+				const [_, nsets] = await check(e.target, () => client.ZoneRefresh(zone.Name))
+				sets = nsets || []
 				render()
 			}), ' ',
 			dom.clickbutton('Add record', function click() {
@@ -845,9 +932,7 @@ const pageZone = async (zonestr: string) => {
 								TTL: parseInt(ttl.value),
 								Value: value.value,
 							}
-							const r = await check(fieldset, () => client.RecordAdd(zone.Name, nr))
-							records.push(r)
-							render()
+							await check(fieldset, () => client.RecordAdd(zone.Name, nr))
 							await refresh(fieldset)
 							close()
 						},
@@ -905,9 +990,7 @@ const pageZone = async (zonestr: string) => {
 							e.preventDefault()
 							e.stopPropagation()
 
-							const rl = await check(fieldset, () => client.ZoneImportRecords(zone.Name, zonefile.value))
-							records.push(...(rl || []))
-							render()
+							await check(fieldset, () => client.ZoneImportRecords(zone.Name, zonefile.value))
 							await refresh(fieldset)
 							close()
 						},
@@ -931,8 +1014,8 @@ const pageZone = async (zonestr: string) => {
 				if (!confirm('Are you sure?')) {
 					return
 				}
-				const [_, nrecords] = await check(e.target, () => client.ZonePurgeHistory(zone.Name))
-				records = nrecords || []
+				const [_, nsets] = await check(e.target, () => client.ZonePurgeHistory(zone.Name))
+				sets = nsets || []
 				render()
 			}), ' ',
 		),
@@ -974,12 +1057,13 @@ const pageZone = async (zonestr: string) => {
 			style({width: '100%'}),
 			dom.thead(
 				dom.tr(
+					dom.th(),
 					dom.th('Age'),
 					dom.th('Name'),
 					dom.th('Type'),
 					dom.th('TTL'),
 					dom.th('Value', style({width: '100%'})),
-					dom.th('Actions'),
+					dom.th('Actions', attr.colspan('2')),
 				),
 			),
 			recordsTbody=dom.tbody(),
@@ -997,7 +1081,9 @@ const pageZone = async (zonestr: string) => {
 
 	const render = () => {
 		// todo: implement sorting on other columns. at least type.
-		records = records.sort((a, b) => {
+		sets = sets.sort((sa, sb) => {
+			const a = sa.Records![0]
+			const b = sb.Records![0]
 			if (a.AbsName !== b.AbsName) {
 				return a.AbsName.split('/').reverse().join('/') < b.AbsName.split('/').reverse().join('/') ? -1 : 1
 			}
@@ -1027,67 +1113,69 @@ const pageZone = async (zonestr: string) => {
 		const typeNSEC3 = 50
 
 		dom._kids(recordsTbody,
-			records.filter(r => (showHistoric.checked || !r.Deleted) && (showDNSSEC.checked || (r.Type !== typeRRSIG && r.Type !== typeNSEC && r.Type !== typeNSEC3))).map((r, index) => {
-				const formName = 'form-record-'+index
-				let ttl: HTMLInputElement
-				let value: HTMLInputElement
-				let fieldset: HTMLFieldSetElement
+			sets
+			.filter(s => (showHistoric.checked || !s.Records![0]!.Deleted) && (showDNSSEC.checked || (s.Records![0].Type !== typeRRSIG && s.Records![0].Type !== typeNSEC && s.Records![0].Type !== typeNSEC3)))
+			.map((set, sindex) => {
+				return (set.Records || []).map((r, rindex) => {
+					const formName = 'form-set-'+sindex+'-record-'+rindex
+					let ttl: HTMLInputElement
+					let value: HTMLInputElement
+					let fieldset: HTMLFieldSetElement
 
-				const removedInputStyle = r.Deleted ? style({color: '#888', backgroundColor: '#eee'}) : []
+					const removedInputStyle = r.Deleted ? style({color: '#888', backgroundColor: '#eee'}) : []
 
-				return dom.tr(
-					r.Deleted ? [style({color: '#888'}), attr.title('Historic/deleted record')] : [],
-					dom.td(age(r), style({color: '#888'})),
-					dom.td(
-						shortname(r.AbsName), style({textAlign: 'right'}), removedInputStyle,
-					),
-					dom.td(
-						dnsTypeNames[r.Type] || (''+r.Type),
-						attr.title('Type '+r.Type + (r.ProviderID ? '\nID at provider: '+r.ProviderID : '')),
-						style({textAlign: 'left'}),
-					),
-					dom.td(
-						ttl=dom.input(attr.value(''+r.TTL), attr.type('number'), attr.required(''), attr.form(formName), style({width: '5em', textAlign: 'right'}), removedInputStyle),
-					),
-					dom.td(
-						value=dom.input(attr.value(r.Value), attr.form(formName), style({width: '100%'}), removedInputStyle),
-					),
-					dom.td(
-						style({whiteSpace: 'nowrap'}),
-						r.Deleted ?
-							dom.form(
-								style({display: 'inline'}), // Prevent getting buttons on separate lines.
-								attr.id(formName),
-								async function submit(e: SubmitEvent) {
-									e.preventDefault()
-									e.stopPropagation()
-									if (!confirm('Are you sure you want to recreate this record?')) {
-										return
-									}
+					const hasNegative = !!(set.States || []).find(state => state.Negative)
+					const hasPrevious = !!(set.States || []).find(state => !state.Negative)
+					let propagationText: string[] = []
+					if (hasPrevious) {
+						propagationText.push('Due to TTLs, previous versions of this record may still be cached in resolvers.')
+					}
+					if (hasNegative) {
+						propagationText.push('Due to the TTL for lookups with negative result, absence of this record may still be cached in resolvers.')
+					}
 
-									const nr: api.RecordNew = {
-										RelName: shortname(r.AbsName),
-										Type: r.Type,
-										TTL: parseInt(ttl.value),
-										Value: value.value,
-									}
-									const xr = await check(fieldset, () => client.RecordAdd(zone.Name, nr))
-									records.push(xr)
-									render()
-									await refresh(fieldset)
-								},
-								fieldset=dom.fieldset(
-									dom.submitbutton('Recreate'),
-								),
-							) :
-							dom.span(
+					return dom.tr(
+						r.Deleted ? [style({color: '#888'}), attr.title('Historic/deleted record')] : [],
+						rindex > 0 ? [] : [
+							dom.td(
+								attr.rowspan(''+(set.Records || []).length),
+								hasNegative && hasPrevious ? style({backgroundColor: 'orange', border: '3px solid #ffe300'}) : [],
+								hasNegative && !hasPrevious ? style({backgroundColor: '#ffe300'}) : [],
+								!hasNegative && hasPrevious ? style({backgroundColor: 'orange'}) : [],
+								(hasNegative || hasPrevious) ? [] : style({color: '#888'}),
+								propagationText.length > 0 ? attr.title(propagationText.join('\n')) : [],
+							),
+							dom.td(
+								attr.rowspan(''+(set.Records || []).length),
+								age(r),
+							),
+							dom.td(
+								attr.rowspan(''+(set.Records || []).length),
+								shortname(r.AbsName), style({textAlign: 'right'}), removedInputStyle,
+							),
+							dom.td(
+								attr.rowspan(''+(set.Records || []).length),
+								dnsTypeNames[r.Type] || (''+r.Type),
+								attr.title('Type '+r.Type + (r.ProviderID ? '\nID at provider: '+r.ProviderID : '')),
+								style({textAlign: 'left'}),
+							),
+						],
+						dom.td(
+							ttl=dom.input(attr.value(''+r.TTL), attr.type('number'), attr.required(''), attr.form(formName), style({width: '5em', textAlign: 'right'}), removedInputStyle),
+						),
+						dom.td(
+							value=dom.input(attr.value(r.Value), attr.form(formName), style({width: '100%'}), removedInputStyle),
+						),
+						dom.td(
+							style({whiteSpace: 'nowrap'}),
+							r.Deleted ?
 								dom.form(
 									style({display: 'inline'}), // Prevent getting buttons on separate lines.
 									attr.id(formName),
 									async function submit(e: SubmitEvent) {
 										e.preventDefault()
 										e.stopPropagation()
-										if (!confirm('Are you sure you want to update this record?')) {
+										if (!confirm('Are you sure you want to recreate this record?')) {
 											return
 										}
 
@@ -1097,29 +1185,57 @@ const pageZone = async (zonestr: string) => {
 											TTL: parseInt(ttl.value),
 											Value: value.value,
 										}
-										const xr = await check(fieldset, () => client.RecordUpdate(zone.Name, r.ID, nr))
-										records.splice(records.indexOf(r), 1, xr)
-										render()
+										await check(fieldset, () => client.RecordAdd(zone.Name, nr))
 										await refresh(fieldset)
 									},
 									fieldset=dom.fieldset(
-										style({display: 'inline'}), // Prevent getting buttons on separate lines.
-										dom.submitbutton('Update'),
+										dom.submitbutton('Recreate'),
 									),
+								) :
+								dom.span(
+									dom.form(
+										style({display: 'inline'}), // Prevent getting buttons on separate lines.
+										attr.id(formName),
+										async function submit(e: SubmitEvent) {
+											e.preventDefault()
+											e.stopPropagation()
+											if (!confirm('Are you sure you want to update this record?')) {
+												return
+											}
+
+											const nr: api.RecordNew = {
+												RelName: shortname(r.AbsName),
+												Type: r.Type,
+												TTL: parseInt(ttl.value),
+												Value: value.value,
+											}
+											await check(fieldset, () => client.RecordUpdate(zone.Name, r.ID, nr))
+											await refresh(fieldset)
+										},
+										fieldset=dom.fieldset(
+											style({display: 'inline'}), // Prevent getting buttons on separate lines.
+											dom.submitbutton('Update'),
+										),
+									),
+									' ',
+									dom.clickbutton('Delete', async function click(e: {target: HTMLButtonElement}) {
+										if (!confirm('Are you sure you want to delete this record?')) {
+											return
+										}
+										await check(e.target, () => client.RecordDelete(zone.Name, r.ID))
+										await refresh(fieldset)
+									}),
 								),
-								' ',
-								dom.clickbutton('Delete', async function click(e: {target: HTMLButtonElement}) {
-									if (!confirm('Are you sure you want to delete this record?')) {
-										return
-									}
-									const xr = await check(e.target, () => client.RecordDelete(zone.Name, r.ID))
-									records.splice(records.indexOf(r), 1, xr)
-									render()
-									await refresh(fieldset)
-								}),
-							),
-					),
-				)
+						),
+						rindex > 0 ? [] : dom.td(
+							attr.rowspan(''+(set.Records || []).length),
+							dom.clickbutton('History', async function click(e: {target: HTMLButtonElement}) {
+								const hist = await check(e.target, () => client.ZoneRecordSetHistory(zone.Name, shortname(r.AbsName), r.Type))
+								popupHistory(r.AbsName, hist || [])
+							}),
+						),
+					)
+				})
 			}),
 		)
 	}

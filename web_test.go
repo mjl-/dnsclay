@@ -136,7 +136,7 @@ func TestPurgeHistory(t *testing.T) {
 		te.api.ZonePurgeHistory(ctxbg, z.Name)
 
 		// History is purged, so we don't see the deletion.
-		_, _, _, _, records := te.api.Zone(ctxbg, z.Name)
+		records := te.api.ZoneRecords(ctxbg, z.Name)
 		for _, r := range records {
 			if r.Deleted != nil {
 				t.Fatalf("still have a deleted record after purging history")

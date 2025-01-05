@@ -18,7 +18,7 @@
 		},
 		{
 			"Name": "Zone",
-			"Docs": "Zone returns details about a single zone, including all records (including deleted), credentials, and dns notify destinations.",
+			"Docs": "Zone returns details about a single zone, the provider config, dns notify\ndestinations, credentials with access to the zone, and record sets. The returned\nrecord sets includes those no long active (i.e. deleted). The\nhistory/propagation state fo the record sets only includes those that may still\nbe in caches. Use ZoneRecordSetHistory for the full history for a single record\nset.",
 			"Params": [
 				{
 					"Name": "zone",
@@ -55,6 +55,27 @@
 					]
 				},
 				{
+					"Name": "sets",
+					"Typewords": [
+						"[]",
+						"RecordSet"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneRecords",
+			"Docs": "ZoneRecords returns all records for a zone, including historic records, without\ngrouping them into record sets.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": [
+				{
 					"Name": "records",
 					"Typewords": [
 						"[]",
@@ -82,10 +103,10 @@
 					]
 				},
 				{
-					"Name": "records",
+					"Name": "sets",
 					"Typewords": [
 						"[]",
-						"Record"
+						"RecordSet"
 					]
 				}
 			]
@@ -109,10 +130,10 @@
 					]
 				},
 				{
-					"Name": "records",
+					"Name": "sets",
 					"Typewords": [
 						"[]",
-						"Record"
+						"RecordSet"
 					]
 				}
 			]
@@ -517,6 +538,60 @@
 					]
 				}
 			]
+		},
+		{
+			"Name": "ZoneRecordSets",
+			"Docs": "ZoneRecordSets returns the current record sets including propagation states that\nare not the latest version but that may still be in caches. For the full history\nof a record set, see ZoneRecordSetHistory.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "sets",
+					"Typewords": [
+						"[]",
+						"RecordSet"
+					]
+				}
+			]
+		},
+		{
+			"Name": "ZoneRecordSetHistory",
+			"Docs": "ZoneRecordSetHistory returns the propagation state history for a record set,\nincluding the current value.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "relName",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "typ",
+					"Typewords": [
+						"uint16"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "history",
+					"Typewords": [
+						"[]",
+						"PropagationState"
+					]
+				}
+			]
 		}
 	],
 	"Sections": [],
@@ -543,14 +618,14 @@
 					"Name": "SerialLocal",
 					"Docs": "Locally known serial. Will be 0 for newly created zones. Can be different from SerialRemote since not all name servers change serials on zone changes.",
 					"Typewords": [
-						"Serial"
+						"uint32"
 					]
 				},
 				{
 					"Name": "SerialRemote",
 					"Docs": "Serial as known at remote. Used during refresh to decide whether to sync. Not meaningful when \u003c= 1 (e.g. always for AWS Route53).",
 					"Typewords": [
-						"Serial"
+						"uint32"
 					]
 				},
 				{
@@ -716,6 +791,28 @@
 			]
 		},
 		{
+			"Name": "RecordSet",
+			"Docs": "RecordSet holds the records (values) for a name and type, and optionally\nhistoric state of the records over time.",
+			"Fields": [
+				{
+					"Name": "Records",
+					"Docs": "Always at least one record. All with the same name, type and ttl. Sorted by value.",
+					"Typewords": [
+						"[]",
+						"Record"
+					]
+				},
+				{
+					"Name": "States",
+					"Docs": "Filled with either the full historic propagation state including the current/latest value (when returned by ZoneRecordSetHistory), or only those propagation states that are not the current value but may still be relevant (may still be in DNS caches).",
+					"Typewords": [
+						"[]",
+						"PropagationState"
+					]
+				}
+			]
+		},
+		{
 			"Name": "Record",
 			"Docs": "Record is a DNS record that discovered through the API of the provider.",
 			"Fields": [
@@ -737,14 +834,14 @@
 					"Name": "SerialFirst",
 					"Docs": "Serial where this record first appeared. For SOA records, this is equal to its Serial field.",
 					"Typewords": [
-						"Serial"
+						"uint32"
 					]
 				},
 				{
 					"Name": "SerialDeleted",
 					"Docs": "Serial when record was removed. For future IXFR.",
 					"Typewords": [
-						"Serial"
+						"uint32"
 					]
 				},
 				{
@@ -773,21 +870,21 @@
 					"Name": "Type",
 					"Docs": "eg A, etc.",
 					"Typewords": [
-						"Type"
+						"uint16"
 					]
 				},
 				{
 					"Name": "Class",
 					"Docs": "",
 					"Typewords": [
-						"Class"
+						"uint16"
 					]
 				},
 				{
 					"Name": "TTL",
 					"Docs": "",
 					"Typewords": [
-						"TTL"
+						"uint32"
 					]
 				},
 				{
@@ -814,6 +911,42 @@
 			]
 		},
 		{
+			"Name": "PropagationState",
+			"Docs": "PropagationState indicates value(s) of a record set in a period, or that a\nnegative lookup result may be cached somewhere.",
+			"Fields": [
+				{
+					"Name": "Start",
+					"Docs": "",
+					"Typewords": [
+						"timestamp"
+					]
+				},
+				{
+					"Name": "End",
+					"Docs": "If nil, then still active.",
+					"Typewords": [
+						"nullable",
+						"timestamp"
+					]
+				},
+				{
+					"Name": "Negative",
+					"Docs": "If true, this state represents a period during which a negative lookup result may be cached. Records will be nil.",
+					"Typewords": [
+						"bool"
+					]
+				},
+				{
+					"Name": "Records",
+					"Docs": "Records active during the period Start-End.",
+					"Typewords": [
+						"[]",
+						"Record"
+					]
+				}
+			]
+		},
+		{
 			"Name": "RecordNew",
 			"Docs": "RecordNew is a new or updated record.",
 			"Fields": [
@@ -828,14 +961,14 @@
 					"Name": "TTL",
 					"Docs": "",
 					"Typewords": [
-						"TTL"
+						"uint32"
 					]
 				},
 				{
 					"Name": "Type",
 					"Docs": "",
 					"Typewords": [
-						"Type"
+						"uint16"
 					]
 				},
 				{
@@ -3018,28 +3151,7 @@
 			]
 		}
 	],
-	"Ints": [
-		{
-			"Name": "Serial",
-			"Docs": "",
-			"Values": null
-		},
-		{
-			"Name": "Type",
-			"Docs": "",
-			"Values": null
-		},
-		{
-			"Name": "Class",
-			"Docs": "",
-			"Values": null
-		},
-		{
-			"Name": "TTL",
-			"Docs": "These are not typed in the \"dns\" package API. We keep them typed internally and\nconvert when needed to plain uints to/from package dns.",
-			"Values": null
-		}
-	],
+	"Ints": [],
 	"Strings": [
 		{
 			"Name": "BaseURL",

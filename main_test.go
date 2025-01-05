@@ -421,7 +421,9 @@ func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), absNames, fixedS
 	z0 := Zone{Name: "z0.example.", ProviderConfigName: pc0.Name}
 	z0 = api.ZoneAdd(ctxbg, z0, []ZoneNotify{{0, time.Time{}, z0.Name, z0n.addr, "tcp"}})
 	z0n.wait()
-	z0, _, _, creds0, rl0 := api.Zone(ctxbg, z0.Name)
+	z0, _, _, creds0, sets0 := api.Zone(ctxbg, z0.Name)
+	tcompare(t, len(sets0), 2)
+	rl0 := api.ZoneRecords(ctxbg, z0.Name)
 	tcompare(t, len(rl0), 3)
 
 	z1n.drain()
@@ -430,8 +432,10 @@ func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), absNames, fixedS
 	z1 := Zone{Name: "z1.example.", ProviderConfigName: pc1.Name}
 	z1 = api.ZoneAdd(ctxbg, z1, []ZoneNotify{{0, time.Time{}, z1.Name, z1n.addr, "tcp"}})
 	z1n.wait()
-	z1, _, _, creds1, rl1 := api.Zone(ctxbg, z1.Name)
-	tcompare(t, len(rl1), 2) // SOA should have been created.
+	z1, _, _, creds1, sets1 := api.Zone(ctxbg, z1.Name)
+	tcompare(t, len(sets1), 2) // SOA should have been created.
+	rl1 := api.ZoneRecords(ctxbg, z1.Name)
+	tcompare(t, len(rl1), 2)
 
 	findSOA := func(z Zone, l []Record) Record {
 		for _, r := range l {
@@ -480,8 +484,9 @@ func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), absNames, fixedS
 	fn(te, z0)
 
 	// Check nothing changed to the other zone.
-	nz1, _, _, _, nrl1 := api.Zone(ctxbg, z1.Name)
+	nz1, _, _, _, _ := api.Zone(ctxbg, z1.Name)
 	tcompare(t, nz1, z1)
+	nrl1 := api.ZoneRecords(ctxbg, z1.Name)
 	tcompare(t, nrl1, rl1)
 }
 
@@ -642,7 +647,8 @@ func splitrmap(o, n map[int64]Record) (del, add []Record) {
 func (te testEnv) zoneChanged(fn func()) testChange {
 	te.z0.n.drain()
 
-	te.z0.z, _, _, _, te.z0.records = te.api.Zone(ctxbg, te.z0.z.Name)
+	te.z0.z, _, _, _, _ = te.api.Zone(ctxbg, te.z0.z.Name)
+	te.z0.records = te.api.ZoneRecords(ctxbg, te.z0.z.Name)
 	te.zoneUnchanged(func() {
 		te.api.ZoneRefresh(ctxbg, te.z0.z.Name)
 	})
@@ -657,7 +663,7 @@ func (te testEnv) zoneChanged(fn func()) testChange {
 	newrrl, ldrSOANew := ldrmap(te.z0.p.Records)
 	ldrDel, ldrAdd := splitmap(oldrrl, newrrl)
 
-	_, _, _, _, rl := te.api.Zone(ctxbg, te.z0.z.Name)
+	rl := te.api.ZoneRecords(ctxbg, te.z0.z.Name)
 	newsoarl, newrl := rmap(rl)
 	rSOADel, rSOAAdd := splitrmap(oldsoarl, newsoarl)
 	var rSOANew *Record

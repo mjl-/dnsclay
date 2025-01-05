@@ -205,7 +205,7 @@ func refreshZoneSOACheck(log *slog.Logger, z Zone) error {
 
 	logCheck(log, err, "reading zone soa for refresh")
 	if z.SerialRemote == Serial(lsoa.Serial) {
-		log.Debug("zone refreshindicates still up to date", "zone", z.Name)
+		log.Debug("zone refresh indicates still up to date", "zone", z.Name)
 		return nil
 	}
 

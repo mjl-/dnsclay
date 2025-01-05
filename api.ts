@@ -8,8 +8,8 @@ namespace api {
 export interface Zone {
 	Name: string  // Absolute name with trailing dot. In lower-case form.
 	ProviderConfigName: string
-	SerialLocal: Serial  // Locally known serial. Will be 0 for newly created zones. Can be different from SerialRemote since not all name servers change serials on zone changes.
-	SerialRemote: Serial  // Serial as known at remote. Used during refresh to decide whether to sync. Not meaningful when <= 1 (e.g. always for AWS Route53).
+	SerialLocal: number  // Locally known serial. Will be 0 for newly created zones. Can be different from SerialRemote since not all name servers change serials on zone changes.
+	SerialRemote: number  // Serial as known at remote. Used during refresh to decide whether to sync. Not meaningful when <= 1 (e.g. always for AWS Route53).
 	LastSync?: Date | null  // Last time an attempt to sync was made. Used for periodic sync.
 	LastRecordChange?: Date | null  // Last time a change in records was detected.
 	SyncInterval: number  // Time between automatic synchronizations by getting all records.
@@ -43,28 +43,44 @@ export interface Credential {
 	TLSPublicKey: string  // Raw-url-base64-encoded SHA-256 hash of TLS certificate subject public key info ("SPKI").
 }
 
+// RecordSet holds the records (values) for a name and type, and optionally
+// historic state of the records over time.
+export interface RecordSet {
+	Records?: Record[] | null  // Always at least one record. All with the same name, type and ttl. Sorted by value.
+	States?: PropagationState[] | null  // Filled with either the full historic propagation state including the current/latest value (when returned by ZoneRecordSetHistory), or only those propagation states that are not the current value but may still be relevant (may still be in DNS caches).
+}
+
 // Record is a DNS record that discovered through the API of the provider.
 export interface Record {
 	ID: number
 	Zone: string  // Name of zone, lower-case.
-	SerialFirst: Serial  // Serial where this record first appeared. For SOA records, this is equal to its Serial field.
-	SerialDeleted: Serial  // Serial when record was removed. For future IXFR.
+	SerialFirst: number  // Serial where this record first appeared. For SOA records, this is equal to its Serial field.
+	SerialDeleted: number  // Serial when record was removed. For future IXFR.
 	First: Date
 	Deleted?: Date | null
 	AbsName: string  // Fully qualified, in lower-case.
-	Type: Type  // eg A, etc.
-	Class: Class
-	TTL: TTL
+	Type: number  // eg A, etc.
+	Class: number
+	TTL: number
 	DataHex: string
 	Value: string  // Human-readable.
 	ProviderID: string  // From libdns.
 }
 
+// PropagationState indicates value(s) of a record set in a period, or that a
+// negative lookup result may be cached somewhere.
+export interface PropagationState {
+	Start: Date
+	End?: Date | null  // If nil, then still active.
+	Negative: boolean  // If true, this state represents a period during which a negative lookup result may be cached. Records will be nil.
+	Records?: Record[] | null  // Records active during the period Start-End.
+}
+
 // RecordNew is a new or updated record.
 export interface RecordNew {
 	RelName: string
-	TTL: TTL
-	Type: Type
+	TTL: number
+	Type: number
 	Value: string
 }
 
@@ -593,31 +609,23 @@ export interface StringValue {
 	Docs: string
 }
 
-export type Serial = number
-
-export type Type = number
-
-export type Class = number
-
-// These are not typed in the "dns" package API. We keep them typed internally and
-// convert when needed to plain uints to/from package dns.
-export type TTL = number
-
 export enum BaseURL {
 	Sandbox = "https://api.sandbox.dnsmadeeasy.com/V2.0/",
 	Prod = "https://api.dnsmadeeasy.com/V2.0/",
 }
 
-export const structTypes: {[typename: string]: boolean} = {"Credential":true,"IntValue":true,"KnownProviders":true,"ProviderConfig":true,"Provider_alidns":true,"Provider_autodns":true,"Provider_azure":true,"Provider_bunny":true,"Provider_civo":true,"Provider_cloudflare":true,"Provider_ddnss":true,"Provider_desec":true,"Provider_digitalocean":true,"Provider_directadmin":true,"Provider_dnsimple":true,"Provider_dnsmadeeasy":true,"Provider_dnspod":true,"Provider_dnsupdate":true,"Provider_dreamhost":true,"Provider_duckdns":true,"Provider_dynu":true,"Provider_dynv6":true,"Provider_easydns":true,"Provider_exoscale":true,"Provider_gandi":true,"Provider_glesys":true,"Provider_godaddy":true,"Provider_googleclouddns":true,"Provider_he":true,"Provider_hetzner":true,"Provider_hexonet":true,"Provider_hosttech":true,"Provider_huaweicloud":true,"Provider_infomaniak":true,"Provider_inwx":true,"Provider_ionos":true,"Provider_katapult":true,"Provider_leaseweb":true,"Provider_linode":true,"Provider_loopia":true,"Provider_luadns":true,"Provider_mailinabox":true,"Provider_metaname":true,"Provider_mythicbeasts":true,"Provider_namecheap":true,"Provider_namedotcom":true,"Provider_namesilo":true,"Provider_nanelo":true,"Provider_netcup":true,"Provider_netlify":true,"Provider_nfsn":true,"Provider_njalla":true,"Provider_ovh":true,"Provider_porkbun":true,"Provider_powerdns":true,"Provider_rfc2136":true,"Provider_route53":true,"Provider_scaleway":true,"Provider_selectel":true,"Provider_tencentcloud":true,"Provider_timeweb":true,"Provider_totaluptime":true,"Provider_vultr":true,"Record":true,"RecordNew":true,"StringValue":true,"Zone":true,"ZoneNotify":true,"sherpadocArg":true,"sherpadocField":true,"sherpadocFunction":true,"sherpadocInts":true,"sherpadocSection":true,"sherpadocStrings":true,"sherpadocStruct":true}
+export const structTypes: {[typename: string]: boolean} = {"Credential":true,"IntValue":true,"KnownProviders":true,"PropagationState":true,"ProviderConfig":true,"Provider_alidns":true,"Provider_autodns":true,"Provider_azure":true,"Provider_bunny":true,"Provider_civo":true,"Provider_cloudflare":true,"Provider_ddnss":true,"Provider_desec":true,"Provider_digitalocean":true,"Provider_directadmin":true,"Provider_dnsimple":true,"Provider_dnsmadeeasy":true,"Provider_dnspod":true,"Provider_dnsupdate":true,"Provider_dreamhost":true,"Provider_duckdns":true,"Provider_dynu":true,"Provider_dynv6":true,"Provider_easydns":true,"Provider_exoscale":true,"Provider_gandi":true,"Provider_glesys":true,"Provider_godaddy":true,"Provider_googleclouddns":true,"Provider_he":true,"Provider_hetzner":true,"Provider_hexonet":true,"Provider_hosttech":true,"Provider_huaweicloud":true,"Provider_infomaniak":true,"Provider_inwx":true,"Provider_ionos":true,"Provider_katapult":true,"Provider_leaseweb":true,"Provider_linode":true,"Provider_loopia":true,"Provider_luadns":true,"Provider_mailinabox":true,"Provider_metaname":true,"Provider_mythicbeasts":true,"Provider_namecheap":true,"Provider_namedotcom":true,"Provider_namesilo":true,"Provider_nanelo":true,"Provider_netcup":true,"Provider_netlify":true,"Provider_nfsn":true,"Provider_njalla":true,"Provider_ovh":true,"Provider_porkbun":true,"Provider_powerdns":true,"Provider_rfc2136":true,"Provider_route53":true,"Provider_scaleway":true,"Provider_selectel":true,"Provider_tencentcloud":true,"Provider_timeweb":true,"Provider_totaluptime":true,"Provider_vultr":true,"Record":true,"RecordNew":true,"RecordSet":true,"StringValue":true,"Zone":true,"ZoneNotify":true,"sherpadocArg":true,"sherpadocField":true,"sherpadocFunction":true,"sherpadocInts":true,"sherpadocSection":true,"sherpadocStrings":true,"sherpadocStruct":true}
 export const stringsTypes: {[typename: string]: boolean} = {"BaseURL":true}
-export const intsTypes: {[typename: string]: boolean} = {"Class":true,"Serial":true,"TTL":true,"Type":true}
+export const intsTypes: {[typename: string]: boolean} = {}
 export const types: TypenameMap = {
-	"Zone": {"Name":"Zone","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"ProviderConfigName","Docs":"","Typewords":["string"]},{"Name":"SerialLocal","Docs":"","Typewords":["Serial"]},{"Name":"SerialRemote","Docs":"","Typewords":["Serial"]},{"Name":"LastSync","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"LastRecordChange","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"SyncInterval","Docs":"","Typewords":["int64"]},{"Name":"RefreshInterval","Docs":"","Typewords":["int64"]},{"Name":"NextSync","Docs":"","Typewords":["timestamp"]},{"Name":"NextRefresh","Docs":"","Typewords":["timestamp"]}]},
+	"Zone": {"Name":"Zone","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"ProviderConfigName","Docs":"","Typewords":["string"]},{"Name":"SerialLocal","Docs":"","Typewords":["uint32"]},{"Name":"SerialRemote","Docs":"","Typewords":["uint32"]},{"Name":"LastSync","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"LastRecordChange","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"SyncInterval","Docs":"","Typewords":["int64"]},{"Name":"RefreshInterval","Docs":"","Typewords":["int64"]},{"Name":"NextSync","Docs":"","Typewords":["timestamp"]},{"Name":"NextRefresh","Docs":"","Typewords":["timestamp"]}]},
 	"ProviderConfig": {"Name":"ProviderConfig","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"ProviderName","Docs":"","Typewords":["string"]},{"Name":"ProviderConfigJSON","Docs":"","Typewords":["string"]}]},
 	"ZoneNotify": {"Name":"ZoneNotify","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Created","Docs":"","Typewords":["timestamp"]},{"Name":"Zone","Docs":"","Typewords":["string"]},{"Name":"Address","Docs":"","Typewords":["string"]},{"Name":"Protocol","Docs":"","Typewords":["string"]}]},
 	"Credential": {"Name":"Credential","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Created","Docs":"","Typewords":["timestamp"]},{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Type","Docs":"","Typewords":["string"]},{"Name":"TSIGSecret","Docs":"","Typewords":["string"]},{"Name":"TLSPublicKey","Docs":"","Typewords":["string"]}]},
-	"Record": {"Name":"Record","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Zone","Docs":"","Typewords":["string"]},{"Name":"SerialFirst","Docs":"","Typewords":["Serial"]},{"Name":"SerialDeleted","Docs":"","Typewords":["Serial"]},{"Name":"First","Docs":"","Typewords":["timestamp"]},{"Name":"Deleted","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"AbsName","Docs":"","Typewords":["string"]},{"Name":"Type","Docs":"","Typewords":["Type"]},{"Name":"Class","Docs":"","Typewords":["Class"]},{"Name":"TTL","Docs":"","Typewords":["TTL"]},{"Name":"DataHex","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["string"]},{"Name":"ProviderID","Docs":"","Typewords":["string"]}]},
-	"RecordNew": {"Name":"RecordNew","Docs":"","Fields":[{"Name":"RelName","Docs":"","Typewords":["string"]},{"Name":"TTL","Docs":"","Typewords":["TTL"]},{"Name":"Type","Docs":"","Typewords":["Type"]},{"Name":"Value","Docs":"","Typewords":["string"]}]},
+	"RecordSet": {"Name":"RecordSet","Docs":"","Fields":[{"Name":"Records","Docs":"","Typewords":["[]","Record"]},{"Name":"States","Docs":"","Typewords":["[]","PropagationState"]}]},
+	"Record": {"Name":"Record","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Zone","Docs":"","Typewords":["string"]},{"Name":"SerialFirst","Docs":"","Typewords":["uint32"]},{"Name":"SerialDeleted","Docs":"","Typewords":["uint32"]},{"Name":"First","Docs":"","Typewords":["timestamp"]},{"Name":"Deleted","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"AbsName","Docs":"","Typewords":["string"]},{"Name":"Type","Docs":"","Typewords":["uint16"]},{"Name":"Class","Docs":"","Typewords":["uint16"]},{"Name":"TTL","Docs":"","Typewords":["uint32"]},{"Name":"DataHex","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["string"]},{"Name":"ProviderID","Docs":"","Typewords":["string"]}]},
+	"PropagationState": {"Name":"PropagationState","Docs":"","Fields":[{"Name":"Start","Docs":"","Typewords":["timestamp"]},{"Name":"End","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"Negative","Docs":"","Typewords":["bool"]},{"Name":"Records","Docs":"","Typewords":["[]","Record"]}]},
+	"RecordNew": {"Name":"RecordNew","Docs":"","Fields":[{"Name":"RelName","Docs":"","Typewords":["string"]},{"Name":"TTL","Docs":"","Typewords":["uint32"]},{"Name":"Type","Docs":"","Typewords":["uint16"]},{"Name":"Value","Docs":"","Typewords":["string"]}]},
 	"KnownProviders": {"Name":"KnownProviders","Docs":"","Fields":[{"Name":"Xalidns","Docs":"","Typewords":["Provider_alidns"]},{"Name":"Xautodns","Docs":"","Typewords":["Provider_autodns"]},{"Name":"Xazure","Docs":"","Typewords":["Provider_azure"]},{"Name":"Xbunny","Docs":"","Typewords":["Provider_bunny"]},{"Name":"Xcivo","Docs":"","Typewords":["Provider_civo"]},{"Name":"Xcloudflare","Docs":"","Typewords":["Provider_cloudflare"]},{"Name":"Xddnss","Docs":"","Typewords":["Provider_ddnss"]},{"Name":"Xdesec","Docs":"","Typewords":["Provider_desec"]},{"Name":"Xdigitalocean","Docs":"","Typewords":["Provider_digitalocean"]},{"Name":"Xdirectadmin","Docs":"","Typewords":["Provider_directadmin"]},{"Name":"Xdnsimple","Docs":"","Typewords":["Provider_dnsimple"]},{"Name":"Xdnsmadeeasy","Docs":"","Typewords":["Provider_dnsmadeeasy"]},{"Name":"Xdnspod","Docs":"","Typewords":["Provider_dnspod"]},{"Name":"Xdnsupdate","Docs":"","Typewords":["Provider_dnsupdate"]},{"Name":"Xdreamhost","Docs":"","Typewords":["Provider_dreamhost"]},{"Name":"Xduckdns","Docs":"","Typewords":["Provider_duckdns"]},{"Name":"Xdynu","Docs":"","Typewords":["Provider_dynu"]},{"Name":"Xdynv6","Docs":"","Typewords":["Provider_dynv6"]},{"Name":"Xeasydns","Docs":"","Typewords":["Provider_easydns"]},{"Name":"Xexoscale","Docs":"","Typewords":["Provider_exoscale"]},{"Name":"Xgandi","Docs":"","Typewords":["Provider_gandi"]},{"Name":"Xglesys","Docs":"","Typewords":["Provider_glesys"]},{"Name":"Xgodaddy","Docs":"","Typewords":["Provider_godaddy"]},{"Name":"Xgoogleclouddns","Docs":"","Typewords":["Provider_googleclouddns"]},{"Name":"Xhe","Docs":"","Typewords":["Provider_he"]},{"Name":"Xhetzner","Docs":"","Typewords":["Provider_hetzner"]},{"Name":"Xhexonet","Docs":"","Typewords":["Provider_hexonet"]},{"Name":"Xhosttech","Docs":"","Typewords":["Provider_hosttech"]},{"Name":"Xhuaweicloud","Docs":"","Typewords":["Provider_huaweicloud"]},{"Name":"Xinfomaniak","Docs":"","Typewords":["Provider_infomaniak"]},{"Name":"Xinwx","Docs":"","Typewords":["Provider_inwx"]},{"Name":"Xionos","Docs":"","Typewords":["Provider_ionos"]},{"Name":"Xkatapult","Docs":"","Typewords":["Provider_katapult"]},{"Name":"Xleaseweb","Docs":"","Typewords":["Provider_leaseweb"]},{"Name":"Xlinode","Docs":"","Typewords":["Provider_linode"]},{"Name":"Xloopia","Docs":"","Typewords":["Provider_loopia"]},{"Name":"Xluadns","Docs":"","Typewords":["Provider_luadns"]},{"Name":"Xmailinabox","Docs":"","Typewords":["Provider_mailinabox"]},{"Name":"Xmetaname","Docs":"","Typewords":["Provider_metaname"]},{"Name":"Xmythicbeasts","Docs":"","Typewords":["Provider_mythicbeasts"]},{"Name":"Xnamecheap","Docs":"","Typewords":["Provider_namecheap"]},{"Name":"Xnamedotcom","Docs":"","Typewords":["Provider_namedotcom"]},{"Name":"Xnamesilo","Docs":"","Typewords":["Provider_namesilo"]},{"Name":"Xnanelo","Docs":"","Typewords":["Provider_nanelo"]},{"Name":"Xnetcup","Docs":"","Typewords":["Provider_netcup"]},{"Name":"Xnetlify","Docs":"","Typewords":["Provider_netlify"]},{"Name":"Xnfsn","Docs":"","Typewords":["Provider_nfsn"]},{"Name":"Xnjalla","Docs":"","Typewords":["Provider_njalla"]},{"Name":"Xovh","Docs":"","Typewords":["Provider_ovh"]},{"Name":"Xporkbun","Docs":"","Typewords":["Provider_porkbun"]},{"Name":"Xpowerdns","Docs":"","Typewords":["Provider_powerdns"]},{"Name":"Xrfc2136","Docs":"","Typewords":["Provider_rfc2136"]},{"Name":"Xroute53","Docs":"","Typewords":["Provider_route53"]},{"Name":"Xscaleway","Docs":"","Typewords":["Provider_scaleway"]},{"Name":"Xselectel","Docs":"","Typewords":["Provider_selectel"]},{"Name":"Xtencentcloud","Docs":"","Typewords":["Provider_tencentcloud"]},{"Name":"Xtimeweb","Docs":"","Typewords":["Provider_timeweb"]},{"Name":"Xtotaluptime","Docs":"","Typewords":["Provider_totaluptime"]},{"Name":"Xvultr","Docs":"","Typewords":["Provider_vultr"]}]},
 	"Provider_alidns": {"Name":"Provider_alidns","Docs":"","Fields":[{"Name":"access_key_id","Docs":"","Typewords":["string"]},{"Name":"access_key_secret","Docs":"","Typewords":["string"]},{"Name":"region_id","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_autodns": {"Name":"Provider_autodns","Docs":"","Fields":[{"Name":"username","Docs":"","Typewords":["string"]},{"Name":"password","Docs":"","Typewords":["string"]},{"Name":"Endpoint","Docs":"","Typewords":["string"]},{"Name":"context","Docs":"","Typewords":["string"]},{"Name":"primary","Docs":"","Typewords":["string"]}]},
@@ -687,10 +695,6 @@ export const types: TypenameMap = {
 	"IntValue": {"Name":"IntValue","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["int64"]},{"Name":"Docs","Docs":"","Typewords":["string"]}]},
 	"sherpadocStrings": {"Name":"sherpadocStrings","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Docs","Docs":"","Typewords":["string"]},{"Name":"Values","Docs":"","Typewords":["[]","StringValue"]}]},
 	"StringValue": {"Name":"StringValue","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["string"]},{"Name":"Docs","Docs":"","Typewords":["string"]}]},
-	"Serial": {"Name":"Serial","Docs":"","Values":null},
-	"Type": {"Name":"Type","Docs":"","Values":null},
-	"Class": {"Name":"Class","Docs":"","Values":null},
-	"TTL": {"Name":"TTL","Docs":"","Values":null},
 	"BaseURL": {"Name":"BaseURL","Docs":"","Values":[{"Name":"Sandbox","Value":"https://api.sandbox.dnsmadeeasy.com/V2.0/","Docs":""},{"Name":"Prod","Value":"https://api.dnsmadeeasy.com/V2.0/","Docs":""}]},
 }
 
@@ -699,7 +703,9 @@ export const parser = {
 	ProviderConfig: (v: any) => parse("ProviderConfig", v) as ProviderConfig,
 	ZoneNotify: (v: any) => parse("ZoneNotify", v) as ZoneNotify,
 	Credential: (v: any) => parse("Credential", v) as Credential,
+	RecordSet: (v: any) => parse("RecordSet", v) as RecordSet,
 	Record: (v: any) => parse("Record", v) as Record,
+	PropagationState: (v: any) => parse("PropagationState", v) as PropagationState,
 	RecordNew: (v: any) => parse("RecordNew", v) as RecordNew,
 	KnownProviders: (v: any) => parse("KnownProviders", v) as KnownProviders,
 	Provider_alidns: (v: any) => parse("Provider_alidns", v) as Provider_alidns,
@@ -770,10 +776,6 @@ export const parser = {
 	IntValue: (v: any) => parse("IntValue", v) as IntValue,
 	sherpadocStrings: (v: any) => parse("sherpadocStrings", v) as sherpadocStrings,
 	StringValue: (v: any) => parse("StringValue", v) as StringValue,
-	Serial: (v: any) => parse("Serial", v) as Serial,
-	Type: (v: any) => parse("Type", v) as Type,
-	Class: (v: any) => parse("Class", v) as Class,
-	TTL: (v: any) => parse("TTL", v) as TTL,
 	BaseURL: (v: any) => parse("BaseURL", v) as BaseURL,
 }
 
@@ -814,33 +816,48 @@ export class Client {
 		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Zone[] | null
 	}
 
-	// Zone returns details about a single zone, including all records (including deleted), credentials, and dns notify destinations.
-	async Zone(zone: string): Promise<[Zone, ProviderConfig, ZoneNotify[] | null, Credential[] | null, Record[] | null]> {
+	// Zone returns details about a single zone, the provider config, dns notify
+	// destinations, credentials with access to the zone, and record sets. The returned
+	// record sets includes those no long active (i.e. deleted). The
+	// history/propagation state fo the record sets only includes those that may still
+	// be in caches. Use ZoneRecordSetHistory for the full history for a single record
+	// set.
+	async Zone(zone: string): Promise<[Zone, ProviderConfig, ZoneNotify[] | null, Credential[] | null, RecordSet[] | null]> {
 		const fn: string = "Zone"
 		const paramTypes: string[][] = [["string"]]
-		const returnTypes: string[][] = [["Zone"],["ProviderConfig"],["[]","ZoneNotify"],["[]","Credential"],["[]","Record"]]
+		const returnTypes: string[][] = [["Zone"],["ProviderConfig"],["[]","ZoneNotify"],["[]","Credential"],["[]","RecordSet"]]
 		const params: any[] = [zone]
-		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as [Zone, ProviderConfig, ZoneNotify[] | null, Credential[] | null, Record[] | null]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as [Zone, ProviderConfig, ZoneNotify[] | null, Credential[] | null, RecordSet[] | null]
+	}
+
+	// ZoneRecords returns all records for a zone, including historic records, without
+	// grouping them into record sets.
+	async ZoneRecords(zone: string): Promise<Record[] | null> {
+		const fn: string = "ZoneRecords"
+		const paramTypes: string[][] = [["string"]]
+		const returnTypes: string[][] = [["[]","Record"]]
+		const params: any[] = [zone]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Record[] | null
 	}
 
 	// ZoneRefresh starts a sync of the records from the provider into the local
 	// database, sending dns notify if needed. ZoneRefresh returns all records
 	// (included deleted) from after the synchronization.
-	async ZoneRefresh(zone: string): Promise<[Zone, Record[] | null]> {
+	async ZoneRefresh(zone: string): Promise<[Zone, RecordSet[] | null]> {
 		const fn: string = "ZoneRefresh"
 		const paramTypes: string[][] = [["string"]]
-		const returnTypes: string[][] = [["Zone"],["[]","Record"]]
+		const returnTypes: string[][] = [["Zone"],["[]","RecordSet"]]
 		const params: any[] = [zone]
-		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as [Zone, Record[] | null]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as [Zone, RecordSet[] | null]
 	}
 
 	// ZonePurgeHistory removes historic records from the database, those marked "deleted".
-	async ZonePurgeHistory(zone: string): Promise<[Zone, Record[] | null]> {
+	async ZonePurgeHistory(zone: string): Promise<[Zone, RecordSet[] | null]> {
 		const fn: string = "ZonePurgeHistory"
 		const paramTypes: string[][] = [["string"]]
-		const returnTypes: string[][] = [["Zone"],["[]","Record"]]
+		const returnTypes: string[][] = [["Zone"],["[]","RecordSet"]]
 		const params: any[] = [zone]
-		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as [Zone, Record[] | null]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as [Zone, RecordSet[] | null]
 	}
 
 	// ZoneAdd adds a new zone to the database. A TSIG credential is created
@@ -1036,6 +1053,27 @@ export class Client {
 		const returnTypes: string[][] = [["ProviderConfig"]]
 		const params: any[] = [pc]
 		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as ProviderConfig
+	}
+
+	// ZoneRecordSets returns the current record sets including propagation states that
+	// are not the latest version but that may still be in caches. For the full history
+	// of a record set, see ZoneRecordSetHistory.
+	async ZoneRecordSets(zone: string): Promise<RecordSet[] | null> {
+		const fn: string = "ZoneRecordSets"
+		const paramTypes: string[][] = [["string"]]
+		const returnTypes: string[][] = [["[]","RecordSet"]]
+		const params: any[] = [zone]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as RecordSet[] | null
+	}
+
+	// ZoneRecordSetHistory returns the propagation state history for a record set,
+	// including the current value.
+	async ZoneRecordSetHistory(zone: string, relName: string, typ: number): Promise<PropagationState[] | null> {
+		const fn: string = "ZoneRecordSetHistory"
+		const paramTypes: string[][] = [["string"],["string"],["uint16"]]
+		const returnTypes: string[][] = [["[]","PropagationState"]]
+		const params: any[] = [zone, relName, typ]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as PropagationState[] | null
 	}
 }
 

@@ -9,8 +9,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/miekg/dns"
 
 	"github.com/mjl-/bstore"
+	"github.com/mjl-/sherpa"
 	"github.com/mjl-/sherpadoc"
 )
 
@@ -82,8 +86,14 @@ func (x API) Zones(ctx context.Context) []Zone {
 	return zones
 }
 
-// Zone returns details about a single zone, including all records (including deleted), credentials, and dns notify destinations.
-func (x API) Zone(ctx context.Context, zone string) (z Zone, pc ProviderConfig, notifies []ZoneNotify, credentials []Credential, records []Record) {
+// Zone returns details about a single zone, the provider config, dns notify
+// destinations, credentials with access to the zone, and record sets. The returned
+// record sets includes those no long active (i.e. deleted). The
+// history/propagation state fo the record sets only includes those that may still
+// be in caches. Use ZoneRecordSetHistory for the full history for a single record
+// set.
+func (x API) Zone(ctx context.Context, zone string) (z Zone, pc ProviderConfig, notifies []ZoneNotify, credentials []Credential, sets []RecordSet) {
+	var records []Record
 	_dbread(ctx, func(tx *bstore.Tx) {
 		z = _zone(tx, zone)
 
@@ -106,13 +116,29 @@ func (x API) Zone(ctx context.Context, zone string) (z Zone, pc ProviderConfig, 
 		records, err = bstore.QueryTx[Record](tx).FilterNonzero(Record{Zone: zone}).List()
 		_checkf(err, "list records")
 	})
+
+	sets = _propagationStates(records)
+
+	return
+}
+
+// ZoneRecords returns all records for a zone, including historic records, without
+// grouping them into record sets.
+func (x API) ZoneRecords(ctx context.Context, zone string) (records []Record) {
+	_dbread(ctx, func(tx *bstore.Tx) {
+		z := _zone(tx, zone)
+
+		var err error
+		records, err = bstore.QueryTx[Record](tx).FilterNonzero(Record{Zone: z.Name}).List()
+		_checkf(err, "list records")
+	})
 	return
 }
 
 // ZoneRefresh starts a sync of the records from the provider into the local
 // database, sending dns notify if needed. ZoneRefresh returns all records
 // (included deleted) from after the synchronization.
-func (x API) ZoneRefresh(ctx context.Context, zone string) (z Zone, records []Record) {
+func (x API) ZoneRefresh(ctx context.Context, zone string) (z Zone, sets []RecordSet) {
 	log := cidlog(ctx)
 
 	var provider Provider
@@ -140,15 +166,16 @@ func (x API) ZoneRefresh(ctx context.Context, zone string) (z Zone, records []Re
 		notify, _, _, _, err = syncRecords(log, tx, z, latest)
 		_checkf(err, "storing latest records in database")
 
-		records, err = bstore.QueryTx[Record](tx).FilterNonzero(Record{Zone: zone}).List()
+		records, err := bstore.QueryTx[Record](tx).FilterNonzero(Record{Zone: zone}).List()
 		_checkf(err, "list records")
+		sets = _propagationStates(records)
 	})
 
 	return
 }
 
 // ZonePurgeHistory removes historic records from the database, those marked "deleted".
-func (x API) ZonePurgeHistory(ctx context.Context, zone string) (z Zone, records []Record) {
+func (x API) ZonePurgeHistory(ctx context.Context, zone string) (z Zone, sets []RecordSet) {
 	_dbwrite(ctx, func(tx *bstore.Tx) {
 		z = _zone(tx, zone) // Again.
 
@@ -158,8 +185,9 @@ func (x API) ZonePurgeHistory(ctx context.Context, zone string) (z Zone, records
 		_, err := q.Delete()
 		_checkf(err, "removing record history")
 
-		records, err = bstore.QueryTx[Record](tx).FilterNonzero(Record{Zone: z.Name}).List()
+		records, err := bstore.QueryTx[Record](tx).FilterNonzero(Record{Zone: z.Name}).List()
 		_checkf(err, "listing records ")
+		sets = _propagationStates(records)
 	})
 
 	return
@@ -625,7 +653,6 @@ func (x API) RecordUpdate(ctx context.Context, zone string, recordID int64, rn R
 		q := bstore.QueryDB[Record](ctx, database)
 		q.FilterNonzero(Record{Zone: zone, AbsName: or.AbsName})
 		q.FilterFn(func(r Record) bool { return r.Deleted == nil })
-		q.FilterNotEqual("ID", or.ID)
 		orrset, err = q.List()
 		_checkf(err, "get old rrset")
 	})
@@ -634,7 +661,13 @@ func (x API) RecordUpdate(ctx context.Context, zone string, recordID int64, rn R
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	nrrset := append([]Record{nr}, orrset...)
+	nr.ProviderID = or.ProviderID
+	nrrset := []Record{nr}
+	for _, r := range orrset {
+		if r.ID != or.ID {
+			nrrset = append(nrrset, r)
+		}
+	}
 
 	// We're only going to wait for update propagation when the record actually
 	// changed. Otherwise, the provider may not be making any changes, and we won't get
@@ -646,26 +679,46 @@ func (x API) RecordUpdate(ctx context.Context, zone string, recordID int64, rn R
 		dels = []Record{or}
 	}
 
-	lupdated, err := setRecords(ctx, log, provider, z.Name, libdnsRecords(nrrset))
-	if err == nil && len(lupdated) < len(adds) {
-		slog.Info("provider reported updates", "updated", lupdated, "oldrecord", or, "newrecord", nr, "nrrset", nrrset)
-		err = fmt.Errorf("provider reports %d records were updated, expected at least %d", len(lupdated), len(adds))
-	}
-	_checkf(err, "updating record through provider")
-	log.Debug("records updated through provider", "nrrset", nrrset, "lupdated", lupdated, "adds", adds, "dels", dels)
+	// If we don't have explicit IDs for records tracked by the provider, we don't know
+	// what "setting" a record means. If that's the case, we delete & add the record.
+	if nrrset[0].ProviderID != "" {
+		lupdated, err := setRecords(ctx, log, provider, z.Name, libdnsRecords(nrrset))
+		if err == nil && len(lupdated) < len(adds) {
+			slog.Info("provider reported updates", "updated", lupdated, "oldrecord", or, "newrecord", nr, "nrrset", nrrset)
+			err = fmt.Errorf("provider reports %d records were updated, expected at least %d", len(lupdated), len(adds))
+		}
+		_checkf(err, "updating record through provider")
+		log.Debug("records updated through provider", "nrrset", nrrset, "lupdated", lupdated, "adds", adds, "dels", dels)
 
-	if nr.recordKey() != or.recordKey() {
-		var oldUpdated bool
-		for _, r := range lupdated {
-			if r.ID != "" && r.ID == or.ProviderID {
-				oldUpdated = true
-				break
+		if nr.recordKey() != or.recordKey() {
+			var oldUpdated bool
+			for _, r := range lupdated {
+				if r.ID != "" && r.ID == or.ProviderID {
+					oldUpdated = true
+					break
+				}
+			}
+			if !oldUpdated {
+				_, err := deleteRecords(ctx, log, provider, z.Name, []libdns.Record{or.libdnsRecord()})
+				_checkf(err, "removing old record")
 			}
 		}
-		if !oldUpdated {
-			_, err := deleteRecords(ctx, log, provider, z.Name, []libdns.Record{or.libdnsRecord()})
-			_checkf(err, "removing old record")
+	} else {
+		ldeleted, err := deleteRecords(ctx, log, provider, z.Name, libdnsRecords(orrset))
+		if err == nil && len(ldeleted) < len(adds) {
+			slog.Info("provider reported deletes", "deleted", ldeleted, "oldrecord", or, "newrecord", nr, "orrset", orrset)
+			err = fmt.Errorf("provider reports %d records were updated, expected at least %d", len(ldeleted), len(adds))
 		}
+		_checkf(err, "deleting old record(s) through provider")
+		log.Debug("records deleted through provider", "orrset", orrset, "ldeted", ldeleted, "adds", adds, "dels", dels)
+
+		ladd, err := appendRecords(ctx, log, provider, z.Name, libdnsRecords(nrrset))
+		if err == nil && len(ladd) < len(adds) {
+			slog.Info("provider reported appends", "add", ladd, "oldrecord", or, "newrecord", nr, "nrrset", nrrset)
+			err = fmt.Errorf("provider reports %d records were updated, expected at least %d", len(ladd), len(adds))
+		}
+		_checkf(err, "adding old record(s) through provider")
+		log.Debug("records added through provider", "nrrset", nrrset, "ladd", ladd, "adds", adds, "dels", dels)
 	}
 
 	inserted, _, err := ensurePropagate(ctx, log, provider, z, adds, dels, or.SerialFirst)
@@ -821,4 +874,61 @@ func (x API) ProviderConfigUpdate(ctx context.Context, pc ProviderConfig) (npc P
 		npc = pc
 	})
 	return
+}
+
+func _propagationStates(records []Record) (sets []RecordSet) {
+	m, err := propagationStates(time.Now(), records, "", -1, true)
+	_checkf(err, "get record sets and propagation states")
+
+	// Ensure we return sets sorted, for tests.
+	keys := slices.Collect(maps.Keys(m))
+	sort.Slice(keys, func(i, j int) bool {
+		a, b := keys[i], keys[j]
+		return a.AbsName < b.AbsName || a.AbsName == b.AbsName && a.Type < b.Type
+	})
+	for _, k := range keys {
+		versions := m[k]
+		sets = append(sets, versions[len(versions)-1])
+	}
+
+	return
+}
+
+// ZoneRecordSets returns the current record sets including propagation states that
+// are not the latest version but that may still be in caches. For the full history
+// of a record set, see ZoneRecordSetHistory.
+func (x API) ZoneRecordSets(ctx context.Context, zone string) (sets []RecordSet) {
+	_dbread(ctx, func(tx *bstore.Tx) {
+		z := _zone(tx, zone)
+		records, err := bstore.QueryTx[Record](tx).FilterNonzero(Record{Zone: z.Name}).List()
+		_checkf(err, "list records")
+		sets = _propagationStates(records)
+	})
+	return
+}
+
+// ZoneRecordSetHistory returns the propagation state history for a record set,
+// including the current value.
+func (x API) ZoneRecordSetHistory(ctx context.Context, zone, relName string, typ Type) (history []PropagationState) {
+	var records []Record
+
+	_dbread(ctx, func(tx *bstore.Tx) {
+		z := _zone(tx, zone)
+		var err error
+		records, err = bstore.QueryTx[Record](tx).FilterNonzero(Record{Zone: z.Name}).List()
+		_checkf(err, "list records")
+	})
+
+	m, err := propagationStates(time.Now(), records, relName, int(typ), false)
+	_checkf(err, "get record sets and propagation states")
+	if len(m) != 1 {
+		_checkf(fmt.Errorf("got %#v, expected 1 set", m), "get history for record set")
+	}
+	var versions []RecordSet
+	for _, versions = range m {
+	}
+	if len(versions) == 0 {
+		panic(&sherpa.Error{Code: "user:notFound", Message: "record set not found"})
+	}
+	return versions[len(versions)-1].States
 }
