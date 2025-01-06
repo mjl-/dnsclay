@@ -1085,7 +1085,7 @@ const pageZone = async (zonestr: string) => {
 			const a = sa.Records![0]
 			const b = sb.Records![0]
 			if (a.AbsName !== b.AbsName) {
-				return a.AbsName.split('/').reverse().join('/') < b.AbsName.split('/').reverse().join('/') ? -1 : 1
+				return a.AbsName.split('.').reverse().join('.') < b.AbsName.split('.').reverse().join('.') ? -1 : 1
 			}
 			const ta = dnsTypeNames[a.Type] || (''+a.Type)
 			const tb = dnsTypeNames[b.Type] || (''+b.Type)
