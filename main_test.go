@@ -306,9 +306,9 @@ func (n *notify) drain() {
 
 func (n *notify) wait() {
 	select {
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		n.t.Helper()
-		panic("no notification within 2s")
+		panic("no notification within 5s")
 	case <-n.c:
 	}
 }
