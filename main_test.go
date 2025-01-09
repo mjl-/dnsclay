@@ -501,7 +501,7 @@ func (te testEnv) sherpaError(expCode string, fn func()) {
 		if err, ok := x.(*sherpa.Error); !ok {
 			panic(fmt.Sprintf("got panic %#v, expected sherpa error", x))
 		} else if err.Code != expCode {
-			panic(fmt.Sprintf("got sherpa error code %q, expected %q", err.Code, expCode))
+			panic(fmt.Sprintf("got sherpa error code %q, expected %q (%s)", err.Code, expCode, err.Message))
 		}
 	}()
 	fn()

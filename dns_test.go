@@ -564,7 +564,7 @@ func TestUpdate(t *testing.T) {
 
 		// First add AAAA under existing name.
 		tc := te.zoneChanged(func() {
-			te.api.RecordAdd(ctxbg, z.Name, RecordNew{"testhost", 300, Type(dns.TypeAAAA), "::1"})
+			te.api.RecordSetAdd(ctxbg, z.Name, RecordSetChange{"testhost", 300, Type(dns.TypeAAAA), []string{"::1"}})
 		})
 		tc.checkRecordDelta(typecounts{}, typecounts{"AAAA": 1})
 

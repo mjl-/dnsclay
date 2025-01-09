@@ -69,14 +69,34 @@ func _zone(tx *bstore.Tx, zone string) (z Zone) {
 	return
 }
 
-func _record(tx *bstore.Tx, zoneName string, id int64) (r Record) {
-	r = Record{ID: id}
-	err := tx.Get(&r)
-	if err == nil && r.Zone != zoneName {
-		err = bstore.ErrAbsent
+func _checkType(typ Type) {
+	switch uint16(typ) {
+	case
+		dns.TypeReserved,
+		dns.TypeNone,
+		dns.TypeNXNAME,
+		dns.TypeOPT,
+		dns.TypeUINFO,
+		dns.TypeUID,
+		dns.TypeGID,
+		dns.TypeUNSPEC,
+		dns.TypeTKEY,
+		dns.TypeTSIG,
+		dns.TypeIXFR,
+		dns.TypeAXFR,
+		dns.TypeMAILA,
+		dns.TypeMAILB,
+		dns.TypeANY:
+		_checkuserf(fmt.Errorf("invalid meta type %d", typ), "checking type")
 	}
-	_checkf(err, "get record")
-	return
+	if _, ok := dns.TypeToString[uint16(typ)]; !ok {
+		_checkuserf(fmt.Errorf("invalid type %d", typ), "checking type")
+	}
+}
+
+func _recordType(t Type) string {
+	_checkType(t)
+	return dns.TypeToString[uint16(t)]
 }
 
 // Zones returns all zones.
@@ -475,6 +495,8 @@ func (x API) ZoneImportRecords(ctx context.Context, zone, zonefile string) []Rec
 		}
 		h.Name = _cleanAbsName(h.Name)
 
+		_checkType(Type(h.Rrtype))
+
 		l = append(l, Record{0, z.Name, 0, 0, time.Time{}, nil, h.Name, Type(h.Rrtype), dns.ClassINET, TTL(h.Ttl), hex, value, ""})
 	}
 	err := zp.Err()
@@ -521,44 +543,53 @@ func (x API) ZoneImportRecords(ctx context.Context, zone, zonefile string) []Rec
 	return inserted
 }
 
-// RecordNew is a new or updated record.
-type RecordNew struct {
+// RecordSetChange is a new or updated record set.
+type RecordSetChange struct {
 	RelName string
 	TTL     TTL
 	Type    Type
-	Value   string
+	Values  []string
 }
 
-func _parseNew(zone string, nr RecordNew) Record {
-	absname := nr.RelName
+func _parseNewSet(zone string, rsc RecordSetChange) []Record {
+	absname := rsc.RelName
 	if absname != "" {
 		absname += "."
 	}
 	absname += zone
 	absname = _cleanAbsName(absname)
 
-	typ := dns.TypeToString[uint16(nr.Type)]
-	if typ == "" {
-		_checkuserf(fmt.Errorf("unknown type %d", nr.Type), "checking record type")
-	}
-	if nr.TTL == 0 {
+	typ := _recordType(rsc.Type)
+	if rsc.TTL == 0 {
 		_checkuserf(errors.New("ttl must be > 0"), "checking ttl")
 	}
 
-	text := fmt.Sprintf("%s %d %s %s", absname, nr.TTL, typ, nr.Value)
-	rr, err := dns.NewRR(text)
-	_checkuserf(err, "parsing new record")
+	var records []Record
+	if len(rsc.Values) == 0 {
+		_checkuserf(errors.New("at least one value required"), "checking values")
+	}
+	for _, v := range rsc.Values {
+		text := fmt.Sprintf("%s %d %s %s", absname, rsc.TTL, typ, v)
+		rr, err := dns.NewRR(text)
+		_checkuserf(err, "parsing new record")
 
-	hex, value, err := recordData(rr)
-	_checkf(err, "parsing record value")
+		hex, value, err := recordData(rr)
+		_checkf(err, "parsing record value")
 
-	return Record{0, zone, 0, 0, time.Time{}, nil, absname, nr.Type, dns.ClassINET, nr.TTL, hex, value, ""}
+		r := Record{0, zone, 0, 0, time.Time{}, nil, absname, rsc.Type, dns.ClassINET, rsc.TTL, hex, value, ""}
+		records = append(records, r)
+	}
+	return records
 }
 
-// RecordAdd adds a single record through the provider, then waits for it to
-// synchronize back to the local database. The newly added database record is
-// returned.
-func (x API) RecordAdd(ctx context.Context, zone string, nr RecordNew) (r Record) {
+// RecordSetAdd adds a record set through the provider, then waits for it to
+// synchronize back to the local database.
+//
+// The name and type must not already exist. Use RecordSetUpdate to add values to
+// an existing record set.
+//
+// The inserted records are returned.
+func (x API) RecordSetAdd(ctx context.Context, zone string, rsc RecordSetChange) []Record {
 	log := cidlog(ctx)
 
 	var z Zone
@@ -570,7 +601,7 @@ func (x API) RecordAdd(ctx context.Context, zone string, nr RecordNew) (r Record
 		_checkf(err, "get zone and provider")
 	})
 
-	xnr := _parseNew(zone, nr)
+	nset := _parseNewSet(zone, rsc)
 
 	unlock := lockZone(z.Name)
 	defer unlock()
@@ -587,29 +618,57 @@ func (x API) RecordAdd(ctx context.Context, zone string, nr RecordNew) (r Record
 		_checkf(err, "updating records from latest before looking record to delete")
 
 		soa = zoneSOA(log, tx, z.Name)
+
+		q := bstore.QueryTx[Record](tx)
+		q.FilterNonzero(Record{Zone: z.Name, AbsName: nset[0].AbsName, Type: nset[0].Type})
+		q.FilterFn(func(r Record) bool { return r.Deleted == nil })
+		oset, err := q.List()
+		_checkf(err, "listing current records for name and type")
+		if len(oset) != 0 {
+			_checkuserf(errors.New("already exists, edit the existing record set instead"), "checking for existing records with name and type")
+		}
 	})
 
 	var cancel func()
 	ctx, cancel = context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	ladded, err := appendRecords(ctx, log, provider, z.Name, []libdns.Record{xnr.libdnsRecord()})
-	if err == nil && len(ladded) != 1 {
-		err = fmt.Errorf("provider added %d records, expected 1", len(ladded))
+	ladded, err := appendRecords(ctx, log, provider, z.Name, libdnsRecords(nset))
+	if err == nil && len(ladded) != len(nset) {
+		err = fmt.Errorf("provider added %d records, expected %d", len(ladded), len(nset))
 	}
 	_checkf(err, "adding records via provider")
-	log.Debug("added record through provider", "record", xnr, "ladded", ladded)
+	log.Debug("added record through provider", "records", nset, "ladded", ladded)
 
-	inserted, _, err := ensurePropagate(ctx, log, provider, z, []recordKey{xnr.recordKey()}, nil, soa.SerialFirst)
+	var expAdd []recordKey
+	for _, r := range nset {
+		expAdd = append(expAdd, r.recordKey())
+	}
+	inserted, _, err := ensurePropagate(ctx, log, provider, z, expAdd, nil, soa.SerialFirst)
 	_checkf(err, "ensuring record propagation")
-	return inserted[0]
+	return inserted
 }
 
-// RecordUpdate updates and existing record, replacing it with the new version. The
-// name and type must be the same. Only the TTL and value can be changed for an
-// existing record. The updated or new local database record is returned after a sync.
-func (x API) RecordUpdate(ctx context.Context, zone string, recordID int64, rn RecordNew) (xr Record) {
+// RecordSetUpdate updates an existing record set, replacing its values with the
+// new values. If the name has changed, the old records are deleted and new records
+// with new name inserted.
+//
+// Before changing, prevRecordIDs are compared with the current records for the
+// name and type, and must be the same.
+//
+// valueRecordIDs match Values from RecordNewSet (must have the same number of
+// items). New values must have 0 as record ID.
+//
+// The records of the updated record set are returned.
+func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string, rsc RecordSetChange, prevRecordIDs, valueRecordIDs []int64) []Record {
 	log := cidlog(ctx)
+
+	if len(rsc.Values) != len(valueRecordIDs) {
+		_checkuserf(errors.New("providerIDs must have same number of values"), "checking values")
+	}
+	if len(rsc.Values) == 0 {
+		_checkuserf(errors.New("must have at least one value"), "checking values")
+	}
 
 	var z Zone
 	var provider Provider
@@ -619,7 +678,8 @@ func (x API) RecordUpdate(ctx context.Context, zone string, recordID int64, rn R
 		_checkf(err, "get zone and provider")
 	})
 
-	nr := _parseNew(z.Name, rn)
+	nset := _parseNewSet(z.Name, rsc)
+	oldAbsName := libdns.AbsoluteName(oldRelName, z.Name)
 
 	unlock := lockZone(z.Name)
 	defer unlock()
@@ -631,114 +691,138 @@ func (x API) RecordUpdate(ctx context.Context, zone string, recordID int64, rn R
 	var notify bool
 	defer possiblyZoneNotify(log, zone, &notify)
 
-	var or Record
-	var orrset []Record
+	var soa Record
+	var oset []Record
 	_dbwrite(ctx, func(tx *bstore.Tx) {
 		notify, _, _, _, err = syncRecords(log, tx, z, latest)
 		_checkf(err, "updating records from latest before looking record to delete")
 
-		or = _record(tx, z.Name, recordID)
-		if or.Deleted != nil {
-			_checkuserf(errors.New("record is marked deleted"), "checking current record")
-		}
-
-		if nr.AbsName != or.AbsName {
-			_checkuserf(errors.New("cannot change name"), "checking current record")
-		}
-		if nr.Type != or.Type {
-			_checkuserf(errors.New("cannot change type"), "checking current record")
-		}
+		soa = zoneSOA(log, tx, z.Name)
 
 		var err error
-		q := bstore.QueryDB[Record](ctx, database)
-		q.FilterNonzero(Record{Zone: zone, AbsName: or.AbsName})
+		q := bstore.QueryTx[Record](tx)
+		q.FilterNonzero(Record{Zone: z.Name, AbsName: oldAbsName, Type: nset[0].Type})
 		q.FilterFn(func(r Record) bool { return r.Deleted == nil })
-		orrset, err = q.List()
-		_checkf(err, "get old rrset")
+		oset, err = q.List()
+		_checkf(err, "get old set")
 	})
+
+	// Check user is operating on latest records.
+	var orecordIDs []int64
+	for _, or := range oset {
+		orecordIDs = append(orecordIDs, or.ID)
+	}
+	slices.Sort(orecordIDs)
+	slices.Sort(prevRecordIDs)
+	if !slices.Equal(orecordIDs, prevRecordIDs) {
+		_checkuserf(fmt.Errorf("user expects %v, current latest %v", prevRecordIDs, orecordIDs), "checking user is operating on latest records")
+	}
+
+	if oset[0].Type != rsc.Type {
+		_checkuserf(errors.New("type cannot be changed, remove old and create new records instead"), "checking type")
+	}
+
+	ormap := map[int64]Record{}
+	for _, or := range oset {
+		ormap[or.ID] = or
+	}
+	for _, id := range valueRecordIDs {
+		if _, ok := ormap[id]; id > 0 && !ok {
+			_checkuserf(fmt.Errorf("unknown record id %v", id), "checking record ids of updated records")
+		}
+	}
+
+	// We'll make changes by either "set" of records (changing them) or deleting &
+	// adding. If the name changed, we'll just deleted & add. Otherwise (the common
+	// case), we use SetRecords only for records that changed and have ProviderIDs
+	// (because we don't really know what "setting records" means otherwise if there is
+	// no reference), and use AppendRecords/DeleteRecords otherwise.
+	var adds []Record
+	var expAdds []recordKey
+	var dels []Record
+	var sets []Record
+	for _, or := range oset {
+		index := slices.Index(valueRecordIDs, or.ID)
+		if index >= 0 && or.recordKey() == nset[index].recordKey() {
+			continue // Unchanged.
+		} else if or.AbsName != oldAbsName || index < 0 || or.ProviderID == "" {
+			dels = append(dels, or)
+		}
+		// Otherwise, the record will be updated and we'll handle it below.
+	}
+	for i, nr := range nset {
+		if orID := valueRecordIDs[i]; orID > 0 && ormap[orID].recordKey() == nr.recordKey() {
+			continue // Unchanged.
+		} else if oset[0].AbsName != oldAbsName || orID <= 0 || ormap[orID].ProviderID == "" {
+			adds = append(adds, nr)
+			expAdds = append(expAdds, nr.recordKey())
+		} else {
+			nr.ProviderID = ormap[orID].ProviderID
+			sets = append(sets, nr)
+			expAdds = append(expAdds, nr.recordKey())
+		}
+	}
+
+	if len(dels) == 0 && len(adds) == 0 && len(sets) == 0 {
+		_checkuserf(errors.New("no added/removed/updated records"), "gathering changes")
+	}
+
+	log.Debug("updating record set", "oset", oset, "nset", nset, "dels", dels, "sets", sets, "dels", dels)
 
 	var cancel func()
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	nr.ProviderID = or.ProviderID
-	nrrset := []Record{nr}
-	for _, r := range orrset {
-		if r.ID != or.ID {
-			nrrset = append(nrrset, r)
+	if len(dels) > 0 {
+		ldrdels := libdnsRecords(dels)
+		ldeleted, err := deleteRecords(ctx, log, provider, z.Name, ldrdels)
+		if err == nil && len(ldeleted) != len(ldrdels) {
+			slog.Info("provider reported deletes", "deleted", ldeleted, "requested", ldrdels)
+			err = fmt.Errorf("provider reports %d records were deleted, expected %d", len(ldeleted), len(ldrdels))
 		}
+		_checkf(err, "deleting old records through provider")
+		log.Debug("records deleted through provider", "deleted", ldeleted)
+	}
+	if len(sets) > 0 {
+		ldrsets := libdnsRecords(sets)
+		lupdated, err := setRecords(ctx, log, provider, z.Name, ldrsets)
+		if err == nil && len(lupdated) != len(ldrsets) {
+			slog.Info("provider reported updates", "updated", lupdated, "requested", ldrsets)
+			err = fmt.Errorf("provider reports %d records were updated, expected %d", len(lupdated), len(sets))
+		}
+		_checkf(err, "updating records through provider")
+		log.Debug("records updated through provider", "updated", lupdated)
+	}
+	if len(adds) > 0 {
+		ldradds := libdnsRecords(nset)
+		ladded, err := appendRecords(ctx, log, provider, z.Name, ldradds)
+		if err == nil && len(ladded) < len(ldradds) {
+			slog.Info("provider reported appends", "added", ladded, "requested", ldradds)
+			err = fmt.Errorf("provider reports %d records were added, expected %d", len(ladded), len(ldradds))
+		}
+		_checkf(err, "adding records through provider")
+		log.Debug("records added through provider", "added", ladded)
 	}
 
-	// We're only going to wait for update propagation when the record actually
-	// changed. Otherwise, the provider may not be making any changes, and we won't get
-	// a new serial, and no updated records when we sync.
-	var adds []recordKey
-	var dels []Record
-	if nr.recordKey() != or.recordKey() {
-		adds = []recordKey{nr.recordKey()}
-		dels = []Record{or}
-	}
-
-	// If we don't have explicit IDs for records tracked by the provider, we don't know
-	// what "setting" a record means. If that's the case, we delete & add the record.
-	if nrrset[0].ProviderID != "" {
-		lupdated, err := setRecords(ctx, log, provider, z.Name, libdnsRecords(nrrset))
-		if err == nil && len(lupdated) < len(adds) {
-			slog.Info("provider reported updates", "updated", lupdated, "oldrecord", or, "newrecord", nr, "nrrset", nrrset)
-			err = fmt.Errorf("provider reports %d records were updated, expected at least %d", len(lupdated), len(adds))
-		}
-		_checkf(err, "updating record through provider")
-		log.Debug("records updated through provider", "nrrset", nrrset, "lupdated", lupdated, "adds", adds, "dels", dels)
-
-		if nr.recordKey() != or.recordKey() {
-			var oldUpdated bool
-			for _, r := range lupdated {
-				if r.ID != "" && r.ID == or.ProviderID {
-					oldUpdated = true
-					break
-				}
-			}
-			if !oldUpdated {
-				_, err := deleteRecords(ctx, log, provider, z.Name, []libdns.Record{or.libdnsRecord()})
-				_checkf(err, "removing old record")
-			}
-		}
-	} else {
-		ldeleted, err := deleteRecords(ctx, log, provider, z.Name, libdnsRecords(orrset))
-		if err == nil && len(ldeleted) < len(adds) {
-			slog.Info("provider reported deletes", "deleted", ldeleted, "oldrecord", or, "newrecord", nr, "orrset", orrset)
-			err = fmt.Errorf("provider reports %d records were updated, expected at least %d", len(ldeleted), len(adds))
-		}
-		_checkf(err, "deleting old record(s) through provider")
-		log.Debug("records deleted through provider", "orrset", orrset, "ldeted", ldeleted, "adds", adds, "dels", dels)
-
-		ladd, err := appendRecords(ctx, log, provider, z.Name, libdnsRecords(nrrset))
-		if err == nil && len(ladd) < len(adds) {
-			slog.Info("provider reported appends", "add", ladd, "oldrecord", or, "newrecord", nr, "nrrset", nrrset)
-			err = fmt.Errorf("provider reports %d records were updated, expected at least %d", len(ladd), len(adds))
-		}
-		_checkf(err, "adding old record(s) through provider")
-		log.Debug("records added through provider", "nrrset", nrrset, "ladd", ladd, "adds", adds, "dels", dels)
-	}
-
-	inserted, _, err := ensurePropagate(ctx, log, provider, z, adds, dels, or.SerialFirst)
+	inserted, _, err := ensurePropagate(ctx, log, provider, z, expAdds, dels, soa.SerialFirst)
 	_checkf(err, "ensuring propagation")
-	for _, ins := range inserted {
-		if ins.ID == or.ID || ins.recordKey() == nr.recordKey() {
-			return ins
-		}
-	}
-	return or
+	return inserted
 }
 
-// RecordDelete removes a record through the provider and waits for the change to
-// be synced to the local database. The historic/deleted record is returned.
-func (x API) RecordDelete(ctx context.Context, zone string, recordID int64) (r Record) {
+// RecordSetDelete removes a record set through the provider and waits for the
+// change to be synced to the local database. The historic/deleted record is
+// returned.
+//
+// recordIDs must be the current record ids the caller expects to invalidate.
+//
+// The updated records, now marked as deleted, are returned.
+func (x API) RecordSetDelete(ctx context.Context, zone string, relName string, typ Type, recordIDs []int64) []Record {
 	log := cidlog(ctx)
+
+	_checkType(typ)
 
 	var z Zone
 	var provider Provider
-	var or Record
 	var soa Record
 	_dbread(ctx, func(tx *bstore.Tx) {
 		var err error
@@ -756,33 +840,50 @@ func (x API) RecordDelete(ctx context.Context, zone string, recordID int64) (r R
 	var notify bool
 	defer possiblyZoneNotify(log, zone, &notify)
 
+	var records []Record
+
 	// Sync and get record to delete.
 	_dbwrite(ctx, func(tx *bstore.Tx) {
 		notify, _, _, _, err = syncRecords(log, tx, z, latest)
 		_checkf(err, "updating records from latest before looking record to delete")
 
-		or = _record(tx, z.Name, recordID)
-		if or.Deleted != nil {
-			_checkuserf(errors.New("record is already marked deleted"), "checking current record")
-		}
-
 		soa = zoneSOA(log, tx, z.Name)
+
+		q := bstore.QueryTx[Record](tx)
+		q.FilterNonzero(Record{Zone: z.Name, AbsName: libdns.AbsoluteName(relName, zone), Type: typ})
+		q.FilterFn(func(r Record) bool { return r.Deleted == nil })
+		records, err = q.List()
+		_checkf(err, "list records")
 	})
+
+	if len(records) == 0 {
+		_checkuserf(errors.New("no record found"), "fetching records to remove")
+	}
+
+	var gotIDs []int64
+	for _, r := range records {
+		gotIDs = append(gotIDs, r.ID)
+	}
+	slices.Sort(gotIDs)
+	slices.Sort(recordIDs)
+	if !slices.Equal(gotIDs, recordIDs) {
+		_checkuserf(fmt.Errorf("found %v, user expects %v", gotIDs, recordIDs), "comparing record ids")
+	}
 
 	var cancel func()
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	removed, err := deleteRecords(ctx, log, provider, z.Name, []libdns.Record{or.libdnsRecord()})
-	if err == nil && len(removed) != 1 {
-		err = fmt.Errorf("provider reports %d records were removed, expected 1", len(removed))
+	removed, err := deleteRecords(ctx, log, provider, z.Name, libdnsRecords(records))
+	if err == nil && len(removed) != len(records) {
+		err = fmt.Errorf("provider reports %d records were removed, expected %d", len(removed), len(records))
 	}
-	_checkf(err, "deleting record through provider")
+	_checkf(err, "deleting records through provider")
 	log.Debug("records removed", "records", removed)
 
-	_, dels, err := ensurePropagate(ctx, log, provider, z, nil, []Record{or}, soa.SerialFirst)
+	_, dels, err := ensurePropagate(ctx, log, provider, z, nil, records, soa.SerialFirst)
 	_checkf(err, "ensuring propagation")
-	return dels[0]
+	return dels
 }
 
 // Version returns the version of this build of the application.
@@ -911,6 +1012,8 @@ func (x API) ZoneRecordSets(ctx context.Context, zone string) (sets []RecordSet)
 // including the current value.
 func (x API) ZoneRecordSetHistory(ctx context.Context, zone, relName string, typ Type) (history []PropagationState) {
 	var records []Record
+
+	_checkType(typ)
 
 	_dbread(ctx, func(tx *bstore.Tx) {
 		z := _zone(tx, zone)

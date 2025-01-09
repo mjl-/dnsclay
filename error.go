@@ -17,32 +17,32 @@ func _checkf(err error, format string, args ...any) {
 		return
 	}
 
-	msg := fmt.Sprintf(format, args...)
+	msg := fmt.Errorf(format, args...)
 
 	if err == bstore.ErrAbsent {
 		err = fmt.Errorf("%s: Not found", msg)
 		slog.Debug("sherpa user error", "err", err)
 		panic(&sherpa.Error{Code: "user:notFound", Message: err.Error()})
 	}
+	xerr := fmt.Errorf("%w: %w", msg, err)
 	switch {
-	case errors.Is(err, errUser),
-		errors.Is(err, bstore.ErrUnique),
-		errors.Is(err, bstore.ErrReference),
-		errors.Is(err, bstore.ErrZero):
+	case errors.Is(xerr, errUser),
+		errors.Is(xerr, bstore.ErrUnique),
+		errors.Is(xerr, bstore.ErrReference),
+		errors.Is(xerr, bstore.ErrZero):
 
-		err = fmt.Errorf("%s: %v", msg, err)
-		slog.Debug("sherpa user error", "err", err)
-		panic(&sherpa.Error{Code: "user:error", Message: err.Error()})
+		slog.Debug("sherpa user error", "err", xerr)
+		panic(&sherpa.Error{Code: "user:error", Message: xerr.Error()})
 	}
 
-	m := msg
+	m := msg.Error()
 	if m != "" {
 		m += ": "
 	}
 	m += err.Error()
 	slog.Error("sherpa server error", "err", m)
 	debug.PrintStack()
-	m = msg + ": " + err.Error()
+	m = msg.Error() + ": " + err.Error()
 	_serverError(m)
 }
 

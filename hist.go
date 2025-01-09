@@ -257,7 +257,7 @@ func propagationStates(now time.Time, l []Record, relName string, typ int, oldAc
 		k := RecordSetKey{absName, Type(typ)}
 		set, ok := m[k]
 		if !ok {
-			return nil, fmt.Errorf("record set does not exist")
+			return nil, fmt.Errorf("%w: record set does not exist", errUser)
 		}
 		m = map[RecordSetKey][]RecordSet{k: set}
 	}

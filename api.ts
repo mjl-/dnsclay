@@ -76,12 +76,12 @@ export interface PropagationState {
 	Records?: Record[] | null  // Records active during the period Start-End.
 }
 
-// RecordNew is a new or updated record.
-export interface RecordNew {
+// RecordSetChange is a new or updated record set.
+export interface RecordSetChange {
 	RelName: string
 	TTL: number
 	Type: number
-	Value: string
+	Values?: string[] | null
 }
 
 // KnownProviders ensures all providers types are included in sherpadoc API documentation.
@@ -614,7 +614,7 @@ export enum BaseURL {
 	Prod = "https://api.dnsmadeeasy.com/V2.0/",
 }
 
-export const structTypes: {[typename: string]: boolean} = {"Credential":true,"IntValue":true,"KnownProviders":true,"PropagationState":true,"ProviderConfig":true,"Provider_alidns":true,"Provider_autodns":true,"Provider_azure":true,"Provider_bunny":true,"Provider_civo":true,"Provider_cloudflare":true,"Provider_ddnss":true,"Provider_desec":true,"Provider_digitalocean":true,"Provider_directadmin":true,"Provider_dnsimple":true,"Provider_dnsmadeeasy":true,"Provider_dnspod":true,"Provider_dnsupdate":true,"Provider_dreamhost":true,"Provider_duckdns":true,"Provider_dynu":true,"Provider_dynv6":true,"Provider_easydns":true,"Provider_exoscale":true,"Provider_gandi":true,"Provider_glesys":true,"Provider_godaddy":true,"Provider_googleclouddns":true,"Provider_he":true,"Provider_hetzner":true,"Provider_hexonet":true,"Provider_hosttech":true,"Provider_huaweicloud":true,"Provider_infomaniak":true,"Provider_inwx":true,"Provider_ionos":true,"Provider_katapult":true,"Provider_leaseweb":true,"Provider_linode":true,"Provider_loopia":true,"Provider_luadns":true,"Provider_mailinabox":true,"Provider_metaname":true,"Provider_mythicbeasts":true,"Provider_namecheap":true,"Provider_namedotcom":true,"Provider_namesilo":true,"Provider_nanelo":true,"Provider_netcup":true,"Provider_netlify":true,"Provider_nfsn":true,"Provider_njalla":true,"Provider_ovh":true,"Provider_porkbun":true,"Provider_powerdns":true,"Provider_rfc2136":true,"Provider_route53":true,"Provider_scaleway":true,"Provider_selectel":true,"Provider_tencentcloud":true,"Provider_timeweb":true,"Provider_totaluptime":true,"Provider_vultr":true,"Record":true,"RecordNew":true,"RecordSet":true,"StringValue":true,"Zone":true,"ZoneNotify":true,"sherpadocArg":true,"sherpadocField":true,"sherpadocFunction":true,"sherpadocInts":true,"sherpadocSection":true,"sherpadocStrings":true,"sherpadocStruct":true}
+export const structTypes: {[typename: string]: boolean} = {"Credential":true,"IntValue":true,"KnownProviders":true,"PropagationState":true,"ProviderConfig":true,"Provider_alidns":true,"Provider_autodns":true,"Provider_azure":true,"Provider_bunny":true,"Provider_civo":true,"Provider_cloudflare":true,"Provider_ddnss":true,"Provider_desec":true,"Provider_digitalocean":true,"Provider_directadmin":true,"Provider_dnsimple":true,"Provider_dnsmadeeasy":true,"Provider_dnspod":true,"Provider_dnsupdate":true,"Provider_dreamhost":true,"Provider_duckdns":true,"Provider_dynu":true,"Provider_dynv6":true,"Provider_easydns":true,"Provider_exoscale":true,"Provider_gandi":true,"Provider_glesys":true,"Provider_godaddy":true,"Provider_googleclouddns":true,"Provider_he":true,"Provider_hetzner":true,"Provider_hexonet":true,"Provider_hosttech":true,"Provider_huaweicloud":true,"Provider_infomaniak":true,"Provider_inwx":true,"Provider_ionos":true,"Provider_katapult":true,"Provider_leaseweb":true,"Provider_linode":true,"Provider_loopia":true,"Provider_luadns":true,"Provider_mailinabox":true,"Provider_metaname":true,"Provider_mythicbeasts":true,"Provider_namecheap":true,"Provider_namedotcom":true,"Provider_namesilo":true,"Provider_nanelo":true,"Provider_netcup":true,"Provider_netlify":true,"Provider_nfsn":true,"Provider_njalla":true,"Provider_ovh":true,"Provider_porkbun":true,"Provider_powerdns":true,"Provider_rfc2136":true,"Provider_route53":true,"Provider_scaleway":true,"Provider_selectel":true,"Provider_tencentcloud":true,"Provider_timeweb":true,"Provider_totaluptime":true,"Provider_vultr":true,"Record":true,"RecordSet":true,"RecordSetChange":true,"StringValue":true,"Zone":true,"ZoneNotify":true,"sherpadocArg":true,"sherpadocField":true,"sherpadocFunction":true,"sherpadocInts":true,"sherpadocSection":true,"sherpadocStrings":true,"sherpadocStruct":true}
 export const stringsTypes: {[typename: string]: boolean} = {"BaseURL":true}
 export const intsTypes: {[typename: string]: boolean} = {}
 export const types: TypenameMap = {
@@ -625,7 +625,7 @@ export const types: TypenameMap = {
 	"RecordSet": {"Name":"RecordSet","Docs":"","Fields":[{"Name":"Records","Docs":"","Typewords":["[]","Record"]},{"Name":"States","Docs":"","Typewords":["[]","PropagationState"]}]},
 	"Record": {"Name":"Record","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Zone","Docs":"","Typewords":["string"]},{"Name":"SerialFirst","Docs":"","Typewords":["uint32"]},{"Name":"SerialDeleted","Docs":"","Typewords":["uint32"]},{"Name":"First","Docs":"","Typewords":["timestamp"]},{"Name":"Deleted","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"AbsName","Docs":"","Typewords":["string"]},{"Name":"Type","Docs":"","Typewords":["uint16"]},{"Name":"Class","Docs":"","Typewords":["uint16"]},{"Name":"TTL","Docs":"","Typewords":["uint32"]},{"Name":"DataHex","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["string"]},{"Name":"ProviderID","Docs":"","Typewords":["string"]}]},
 	"PropagationState": {"Name":"PropagationState","Docs":"","Fields":[{"Name":"Start","Docs":"","Typewords":["timestamp"]},{"Name":"End","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"Negative","Docs":"","Typewords":["bool"]},{"Name":"Records","Docs":"","Typewords":["[]","Record"]}]},
-	"RecordNew": {"Name":"RecordNew","Docs":"","Fields":[{"Name":"RelName","Docs":"","Typewords":["string"]},{"Name":"TTL","Docs":"","Typewords":["uint32"]},{"Name":"Type","Docs":"","Typewords":["uint16"]},{"Name":"Value","Docs":"","Typewords":["string"]}]},
+	"RecordSetChange": {"Name":"RecordSetChange","Docs":"","Fields":[{"Name":"RelName","Docs":"","Typewords":["string"]},{"Name":"TTL","Docs":"","Typewords":["uint32"]},{"Name":"Type","Docs":"","Typewords":["uint16"]},{"Name":"Values","Docs":"","Typewords":["[]","string"]}]},
 	"KnownProviders": {"Name":"KnownProviders","Docs":"","Fields":[{"Name":"Xalidns","Docs":"","Typewords":["Provider_alidns"]},{"Name":"Xautodns","Docs":"","Typewords":["Provider_autodns"]},{"Name":"Xazure","Docs":"","Typewords":["Provider_azure"]},{"Name":"Xbunny","Docs":"","Typewords":["Provider_bunny"]},{"Name":"Xcivo","Docs":"","Typewords":["Provider_civo"]},{"Name":"Xcloudflare","Docs":"","Typewords":["Provider_cloudflare"]},{"Name":"Xddnss","Docs":"","Typewords":["Provider_ddnss"]},{"Name":"Xdesec","Docs":"","Typewords":["Provider_desec"]},{"Name":"Xdigitalocean","Docs":"","Typewords":["Provider_digitalocean"]},{"Name":"Xdirectadmin","Docs":"","Typewords":["Provider_directadmin"]},{"Name":"Xdnsimple","Docs":"","Typewords":["Provider_dnsimple"]},{"Name":"Xdnsmadeeasy","Docs":"","Typewords":["Provider_dnsmadeeasy"]},{"Name":"Xdnspod","Docs":"","Typewords":["Provider_dnspod"]},{"Name":"Xdnsupdate","Docs":"","Typewords":["Provider_dnsupdate"]},{"Name":"Xdreamhost","Docs":"","Typewords":["Provider_dreamhost"]},{"Name":"Xduckdns","Docs":"","Typewords":["Provider_duckdns"]},{"Name":"Xdynu","Docs":"","Typewords":["Provider_dynu"]},{"Name":"Xdynv6","Docs":"","Typewords":["Provider_dynv6"]},{"Name":"Xeasydns","Docs":"","Typewords":["Provider_easydns"]},{"Name":"Xexoscale","Docs":"","Typewords":["Provider_exoscale"]},{"Name":"Xgandi","Docs":"","Typewords":["Provider_gandi"]},{"Name":"Xglesys","Docs":"","Typewords":["Provider_glesys"]},{"Name":"Xgodaddy","Docs":"","Typewords":["Provider_godaddy"]},{"Name":"Xgoogleclouddns","Docs":"","Typewords":["Provider_googleclouddns"]},{"Name":"Xhe","Docs":"","Typewords":["Provider_he"]},{"Name":"Xhetzner","Docs":"","Typewords":["Provider_hetzner"]},{"Name":"Xhexonet","Docs":"","Typewords":["Provider_hexonet"]},{"Name":"Xhosttech","Docs":"","Typewords":["Provider_hosttech"]},{"Name":"Xhuaweicloud","Docs":"","Typewords":["Provider_huaweicloud"]},{"Name":"Xinfomaniak","Docs":"","Typewords":["Provider_infomaniak"]},{"Name":"Xinwx","Docs":"","Typewords":["Provider_inwx"]},{"Name":"Xionos","Docs":"","Typewords":["Provider_ionos"]},{"Name":"Xkatapult","Docs":"","Typewords":["Provider_katapult"]},{"Name":"Xleaseweb","Docs":"","Typewords":["Provider_leaseweb"]},{"Name":"Xlinode","Docs":"","Typewords":["Provider_linode"]},{"Name":"Xloopia","Docs":"","Typewords":["Provider_loopia"]},{"Name":"Xluadns","Docs":"","Typewords":["Provider_luadns"]},{"Name":"Xmailinabox","Docs":"","Typewords":["Provider_mailinabox"]},{"Name":"Xmetaname","Docs":"","Typewords":["Provider_metaname"]},{"Name":"Xmythicbeasts","Docs":"","Typewords":["Provider_mythicbeasts"]},{"Name":"Xnamecheap","Docs":"","Typewords":["Provider_namecheap"]},{"Name":"Xnamedotcom","Docs":"","Typewords":["Provider_namedotcom"]},{"Name":"Xnamesilo","Docs":"","Typewords":["Provider_namesilo"]},{"Name":"Xnanelo","Docs":"","Typewords":["Provider_nanelo"]},{"Name":"Xnetcup","Docs":"","Typewords":["Provider_netcup"]},{"Name":"Xnetlify","Docs":"","Typewords":["Provider_netlify"]},{"Name":"Xnfsn","Docs":"","Typewords":["Provider_nfsn"]},{"Name":"Xnjalla","Docs":"","Typewords":["Provider_njalla"]},{"Name":"Xovh","Docs":"","Typewords":["Provider_ovh"]},{"Name":"Xporkbun","Docs":"","Typewords":["Provider_porkbun"]},{"Name":"Xpowerdns","Docs":"","Typewords":["Provider_powerdns"]},{"Name":"Xrfc2136","Docs":"","Typewords":["Provider_rfc2136"]},{"Name":"Xroute53","Docs":"","Typewords":["Provider_route53"]},{"Name":"Xscaleway","Docs":"","Typewords":["Provider_scaleway"]},{"Name":"Xselectel","Docs":"","Typewords":["Provider_selectel"]},{"Name":"Xtencentcloud","Docs":"","Typewords":["Provider_tencentcloud"]},{"Name":"Xtimeweb","Docs":"","Typewords":["Provider_timeweb"]},{"Name":"Xtotaluptime","Docs":"","Typewords":["Provider_totaluptime"]},{"Name":"Xvultr","Docs":"","Typewords":["Provider_vultr"]}]},
 	"Provider_alidns": {"Name":"Provider_alidns","Docs":"","Fields":[{"Name":"access_key_id","Docs":"","Typewords":["string"]},{"Name":"access_key_secret","Docs":"","Typewords":["string"]},{"Name":"region_id","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_autodns": {"Name":"Provider_autodns","Docs":"","Fields":[{"Name":"username","Docs":"","Typewords":["string"]},{"Name":"password","Docs":"","Typewords":["string"]},{"Name":"Endpoint","Docs":"","Typewords":["string"]},{"Name":"context","Docs":"","Typewords":["string"]},{"Name":"primary","Docs":"","Typewords":["string"]}]},
@@ -706,7 +706,7 @@ export const parser = {
 	RecordSet: (v: any) => parse("RecordSet", v) as RecordSet,
 	Record: (v: any) => parse("Record", v) as Record,
 	PropagationState: (v: any) => parse("PropagationState", v) as PropagationState,
-	RecordNew: (v: any) => parse("RecordNew", v) as RecordNew,
+	RecordSetChange: (v: any) => parse("RecordSetChange", v) as RecordSetChange,
 	KnownProviders: (v: any) => parse("KnownProviders", v) as KnownProviders,
 	Provider_alidns: (v: any) => parse("Provider_alidns", v) as Provider_alidns,
 	Provider_autodns: (v: any) => parse("Provider_autodns", v) as Provider_autodns,
@@ -947,36 +947,53 @@ export class Client {
 		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Record[] | null
 	}
 
-	// RecordAdd adds a single record through the provider, then waits for it to
-	// synchronize back to the local database. The newly added database record is
+	// RecordSetAdd adds a record set through the provider, then waits for it to
+	// synchronize back to the local database.
+	// 
+	// The name and type must not already exist. Use RecordSetUpdate to add values to
+	// an existing record set.
+	// 
+	// The inserted records are returned.
+	async RecordSetAdd(zone: string, rsc: RecordSetChange): Promise<Record[] | null> {
+		const fn: string = "RecordSetAdd"
+		const paramTypes: string[][] = [["string"],["RecordSetChange"]]
+		const returnTypes: string[][] = [["[]","Record"]]
+		const params: any[] = [zone, rsc]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Record[] | null
+	}
+
+	// RecordSetUpdate updates an existing record set, replacing its values with the
+	// new values. If the name has changed, the old records are deleted and new records
+	// with new name inserted.
+	// 
+	// Before changing, prevRecordIDs are compared with the current records for the
+	// name and type, and must be the same.
+	// 
+	// valueRecordIDs match Values from RecordNewSet (must have the same number of
+	// items). New values must have 0 as record ID.
+	// 
+	// The records of the updated record set are returned.
+	async RecordSetUpdate(zone: string, oldRelName: string, rsc: RecordSetChange, prevRecordIDs: number[] | null, valueRecordIDs: number[] | null): Promise<Record[] | null> {
+		const fn: string = "RecordSetUpdate"
+		const paramTypes: string[][] = [["string"],["string"],["RecordSetChange"],["[]","int64"],["[]","int64"]]
+		const returnTypes: string[][] = [["[]","Record"]]
+		const params: any[] = [zone, oldRelName, rsc, prevRecordIDs, valueRecordIDs]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Record[] | null
+	}
+
+	// RecordSetDelete removes a record set through the provider and waits for the
+	// change to be synced to the local database. The historic/deleted record is
 	// returned.
-	async RecordAdd(zone: string, nr: RecordNew): Promise<Record> {
-		const fn: string = "RecordAdd"
-		const paramTypes: string[][] = [["string"],["RecordNew"]]
-		const returnTypes: string[][] = [["Record"]]
-		const params: any[] = [zone, nr]
-		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Record
-	}
-
-	// RecordUpdate updates and existing record, replacing it with the new version. The
-	// name and type must be the same. Only the TTL and value can be changed for an
-	// existing record. The updated or new local database record is returned after a sync.
-	async RecordUpdate(zone: string, recordID: number, rn: RecordNew): Promise<Record> {
-		const fn: string = "RecordUpdate"
-		const paramTypes: string[][] = [["string"],["int64"],["RecordNew"]]
-		const returnTypes: string[][] = [["Record"]]
-		const params: any[] = [zone, recordID, rn]
-		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Record
-	}
-
-	// RecordDelete removes a record through the provider and waits for the change to
-	// be synced to the local database. The historic/deleted record is returned.
-	async RecordDelete(zone: string, recordID: number): Promise<Record> {
-		const fn: string = "RecordDelete"
-		const paramTypes: string[][] = [["string"],["int64"]]
-		const returnTypes: string[][] = [["Record"]]
-		const params: any[] = [zone, recordID]
-		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Record
+	// 
+	// recordIDs must be the current record ids the caller expects to invalidate.
+	// 
+	// The updated records, now marked as deleted, are returned.
+	async RecordSetDelete(zone: string, relName: string, typ: number, recordIDs: number[] | null): Promise<Record[] | null> {
+		const fn: string = "RecordSetDelete"
+		const paramTypes: string[][] = [["string"],["string"],["uint16"],["[]","int64"]]
+		const returnTypes: string[][] = [["[]","Record"]]
+		const params: any[] = [zone, relName, typ, recordIDs]
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as Record[] | null
 	}
 
 	// Version returns the version of this build of the application.

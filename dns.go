@@ -617,8 +617,6 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 			return err
 		}
 
-		soa = zoneSOA(c.log, tx, z.Name)
-
 		return nil
 	})
 	if err != nil && err == bstore.ErrAbsent {
@@ -682,6 +680,8 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 		if err != nil {
 			return err
 		}
+
+		soa = zoneSOA(c.log, tx, z.Name)
 
 		q := bstore.QueryTx[Record](tx)
 		q.FilterNonzero(Record{Zone: z.Name})

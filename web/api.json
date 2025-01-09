@@ -311,8 +311,8 @@
 			]
 		},
 		{
-			"Name": "RecordAdd",
-			"Docs": "RecordAdd adds a single record through the provider, then waits for it to\nsynchronize back to the local database. The newly added database record is\nreturned.",
+			"Name": "RecordSetAdd",
+			"Docs": "RecordSetAdd adds a record set through the provider, then waits for it to\nsynchronize back to the local database.\n\nThe name and type must not already exist. Use RecordSetUpdate to add values to\nan existing record set.\n\nThe inserted records are returned.",
 			"Params": [
 				{
 					"Name": "zone",
@@ -321,24 +321,25 @@
 					]
 				},
 				{
-					"Name": "nr",
+					"Name": "rsc",
 					"Typewords": [
-						"RecordNew"
+						"RecordSetChange"
 					]
 				}
 			],
 			"Returns": [
 				{
-					"Name": "r",
+					"Name": "r0",
 					"Typewords": [
+						"[]",
 						"Record"
 					]
 				}
 			]
 		},
 		{
-			"Name": "RecordUpdate",
-			"Docs": "RecordUpdate updates and existing record, replacing it with the new version. The\nname and type must be the same. Only the TTL and value can be changed for an\nexisting record. The updated or new local database record is returned after a sync.",
+			"Name": "RecordSetUpdate",
+			"Docs": "RecordSetUpdate updates an existing record set, replacing its values with the\nnew values. If the name has changed, the old records are deleted and new records\nwith new name inserted.\n\nBefore changing, prevRecordIDs are compared with the current records for the\nname and type, and must be the same.\n\nvalueRecordIDs match Values from RecordNewSet (must have the same number of\nitems). New values must have 0 as record ID.\n\nThe records of the updated record set are returned.",
 			"Params": [
 				{
 					"Name": "zone",
@@ -347,30 +348,45 @@
 					]
 				},
 				{
-					"Name": "recordID",
+					"Name": "oldRelName",
 					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "rsc",
+					"Typewords": [
+						"RecordSetChange"
+					]
+				},
+				{
+					"Name": "prevRecordIDs",
+					"Typewords": [
+						"[]",
 						"int64"
 					]
 				},
 				{
-					"Name": "rn",
+					"Name": "valueRecordIDs",
 					"Typewords": [
-						"RecordNew"
+						"[]",
+						"int64"
 					]
 				}
 			],
 			"Returns": [
 				{
-					"Name": "xr",
+					"Name": "r0",
 					"Typewords": [
+						"[]",
 						"Record"
 					]
 				}
 			]
 		},
 		{
-			"Name": "RecordDelete",
-			"Docs": "RecordDelete removes a record through the provider and waits for the change to\nbe synced to the local database. The historic/deleted record is returned.",
+			"Name": "RecordSetDelete",
+			"Docs": "RecordSetDelete removes a record set through the provider and waits for the\nchange to be synced to the local database. The historic/deleted record is\nreturned.\n\nrecordIDs must be the current record ids the caller expects to invalidate.\n\nThe updated records, now marked as deleted, are returned.",
 			"Params": [
 				{
 					"Name": "zone",
@@ -379,16 +395,30 @@
 					]
 				},
 				{
-					"Name": "recordID",
+					"Name": "relName",
 					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "typ",
+					"Typewords": [
+						"uint16"
+					]
+				},
+				{
+					"Name": "recordIDs",
+					"Typewords": [
+						"[]",
 						"int64"
 					]
 				}
 			],
 			"Returns": [
 				{
-					"Name": "r",
+					"Name": "r0",
 					"Typewords": [
+						"[]",
 						"Record"
 					]
 				}
@@ -947,8 +977,8 @@
 			]
 		},
 		{
-			"Name": "RecordNew",
-			"Docs": "RecordNew is a new or updated record.",
+			"Name": "RecordSetChange",
+			"Docs": "RecordSetChange is a new or updated record set.",
 			"Fields": [
 				{
 					"Name": "RelName",
@@ -972,9 +1002,10 @@
 					]
 				},
 				{
-					"Name": "Value",
+					"Name": "Values",
 					"Docs": "",
 					"Typewords": [
+						"[]",
 						"string"
 					]
 				}

@@ -55,6 +55,7 @@ been added, except:
 - acmedns, only creates ACME TXT records
 - acmeproxy, only creates ACME TXT records
 - dinahosting, only creates ACME TXT records
+- dnsexit, no proper GetRecords
 - dode, only creates ACME TXT records
 - vercel, cannot set TTL
 - nicrudns, does not compile against latest libdns

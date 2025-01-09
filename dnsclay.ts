@@ -34,44 +34,53 @@ const check = async <T>(elem: {disabled: boolean}, fn: () => Promise<T>): Promis
 	}
 }
 
-const popupOpts = (opaque: boolean, ...kids: ElemArg[]) => {
-	const origFocus = document.activeElement
-	const close = () => {
-		if (!root.parentNode) {
-			return
+const popupOpts = (opaque: boolean, ...kids: ElemArg[]): [(canceled?: boolean) => void, Promise<void>] => {
+	let close: (canceled?: boolean) => void = () => {}
+	const closed = new Promise<void>((resolve, reject) => {
+		const origFocus = document.activeElement
+		close = (canceled?: boolean) => {
+			if (!root.parentNode) {
+				return
+			}
+			root.remove()
+			if (origFocus && origFocus instanceof HTMLElement && origFocus.parentNode) {
+				origFocus.focus()
+			}
+			if (canceled) {
+				reject()
+			} else {
+				resolve()
+			}
 		}
-		root.remove()
-		if (origFocus && origFocus instanceof HTMLElement && origFocus.parentNode) {
-			origFocus.focus()
-		}
-	}
-	let content: HTMLElement
-	const root = dom.div(
-		style({position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, paddingTop: '5vh', backgroundColor: opaque ? '#ffffff' : 'rgba(0, 0, 0, 0.1)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: opaque ? 3 : 1}),
-		opaque ? [] : [
-			function keydown(e: KeyboardEvent) {
-				if (e.key === 'Escape') {
+		let content: HTMLElement
+		const root = dom.div(
+			style({position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, paddingTop: '5vh', backgroundColor: opaque ? '#ffffff' : 'rgba(0, 0, 0, 0.1)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: opaque ? 3 : 1}),
+			opaque ? [] : [
+				function keydown(e: KeyboardEvent) {
+					if (e.key === 'Escape') {
+						e.stopPropagation()
+						close(true)
+					}
+				},
+				function click(e: MouseEvent) {
 					e.stopPropagation()
-					close()
-				}
-			},
-			function click(e: MouseEvent) {
-				e.stopPropagation()
-				close()
-			},
-		],
-		content=dom.div(
-			attr.tabindex('0'),
-			style({backgroundColor: 'white', borderRadius: '.25em', padding: '1em', boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)', border: '1px solid #ddd', maxWidth: '95vw', overflowX: 'auto', maxHeight: '90vh', overflowY: 'auto'}),
-			function click(e: MouseEvent) {
-				e.stopPropagation()
-			},
-			kids,
+					close(true)
+				},
+			],
+			content=dom.div(
+				attr.tabindex('0'),
+				style({backgroundColor: 'white', borderRadius: '.25em', padding: '1em', boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)', border: '1px solid #ddd', maxWidth: '95vw', overflowX: 'auto', maxHeight: '90vh', overflowY: 'auto'}),
+				function click(e: MouseEvent) {
+					e.stopPropagation()
+				},
+				kids,
+			)
 		)
-	)
-	document.body.appendChild(root)
-	content.focus()
-	return close
+		document.body.appendChild(root)
+		content.focus()
+		return close
+	})
+	return [close, closed]
 }
 
 const trimPrefix = (s: string, prefix: string) => s.startsWith(prefix) ? s.substring(prefix.length) : s
@@ -246,7 +255,7 @@ const pageHome = async () => {
 				}
 				let providerConfigBox: HTMLElement
 
-				const close = popup(
+				const [close] = popup(
 					dom.div(
 						dom.h1('New zone'),
 						dom.form(
@@ -467,6 +476,14 @@ const formatDate = (dt: Date) => {
 	}).format(dt)
 }
 
+const zoneRelName = (zone: api.Zone, s: string) => {
+	s = s.substring(0, s.length-zone.Name.length)
+	if (s) {
+		s = s.substring(0, s.length-1)
+	}
+	return s
+}
+
 const box = (color: string) => dom.div(style({width: '.75em', height: '.75em', display: 'inline-block', backgroundColor: color}))
 
 const popupHistory = (absName: string, history: api.PropagationState[]) => {
@@ -542,6 +559,134 @@ const popupHistory = (absName: string, history: api.PropagationState[]) => {
 	)
 }
 
+const popupEdit = (zone: api.Zone, records: api.Record[], isNew: boolean) => {
+	let xtype: HTMLSelectElement
+	let relName: HTMLInputElement
+	let ttl: HTMLInputElement
+	let fieldset: HTMLFieldSetElement
+
+	// Meta types that we don't let the user create.
+	const skipTypes = ['Reserved', 'None', 'NXNAME', 'OPT', 'UINFO', 'UID', 'GID', 'UNSPEC', 'TKEY', 'TSIG', 'IXFR', 'AXFR', 'MAILA', 'MAILB', 'ANY']
+	// Types we show first in the list. There is a long tail of uninteresting records.
+	const firstTypes = ['A', 'AAAA', 'CAA', 'CNAME', 'DNSKEY', 'DS', 'MX', 'NS', 'OPENPGPKEY', 'PTR', 'SMIMEA', 'SOA', 'SRV', 'SSHFP', 'SVCB', 'TLSA', 'TXT']
+
+	interface ValueView {
+		root: HTMLElement
+		input: HTMLInputElement
+		recordID: number
+	}
+	interface ValuesView {
+		root: HTMLElement
+		values: ValueView[]
+	}
+	const valuesView: ValuesView = {
+		root: dom.div(),
+		values: [],
+	}
+	const addValue = (s: string, recordID: number) => {
+		const input = dom.input(attr.value(s), style({width: '60em'}))
+		let v: ValueView
+		const root = dom.div(
+			style({display: 'flex', gap: '.5em', margin: '.5ex 0'}),
+			input,
+			dom.clickbutton('Remove', attr.title('Remove value'), function click() {
+				valuesView.values.splice(valuesView.values.indexOf(v), 1)
+				root.remove()
+			}),
+		)
+		v = {root: root, input: input, recordID: recordID}
+		valuesView.values.push(v)
+		valuesView.root.appendChild(v.root)
+	}
+	for (const r of records) {
+		addValue(r.Value, r.ID)
+	}
+	if (records.length === 0) {
+		addValue('', 0)
+	}
+
+	return new Promise<void>((resolve, reject) => {
+		const [close, closed] = popup(
+			dom.h1(isNew ? 'New record set' : 'Edit record set'),
+			dom.form(
+				async function submit(e: SubmitEvent) {
+					e.preventDefault()
+					e.stopPropagation()
+
+					try {
+						const values = valuesView.values.map(vw => vw.input.value)
+						if (values.length === 0) {
+							alert('Specify at least one value.')
+							throw new Error('must specify at least one value')
+						}
+
+						const n: api.RecordSetChange = {
+							RelName: relName.value,
+							Type: parseInt(xtype.value),
+							TTL: parseInt(ttl.value),
+							Values: values,
+						}
+						if (isNew) {
+							await check(fieldset, () => client.RecordSetAdd(zone.Name, n))
+						} else {
+							await check(fieldset, () => client.RecordSetUpdate(zone.Name, zoneRelName(zone, records[0].AbsName), n, records.map(r => r.ID), valuesView.values.map(v => v.recordID)))
+						}
+						close()
+						resolve()
+					} catch (err) {
+						reject(err)
+					}
+				},
+				fieldset=dom.fieldset(
+					style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
+					dom.div(
+						dom.label(
+							dom.div('Name'),
+							relName=dom.input(records.length > 0 ? attr.value(zoneRelName(zone, records[0].AbsName)) : [], style({textAlign: 'right'})), '.'+zone.Name,
+						),
+					),
+					dom.div(
+						dom.label(
+							dom.div('TTL'),
+							ttl=dom.input(attr.type('number'), attr.required(''), attr.value('300')),
+						),
+					),
+					dom.div(
+						dom.label(
+							dom.div('Type'),
+							xtype=dom.select(
+								dom.optgroup(
+									attr.label('Common'),
+									Object.entries(dnsTypeNames).filter(t => firstTypes.includes(t[1])).sort((ta, tb) => firstTypes.indexOf(ta[1]) - firstTypes.indexOf(tb[1])).map(t => dom.option(attr.value(t[0]), t[1])),
+								),
+								dom.optgroup(
+									attr.label('Others'),
+									Object.entries(dnsTypeNames).filter(t => !firstTypes.includes(t[1]) && !skipTypes.includes(t[1])).sort((ta, tb) => ta[1] < tb[1] ? -1 : 1).map(t => dom.option(attr.value(t[0]), t[1])),
+								),
+								isNew ? [] : attr.disabled(''),
+								records.length === 0 ? [] : prop({value: ''+records[0].Type}),
+							),
+						),
+					),
+					dom.div(
+						dom.div(
+							dom.label('Value(s)'), ' ',
+							dom.clickbutton('Add', attr.title('Add another value'), function click() {
+								addValue('', 0)
+							}),
+						),
+						valuesView,
+					),
+					dom.div(
+						dom.submitbutton(isNew ? 'Add record set' : 'Update record set'),
+					),
+				),
+			),
+		)
+		closed.then(undefined, reject)
+		relName.focus()
+	})
+}
 
 const pageZone = async (zonestr: string) => {
 	let [zone, providerConfig, notifies0, credentials0, sets0] = await client.Zone(zonestr+'.')
@@ -555,13 +700,7 @@ const pageZone = async (zonestr: string) => {
 	)
 	document.title = 'Dnsclay - Zone '+trimDot(zone.Name)
 
-	const shortname = (s: string) => {
-		s = s.substring(0, s.length-zone.Name.length)
-		if (s) {
-			s = s.substring(0, s.length-1)
-		}
-		return s
-	}
+	const relName = (s: string) => zoneRelName(zone, s)
 
 	const age = (r: api.Record) => {
 		let s = ''
@@ -602,7 +741,7 @@ const pageZone = async (zonestr: string) => {
 
 					const providerConfigs = await check(e.target, () => client.ProviderConfigs()) || []
 
-					const close = popup(
+					const [close] = popup(
 						dom.h1('Edit zone'),
 						dom.br(),
 						dom.form(
@@ -657,7 +796,7 @@ const pageZone = async (zonestr: string) => {
 					let testResult: HTMLElement
 					let fields: ProviderFields
 
-					const close = popup(
+					const [close] = popup(
 						dom.h1('Edit provider config'),
 						dom.form(
 							async function submit(e: SubmitEvent) {
@@ -729,7 +868,7 @@ const pageZone = async (zonestr: string) => {
 						let address: HTMLInputElement
 						let fieldset: HTMLFieldSetElement
 
-						const close = popup(
+						const [close] = popup(
 							dom.h1('Add DNS NOTIFY address'),
 							dom.form(
 								async function submit(e: SubmitEvent) {
@@ -812,7 +951,7 @@ const pageZone = async (zonestr: string) => {
 						let key: HTMLInputElement
 						let fieldset: HTMLFieldSetElement
 
-						const close = popup(
+						const [close] = popup(
 							dom.h1('Add credential'),
 							dom.p('For use with DNS UPDATE and DNS AXFR/IXFR.'),
 							dom.form(
@@ -907,83 +1046,15 @@ const pageZone = async (zonestr: string) => {
 				sets = nsets || []
 				render()
 			}), ' ',
-			dom.clickbutton('Add record', function click() {
-				let xtype: HTMLSelectElement
-				let relName: HTMLInputElement
-				let ttl: HTMLInputElement
-				let value: HTMLInputElement
-				let fieldset: HTMLFieldSetElement
+			dom.clickbutton('Add records', function click() {
+				popupEdit(zone, [], true)
 
-				// Meta types that we don't let the user create.
-				const skipTypes = ['Reserved', 'None', 'NXNAME', 'OPT', 'UINFO', 'UID', 'GID', 'UNSPEC', 'TKEY', 'TSIG', 'IXFR', 'AXFR', 'MAILA', 'MAILB', 'ANY']
-				// Types we show first in the list. There is a long tail of uninteresting records.
-				const firstTypes = ['A', 'AAAA', 'CAA', 'CNAME', 'DNSKEY', 'DS', 'MX', 'NS', 'OPENPGPKEY', 'PTR', 'SMIMEA', 'SOA', 'SRV', 'SSHFP', 'SVCB', 'TLSA', 'TXT']
-
-				const close = popup(
-					dom.h1('New record'),
-					dom.form(
-						async function submit(e: SubmitEvent) {
-							e.preventDefault()
-							e.stopPropagation()
-
-							const nr: api.RecordNew = {
-								RelName: relName.value,
-								Type: parseInt(xtype.value),
-								TTL: parseInt(ttl.value),
-								Value: value.value,
-							}
-							await check(fieldset, () => client.RecordAdd(zone.Name, nr))
-							await refresh(fieldset)
-							close()
-						},
-						fieldset=dom.fieldset(
-							style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
-							dom.div(
-								dom.label(
-									dom.div('Type'),
-									xtype=dom.select(
-										dom.optgroup(
-											attr.label('Common'),
-											Object.entries(dnsTypeNames).filter(t => firstTypes.includes(t[1])).sort((ta, tb) => firstTypes.indexOf(ta[1]) - firstTypes.indexOf(tb[1])).map(t => dom.option(attr.value(t[0]), t[1])),
-										),
-										dom.optgroup(
-											attr.label('Others'),
-											Object.entries(dnsTypeNames).filter(t => !firstTypes.includes(t[1]) && !skipTypes.includes(t[1])).sort((ta, tb) => ta[1] < tb[1] ? -1 : 1).map(t => dom.option(attr.value(t[0]), t[1])),
-										),
-									),
-								),
-							),
-							dom.div(
-								dom.label(
-									dom.div('Name'),
-									relName=dom.input(), '.'+zone.Name,
-								),
-							),
-							dom.div(
-								dom.label(
-									dom.div('TTL'),
-									ttl=dom.input(attr.type('number'), attr.required(''), attr.value('300')),
-								),
-							),
-							dom.div(
-								dom.label(
-									dom.div('Value'),
-									value=dom.input(style({width: '60em'})),
-								),
-							),
-							dom.div(
-								dom.submitbutton('Add record'),
-							),
-						),
-					),
-				)
-				xtype.focus()
 			}), ' ',
 			dom.clickbutton('Import records', attr.title('Import records from zone file'), function click() {
 				let zonefile: HTMLTextAreaElement
 				let fieldset: HTMLFieldSetElement
 
-				const close = popup(
+				const [close] = popup(
 					dom.h1('Import records from zone file'),
 					dom.form(
 						async function submit(e: SubmitEvent) {
@@ -999,7 +1070,7 @@ const pageZone = async (zonestr: string) => {
 							dom.div(
 								dom.label(
 									dom.div('Zone file'),
-									zonefile=dom.textarea('$TTL 300 ; default 5m\n$ORIGIN '+zone.Name+'\n\n; record syntax: name ttl type value\nshortname 300 A 1.2.3.4\n', style({width: '60em'}), attr.rows('10')),
+									zonefile=dom.textarea('$TTL 300 ; default 5m\n$ORIGIN '+zone.Name+'\n\n; record syntax: name ttl type value\nrelativename 300 A 1.2.3.4\n', style({width: '60em'}), attr.rows('10')),
 								),
 							),
 							dom.div(
@@ -1054,7 +1125,7 @@ const pageZone = async (zonestr: string) => {
 		),
 		dom.table(
 			dom._class('hover'),
-			style({width: '100%'}),
+			dom._class('striped'),
 			dom.thead(
 				dom.tr(
 					dom.th(),
@@ -1062,8 +1133,8 @@ const pageZone = async (zonestr: string) => {
 					dom.th('Name'),
 					dom.th('Type'),
 					dom.th('TTL'),
-					dom.th('Value', style({width: '100%'})),
-					dom.th('Actions', attr.colspan('2')),
+					dom.th('Value'),
+					dom.th('Actions'),
 				),
 			),
 			recordsTbody=dom.tbody(),
@@ -1115,127 +1186,72 @@ const pageZone = async (zonestr: string) => {
 		dom._kids(recordsTbody,
 			sets
 			.filter(s => (showHistoric.checked || !s.Records![0]!.Deleted) && (showDNSSEC.checked || (s.Records![0].Type !== typeRRSIG && s.Records![0].Type !== typeNSEC && s.Records![0].Type !== typeNSEC3)))
-			.map((set, sindex) => {
-				return (set.Records || []).map((r, rindex) => {
-					const formName = 'form-set-'+sindex+'-record-'+rindex
-					let ttl: HTMLInputElement
-					let value: HTMLInputElement
-					let fieldset: HTMLFieldSetElement
+			.map(set => {
+				const r0 = set.Records![0]
 
-					const removedInputStyle = r.Deleted ? style({color: '#888', backgroundColor: '#eee'}) : []
+				const hasNegative = !!(set.States || []).find(state => state.Negative)
+				const hasPrevious = !!(set.States || []).find(state => !state.Negative)
+				let propagationText: string[] = []
+				if (hasPrevious) {
+					propagationText.push('Due to TTLs, previous versions of this record may still be cached in resolvers.')
+				}
+				if (hasNegative) {
+					propagationText.push('Due to the TTL for lookups with negative result, absence of this record may still be cached in resolvers.')
+				}
 
-					const hasNegative = !!(set.States || []).find(state => state.Negative)
-					const hasPrevious = !!(set.States || []).find(state => !state.Negative)
-					let propagationText: string[] = []
-					if (hasPrevious) {
-						propagationText.push('Due to TTLs, previous versions of this record may still be cached in resolvers.')
-					}
-					if (hasNegative) {
-						propagationText.push('Due to the TTL for lookups with negative result, absence of this record may still be cached in resolvers.')
-					}
-
-					return dom.tr(
-						r.Deleted ? [style({color: '#888'}), attr.title('Historic/deleted record')] : [],
-						rindex > 0 ? [] : [
-							dom.td(
-								attr.rowspan(''+(set.Records || []).length),
-								hasNegative && hasPrevious ? style({backgroundColor: 'orange', border: '3px solid #ffe300'}) : [],
-								hasNegative && !hasPrevious ? style({backgroundColor: '#ffe300'}) : [],
-								!hasNegative && hasPrevious ? style({backgroundColor: 'orange'}) : [],
-								(hasNegative || hasPrevious) ? [] : style({color: '#888'}),
-								propagationText.length > 0 ? attr.title(propagationText.join('\n')) : [],
-							),
-							dom.td(
-								attr.rowspan(''+(set.Records || []).length),
-								age(r),
-							),
-							dom.td(
-								attr.rowspan(''+(set.Records || []).length),
-								shortname(r.AbsName), style({textAlign: 'right'}), removedInputStyle,
-							),
-							dom.td(
-								attr.rowspan(''+(set.Records || []).length),
-								dnsTypeNames[r.Type] || (''+r.Type),
-								attr.title('Type '+r.Type + (r.ProviderID ? '\nID at provider: '+r.ProviderID : '')),
-								style({textAlign: 'left'}),
-							),
-						],
-						dom.td(
-							ttl=dom.input(attr.value(''+r.TTL), attr.type('number'), attr.required(''), attr.form(formName), style({width: '5em', textAlign: 'right'}), removedInputStyle),
-						),
-						dom.td(
-							value=dom.input(attr.value(r.Value), attr.form(formName), style({width: '100%'}), removedInputStyle),
-						),
-						dom.td(
-							style({whiteSpace: 'nowrap'}),
-							r.Deleted ?
-								dom.form(
-									style({display: 'inline'}), // Prevent getting buttons on separate lines.
-									attr.id(formName),
-									async function submit(e: SubmitEvent) {
-										e.preventDefault()
-										e.stopPropagation()
-										if (!confirm('Are you sure you want to recreate this record?')) {
-											return
-										}
-
-										const nr: api.RecordNew = {
-											RelName: shortname(r.AbsName),
-											Type: r.Type,
-											TTL: parseInt(ttl.value),
-											Value: value.value,
-										}
-										await check(fieldset, () => client.RecordAdd(zone.Name, nr))
-										await refresh(fieldset)
-									},
-									fieldset=dom.fieldset(
-										dom.submitbutton('Recreate'),
-									),
-								) :
-								dom.span(
-									dom.form(
-										style({display: 'inline'}), // Prevent getting buttons on separate lines.
-										attr.id(formName),
-										async function submit(e: SubmitEvent) {
-											e.preventDefault()
-											e.stopPropagation()
-											if (!confirm('Are you sure you want to update this record?')) {
-												return
-											}
-
-											const nr: api.RecordNew = {
-												RelName: shortname(r.AbsName),
-												Type: r.Type,
-												TTL: parseInt(ttl.value),
-												Value: value.value,
-											}
-											await check(fieldset, () => client.RecordUpdate(zone.Name, r.ID, nr))
-											await refresh(fieldset)
-										},
-										fieldset=dom.fieldset(
-											style({display: 'inline'}), // Prevent getting buttons on separate lines.
-											dom.submitbutton('Update'),
-										),
-									),
-									' ',
-									dom.clickbutton('Delete', async function click(e: {target: HTMLButtonElement}) {
-										if (!confirm('Are you sure you want to delete this record?')) {
-											return
-										}
-										await check(e.target, () => client.RecordDelete(zone.Name, r.ID))
-										await refresh(fieldset)
-									}),
-								),
-						),
-						rindex > 0 ? [] : dom.td(
-							attr.rowspan(''+(set.Records || []).length),
-							dom.clickbutton('History', async function click(e: {target: HTMLButtonElement}) {
-								const hist = await check(e.target, () => client.ZoneRecordSetHistory(zone.Name, shortname(r.AbsName), r.Type))
-								popupHistory(r.AbsName, hist || [])
-							}),
-						),
-					)
-				})
+				return dom.tr(
+					r0.Deleted ? [style({color: '#888'}), attr.title('Historic/deleted record')] : [],
+					dom.td(
+						hasNegative && hasPrevious ? style({backgroundColor: 'orange', border: '3px solid #ffe300'}) : [],
+						hasNegative && !hasPrevious ? style({backgroundColor: '#ffe300'}) : [],
+						!hasNegative && hasPrevious ? style({backgroundColor: 'orange'}) : [],
+						(hasNegative || hasPrevious) ? [] : style({color: '#888'}),
+						propagationText.length > 0 ? attr.title(propagationText.join('\n')) : [],
+					),
+					dom.td(
+						age(r0),
+					),
+					dom.td(
+						relName(r0.AbsName), style({textAlign: 'right'})
+					),
+					dom.td(
+						dnsTypeNames[r0.Type] || (''+r0.Type),
+						attr.title('Type '+r0.Type + (r0.ProviderID ? '\nID at provider: '+r0.ProviderID : '')),
+						style({textAlign: 'left'}),
+					),
+					dom.td(
+						''+r0.TTL,
+					),
+					dom.td(
+						style({textAlign: 'left'}),
+						(set.Records || []).map(r => dom.div(r.Value)),
+					),
+					dom.td(
+						style({whiteSpace: 'nowrap'}),
+						r0.Deleted ?
+							dom.clickbutton('Recreate', async function click(e: {target: HTMLButtonElement}) {
+								await popupEdit(zone, set.Records || [], true)
+								await refresh(e.target)
+							}) : [
+								dom.clickbutton('Edit', async function click(e: {target: HTMLButtonElement}) {
+									await popupEdit(zone, set.Records || [], false)
+									await refresh(e.target)
+								}), ' ',
+								dom.clickbutton('Delete', async function click(e: {target: HTMLButtonElement}) {
+									if (!confirm('Are you sure you want to delete this record set?')) {
+										return
+									}
+									await check(e.target, () => client.RecordSetDelete(zone.Name, relName(r0.AbsName), r0.Type, set.Records!.map(r => r.ID)))
+									await refresh(e.target)
+								}),
+							],
+						' ',
+						dom.clickbutton('History', async function click(e: {target: HTMLButtonElement}) {
+							const hist = await check(e.target, () => client.ZoneRecordSetHistory(zone.Name, relName(r0.AbsName), r0.Type))
+							popupHistory(r0.AbsName, hist || [])
+						}),
+					),
+				)
 			}),
 		)
 	}
