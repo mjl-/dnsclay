@@ -1224,7 +1224,7 @@ const pageZone = async (zonestr: string) => {
 					),
 					dom.td(
 						style({textAlign: 'left'}),
-						(set.Records || []).map(r => dom.div(r.Value)),
+						(set.Records || []).map(r => dom.div(style({wordBreak: 'break-all'}), r.Value)),
 					),
 					dom.td(
 						style({whiteSpace: 'nowrap'}),
