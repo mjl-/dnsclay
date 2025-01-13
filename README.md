@@ -22,6 +22,10 @@ For more information, see the documentation:
 
 https://pkg.go.dev/github.com/mjl-/dnsclay
 
+For additional context, see the announcement blog post:
+
+https://www.ueber.net/who/mjl/blog/p/dnsclay-dns-update-axfr-notify-to-many-custom-dns-operator-APIs-gateway/
+
 
 # Installing
 
