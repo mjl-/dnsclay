@@ -9,6 +9,7 @@ import (
 	"github.com/libdns/bunny"
 	"github.com/libdns/civo"
 	"github.com/libdns/cloudflare"
+	"github.com/libdns/cloudns"
 	"github.com/libdns/ddnss"
 	"github.com/libdns/desec"
 	"github.com/libdns/digitalocean"
@@ -72,6 +73,7 @@ type KnownProviders struct {
 	Xbunny          bunny.Provider
 	Xcivo           civo.Provider
 	Xcloudflare     cloudflare.Provider
+	Xcloudns        cloudns.Provider
 	Xddnss          ddnss.Provider
 	Xdesec          desec.Provider
 	Xdigitalocean   digitalocean.Provider
@@ -135,6 +137,7 @@ var providers = map[string]any{
 	"bunny":          bunny.Provider{},
 	"civo":           civo.Provider{},
 	"cloudflare":     cloudflare.Provider{},
+	"cloudns":        cloudns.Provider{},
 	"ddnss":          ddnss.Provider{},
 	"desec":          desec.Provider{},
 	"digitalocean":   digitalocean.Provider{},

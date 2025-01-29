@@ -401,6 +401,9 @@ github.com/libdns/civo
 # github.com/libdns/cloudflare v0.1.1
 ## explicit; go 1.18
 github.com/libdns/cloudflare
+# github.com/libdns/cloudns v1.0.0
+## explicit; go 1.20
+github.com/libdns/cloudns
 # github.com/libdns/ddnss v0.1.0
 ## explicit; go 1.16
 github.com/libdns/ddnss

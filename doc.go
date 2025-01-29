@@ -144,6 +144,7 @@ implementations maintained at https://github.com/libdns:
   - bunny
   - civo
   - cloudflare
+  - cloudns
   - ddnss
   - desec
   - digitalocean

@@ -1058,6 +1058,13 @@
 					]
 				},
 				{
+					"Name": "Xcloudns",
+					"Docs": "",
+					"Typewords": [
+						"Provider_cloudns"
+					]
+				},
+				{
 					"Name": "Xddnss",
 					"Docs": "",
 					"Typewords": [
@@ -1581,6 +1588,34 @@
 					"Docs": "API token is used for authentication. Make sure to use a scoped API **token**, NOT a global API **key**. It will need two permissions: Zone-Zone-Read and Zone-DNS-Edit, unless you are only using `GetRecords()`, in which case the second can be changed to Read.",
 					"Typewords": [
 						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_cloudns",
+			"Docs": "Provider facilitates DNS record manipulation with ClouDNS.",
+			"Fields": [
+				{
+					"Name": "auth_id",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "sub_auth_id",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "auth_password",
+					"Docs": "",
+					"Typewords": [
 						"string"
 					]
 				}

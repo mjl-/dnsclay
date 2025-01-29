@@ -11,6 +11,7 @@ require (
 	github.com/libdns/bunny v0.1.0
 	github.com/libdns/civo v0.1.27
 	github.com/libdns/cloudflare v0.1.1
+	github.com/libdns/cloudns v1.0.0
 	github.com/libdns/ddnss v0.1.0
 	github.com/libdns/desec v0.2.4
 	github.com/libdns/digitalocean v0.0.0-20230728223659-4f9064657aea

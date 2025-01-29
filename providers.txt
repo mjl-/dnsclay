@@ -4,6 +4,7 @@ azure
 bunny
 civo
 cloudflare
+cloudns
 ddnss
 desec
 digitalocean
