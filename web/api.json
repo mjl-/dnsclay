@@ -1562,6 +1562,13 @@
 					"Typewords": [
 						"string"
 					]
+				},
+				{
+					"Name": "debug",
+					"Docs": "",
+					"Typewords": [
+						"bool"
+					]
 				}
 			]
 		},

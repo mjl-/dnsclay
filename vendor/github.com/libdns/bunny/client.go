@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/libdns/libdns"
+	"golang.org/x/net/publicsuffix"
 )
 
 type getAllRecordsResponse struct {
@@ -23,7 +24,8 @@ type getAllZonesResponse struct {
 }
 
 type bunnyZone struct {
-	ID int `json:"Id"`
+	ID     int    `json:"Id"`
+	Domain string `json:"Domain"`
 }
 
 type bunnyRecord struct {
@@ -34,9 +36,9 @@ type bunnyRecord struct {
 	TTL   int    `json:"Ttl"`
 }
 
-func doRequest(accessKey string, request *http.Request) ([]byte, error) {
+func (p *Provider) doRequest(request *http.Request) ([]byte, error) {
 	request.Header.Add("accept", "application/json")
-	request.Header.Add("AccessKey", accessKey)
+	request.Header.Add("AccessKey", p.AccessKey)
 
 	client := &http.Client{}
 	response, err := client.Do(request)
@@ -57,7 +59,13 @@ func doRequest(accessKey string, request *http.Request) ([]byte, error) {
 	return data, nil
 }
 
-func getZoneID(ctx context.Context, accessKey string, zone string) (int, error) {
+func (p *Provider) getZoneID(ctx context.Context, zone string) (int, error) {
+	if zone == "" {
+		return 0, fmt.Errorf("zone is an empty string")
+	}
+
+	p.log(fmt.Sprintf("fetching zone ID for %s", zone))
+
 	// [page => 1] and [perPage => 5] are the smallest accepted values for the API
 	req, err := http.NewRequestWithContext(ctx, "GET",
 		fmt.Sprintf("https://api.bunny.net/dnszone?page=1&perPage=5&search=%s", url.QueryEscape(zone)), nil)
@@ -65,7 +73,7 @@ func getZoneID(ctx context.Context, accessKey string, zone string) (int, error) 
 		return 0, err
 	}
 
-	data, err := doRequest(accessKey, req)
+	data, err := p.doRequest(req)
 	if err != nil {
 		return 0, err
 	}
@@ -75,15 +83,34 @@ func getZoneID(ctx context.Context, accessKey string, zone string) (int, error) 
 		return 0, err
 	}
 
-	if len(result.Zones) > 1 {
-		return 0, errors.New("zone is ambiguous")
+	// The API may return more than one zone with a similar name, so we will
+	// need to find an exact match.
+	for _, candidate := range result.Zones {
+		if strings.EqualFold(candidate.Domain, zone) {
+			p.log(fmt.Sprintf("done fetching zone ID %d for %s", candidate.ID, zone))
+			return candidate.ID, nil
+		}
 	}
 
-	return result.Zones[0].ID, nil
+	return 0, fmt.Errorf("zone not found: %s", zone)
 }
 
-func getAllRecords(ctx context.Context, accessKey string, zone string) ([]libdns.Record, error) {
-	zoneID, err := getZoneID(ctx, accessKey, zone)
+func (p *Provider) getAllRecords(ctx context.Context, domain string) ([]libdns.Record, error) {
+	p.log(fmt.Sprintf("fetching all records for %s", domain))
+
+	domain = strings.ToLower(domain)
+	zone, err := publicsuffix.EffectiveTLDPlusOne(domain)
+	if err != nil {
+		zone = domain
+	}
+
+	suffix := "." + zone
+	var subdomain string
+	if strings.HasSuffix(domain, suffix) {
+		subdomain = strings.TrimSuffix(domain, suffix)
+	}
+
+	zoneID, err := p.getZoneID(ctx, zone)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +121,7 @@ func getAllRecords(ctx context.Context, accessKey string, zone string) ([]libdns
 		return nil, err
 	}
 
-	data, err := doRequest(accessKey, req)
+	data, err := p.doRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +133,13 @@ func getAllRecords(ctx context.Context, accessKey string, zone string) ([]libdns
 
 	records := []libdns.Record{}
 	for _, resData := range result.Records {
+		if subdomain != "" {
+			resName := strings.ToLower(resData.Name)
+			// in case of a subdomain, we need to filter the records by name
+			if resName != subdomain && !strings.HasSuffix(resName, "."+subdomain) {
+				continue
+			}
+		}
 		records = append(records, libdns.Record{
 			ID:    fmt.Sprint(resData.ID),
 			Type:  fromBunnyType(resData.Type),
@@ -115,11 +149,15 @@ func getAllRecords(ctx context.Context, accessKey string, zone string) ([]libdns
 		})
 	}
 
+	p.log(fmt.Sprintf("done fetching %d record(s) in zone %s", len(records), zone), records...)
+
 	return records, nil
 }
 
-func createRecord(ctx context.Context, accessKey string, zone string, record libdns.Record) (libdns.Record, error) {
-	zoneID, err := getZoneID(ctx, accessKey, zone)
+func (p *Provider) createRecord(ctx context.Context, zone string, record libdns.Record) (libdns.Record, error) {
+	p.log(fmt.Sprintf("creating %s record in zone %s", record.Type, zone), record)
+
+	zoneID, err := p.getZoneID(ctx, zone)
 	if err != nil {
 		return libdns.Record{}, err
 	}
@@ -143,7 +181,7 @@ func createRecord(ctx context.Context, accessKey string, zone string, record lib
 	}
 
 	req.Header.Add("content-type", "application/json")
-	data, err := doRequest(accessKey, req)
+	data, err := p.doRequest(req)
 	if err != nil {
 		return libdns.Record{}, err
 	}
@@ -153,17 +191,23 @@ func createRecord(ctx context.Context, accessKey string, zone string, record lib
 		return libdns.Record{}, err
 	}
 
-	return libdns.Record{
+	resRecord := libdns.Record{
 		ID:    fmt.Sprint(result.ID),
 		Type:  fromBunnyType(result.Type),
 		Name:  libdns.RelativeName(result.Name, zone),
 		Value: result.Value,
 		TTL:   time.Duration(result.TTL) * time.Second,
-	}, nil
+	}
+
+	p.log(fmt.Sprintf("done creating %s record %s in zone %s", resRecord.Type, resRecord.ID, zone), resRecord)
+
+	return resRecord, nil
 }
 
-func deleteRecord(ctx context.Context, accessKey string, zone string, record libdns.Record) error {
-	zoneID, err := getZoneID(ctx, accessKey, zone)
+func (p *Provider) deleteRecord(ctx context.Context, zone string, record libdns.Record) error {
+	p.log(fmt.Sprintf("deleting %s record in zone %s", record.Type, zone), record)
+
+	zoneID, err := p.getZoneID(ctx, zone)
 	if err != nil {
 		return err
 	}
@@ -174,16 +218,20 @@ func deleteRecord(ctx context.Context, accessKey string, zone string, record lib
 		return err
 	}
 
-	_, err = doRequest(accessKey, req)
+	_, err = p.doRequest(req)
 	if err != nil {
 		return err
 	}
 
+	p.log(fmt.Sprintf("done deleting %s record %s in zone %s", record.Type, record.ID, zone), record)
+
 	return nil
 }
 
-func updateRecord(ctx context.Context, accessKey string, zone string, record libdns.Record) error {
-	zoneID, err := getZoneID(ctx, accessKey, zone)
+func (p *Provider) updateRecord(ctx context.Context, zone string, record libdns.Record) error {
+	p.log(fmt.Sprintf("updating %s record in zone %s", record.Type, zone), record)
+
+	zoneID, err := p.getZoneID(ctx, zone)
 	if err != nil {
 		return err
 	}
@@ -208,28 +256,42 @@ func updateRecord(ctx context.Context, accessKey string, zone string, record lib
 
 	req.Header.Add("content-type", "application/json")
 
-	_, err = doRequest(accessKey, req)
+	_, err = p.doRequest(req)
 	if err != nil {
 		return err
 	}
 
-	// Since the API does not return the updated record, we would have to get it
-	// again to return it. This makes the update operation expensive. It should
-	// be discussed if the return of a fresh record is really necessary.
-
-	// return expensiveGetRecord(ctx, accessKey, zoneID, record)
+	p.log(fmt.Sprintf("done updating %s record %s in zone %s", record.Type, record.ID, zone), record)
 
 	return nil
 }
 
 // Creates a new record if it does not exist, or updates an existing one.
-func createOrUpdateRecord(ctx context.Context, accessKey string, zone string, record libdns.Record) (libdns.Record, error) {
-	if len(record.ID) == 0 {
-		return createRecord(ctx, accessKey, zone, record)
+func (p *Provider) createOrUpdateRecord(ctx context.Context, zone string, record libdns.Record) (libdns.Record, error) {
+	if record.ID == "" {
+		return p.createRecord(ctx, zone, record)
 	}
 
-	err := updateRecord(ctx, accessKey, zone, record)
+	err := p.updateRecord(ctx, zone, record)
 	return record, err
+}
+
+func (p *Provider) log(msg string, records ...libdns.Record) {
+	if p.Logger != nil {
+		p.Logger(msg, records)
+	} else if p.Debug {
+		fmt.Printf("[bunny] %s\n", msg)
+		for _, record := range records {
+			var id string
+			if record.ID == "" {
+				id = "(new)"
+			} else {
+				id = record.ID
+			}
+			fmt.Printf("[bunny]   %s: ID=%s, TTL=%s, Priority=%d, Name=%s, Value=%s\n",
+				record.Type, id, record.TTL, record.Priority, record.Name, record.Value)
+		}
+	}
 }
 
 const (
@@ -316,38 +378,3 @@ func toBunnyType(t string) int {
 		panic(fmt.Sprintf("unknown record type: %s", t))
 	}
 }
-
-// There is no way to get a single record from the API, so we have to get all
-// records and filter them.
-
-// func expensiveGetRecord(ctx context.Context, accessKey string, zoneID int, record libdns.Record) (libdns.Record, error) {
-// 	req, err := http.NewRequestWithContext(ctx, "GET",
-// 		fmt.Sprintf("https://api.bunny.net/dnszone/%d", zoneID), nil)
-// 	if err != nil {
-// 		return libdns.Record{}, err
-// 	}
-
-// 	data, err := doRequest(accessKey, req)
-// 	if err != nil {
-// 		return libdns.Record{}, err
-// 	}
-
-// 	result := getAllRecordsResponse{}
-// 	if err := json.Unmarshal(data, &result); err != nil {
-// 		return libdns.Record{}, err
-// 	}
-
-// 	for _, resData := range result.Records {
-// 		id := fmt.Sprint(resData.ID)
-// 		if id == record.ID {
-// 			return libdns.Record{
-// 				ID:    id,
-// 				Type:  fromBunnyType(resData.Type),
-// 				Name:  resData.Name,
-// 				Value: resData.Value,
-// 				TTL:   time.Duration(resData.TTL) * time.Second,
-// 			}, nil
-// 		}
-// 	}
-// 	return libdns.Record{}, errors.New("record not found")
-// }

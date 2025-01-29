@@ -10,12 +10,14 @@ import (
 // Provider facilitates DNS record manipulation with Bunny.net
 type Provider struct {
 	// AccessKey is the Bunny.net API key - see https://docs.bunny.net/reference/bunnynet-api-overview
-	AccessKey string `json:"access_key"`
+	AccessKey string                        `json:"access_key"`
+	Debug     bool                          `json:"debug"`
+	Logger    func(string, []libdns.Record) `json:"-"`
 }
 
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	records, err := getAllRecords(ctx, p.AccessKey, unFQDN(zone))
+	records, err := p.getAllRecords(ctx, unFQDN(zone))
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +30,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	var appendedRecords []libdns.Record
 
 	for _, record := range records {
-		newRecord, err := createRecord(ctx, p.AccessKey, unFQDN(zone), record)
+		newRecord, err := p.createRecord(ctx, unFQDN(zone), record)
 		if err != nil {
 			return nil, err
 		}
@@ -44,7 +46,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	var setRecords []libdns.Record
 
 	for _, record := range records {
-		setRecord, err := createOrUpdateRecord(ctx, p.AccessKey, unFQDN(zone), record)
+		setRecord, err := p.createOrUpdateRecord(ctx, unFQDN(zone), record)
 		if err != nil {
 			return setRecords, err
 		}
@@ -57,7 +59,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	for _, record := range records {
-		err := deleteRecord(ctx, p.AccessKey, unFQDN(zone), record)
+		err := p.deleteRecord(ctx, unFQDN(zone), record)
 		if err != nil {
 			return nil, err
 		}

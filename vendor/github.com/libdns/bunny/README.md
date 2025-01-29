@@ -1,13 +1,8 @@
-Bunny.net DNS for [`libdns`](https://github.com/libdns/libdns)
-=======================
+# Bunny.net DNS for [`libdns`](https://github.com/libdns/libdns)
 
 [![Go Reference](https://pkg.go.dev/badge/test.svg)](https://pkg.go.dev/github.com/libdns/bunny)
 
 This package implements the [libdns interfaces](https://github.com/libdns/libdns) for [Bunny.net](https://docs.bunny.net/reference/bunnynet-api-overview), allowing you to manage DNS records.
-
-It is based on the [libdns/hetzner](https://github.com/libdns/hetzner) package.
-
-Maintained by [Rewilok](https://www.rewilok.com) people.
 
 ## Authenticating
 
@@ -55,4 +50,39 @@ func main() {
 	fmt.Println(records)
 }
 
+```
+
+## Debugging
+
+You can enable logging by configuring a custom logger or by setting `Debug` to true.
+
+```go
+	...
+
+	// Logging is always enabled when using a custom logger
+	provider := &bunny.Provider{
+		AccessKey: apiKey,
+		Logger: func(msg string, records []libdns.Record) {
+			fmt.Printf("[bunny]: %s\n", msg)
+		}
+	}
+
+	// Enable the default logger
+	provider := &bunny.Provider{
+		AccessKey: apiKey,
+		Debug: true
+	}
+```
+Example output using the default logger:
+
+```shell
+[bunny] fetching all records for example.com
+[bunny] fetching zone ID for example.com
+[bunny] done fetching zone ID 82940 for example.com
+[bunny] done fetching 3 record(s) in zone example.com
+[bunny]   TXT: ID=7648777, TTL=2m0s, Priority=0, Name=test1, Value=test1
+[bunny]   TXT: ID=7648778, TTL=2m0s, Priority=0, Name=test2, Value=test2
+[bunny]   TXT: ID=7648779, TTL=2m0s, Priority=0, Name=test3, Value=test3
+[bunny] deleting TXT record in zone example.com
+[bunny]   TXT: ID=7648777, TTL=2m0s, Priority=0, Name=test1, Value=test1
 ```
