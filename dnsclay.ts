@@ -1046,8 +1046,9 @@ const pageZone = async (zonestr: string) => {
 				sets = nsets || []
 				render()
 			}), ' ',
-			dom.clickbutton('Add records', function click() {
-				popupEdit(zone, [], true)
+			dom.clickbutton('Add records', async function click(e: {target: HTMLButtonElement}) {
+				await popupEdit(zone, [], true)
+				await refresh(e.target)
 
 			}), ' ',
 			dom.clickbutton('Import records', attr.title('Import records from zone file'), function click() {
