@@ -1616,7 +1616,7 @@ const pageZone = async (zonestr) => {
 			localStorage.removeItem('showDNSSEC');
 		}
 		render();
-	}), ' Show DNSSEC signature records', attr.title('RRSIG, NSEC and NSEC3 records are hidden by default'))), dom.table(dom._class('hover'), dom._class('striped'), dom.thead(dom.tr(dom.th(), dom.th('Age'), dom.th('Name'), dom.th('Type'), dom.th('TTL'), dom.th('Value'), dom.th('Actions'))), recordsTbody = dom.tbody()), dom.br(), dom.h2('Danger'), dom.clickbutton('Remove zone', attr.title('Remove zone from management in dnsclay. The zone and its records are not changed at the provider.'), async function click(e) {
+	}), ' Show DNSSEC signature records', attr.title('RRSIG, NSEC and NSEC3 records are hidden by default'))), dom.table(dom._class('hover'), dom._class('striped'), dom.thead(dom.tr(dom.th(), dom.th('Age'), dom.th('Name'), dom.th('TTL'), dom.th('Type'), dom.th('Value'), dom.th('Actions'))), recordsTbody = dom.tbody()), dom.br(), dom.h2('Danger'), dom.clickbutton('Remove zone', attr.title('Remove zone from management in dnsclay. The zone and its records are not changed at the provider.'), async function click(e) {
 		if (!confirm('Are you sure you want to remove this zone from management in dnsclay? The zone and its records are not changed at the provider.')) {
 			return;
 		}
@@ -1666,7 +1666,7 @@ const pageZone = async (zonestr) => {
 			if (hasNegative) {
 				propagationText.push('Due to the TTL for lookups with negative result, absence of this record may still be cached in resolvers.');
 			}
-			return dom.tr(r0.Deleted ? [style({ color: '#888' }), attr.title('Historic/deleted record')] : [], dom.td(hasNegative && hasPrevious ? style({ backgroundColor: 'orange', border: '3px solid #ffe300' }) : [], hasNegative && !hasPrevious ? style({ backgroundColor: '#ffe300' }) : [], !hasNegative && hasPrevious ? style({ backgroundColor: 'orange' }) : [], (hasNegative || hasPrevious) ? [] : style({ color: '#888' }), propagationText.length > 0 ? attr.title(propagationText.join('\n')) : []), dom.td(age(r0)), dom.td(relName(r0.AbsName), style({ textAlign: 'right' })), dom.td(dnsTypeNames[r0.Type] || ('' + r0.Type), attr.title('Type ' + r0.Type + (r0.ProviderID ? '\nID at provider: ' + r0.ProviderID : '')), style({ textAlign: 'left' })), dom.td('' + r0.TTL), dom.td(style({ textAlign: 'left' }), (set.Records || []).map(r => dom.div(style({ wordBreak: 'break-all' }), r.Value))), dom.td(style({ whiteSpace: 'nowrap' }), r0.Deleted ?
+			return dom.tr(r0.Deleted ? [style({ color: '#888' }), attr.title('Historic/deleted record')] : [], dom.td(hasNegative && hasPrevious ? style({ backgroundColor: 'orange', border: '3px solid #ffe300' }) : [], hasNegative && !hasPrevious ? style({ backgroundColor: '#ffe300' }) : [], !hasNegative && hasPrevious ? style({ backgroundColor: 'orange' }) : [], (hasNegative || hasPrevious) ? [] : style({ color: '#888' }), propagationText.length > 0 ? attr.title(propagationText.join('\n')) : []), dom.td(age(r0)), dom.td(relName(r0.AbsName), style({ textAlign: 'right' })), dom.td('' + r0.TTL), dom.td(dnsTypeNames[r0.Type] || ('' + r0.Type), attr.title('Type ' + r0.Type + (r0.ProviderID ? '\nID at provider: ' + r0.ProviderID : '')), style({ textAlign: 'left' })), dom.td(style({ textAlign: 'left' }), (set.Records || []).map(r => dom.div(style({ wordBreak: 'break-all' }), r.Value))), dom.td(style({ whiteSpace: 'nowrap' }), r0.Deleted ?
 				dom.clickbutton('Recreate', async function click(e) {
 					await popupEdit(zone, set.Records || [], true);
 					await refresh(e.target);

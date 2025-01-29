@@ -1132,8 +1132,8 @@ const pageZone = async (zonestr: string) => {
 					dom.th(),
 					dom.th('Age'),
 					dom.th('Name'),
-					dom.th('Type'),
 					dom.th('TTL'),
+					dom.th('Type'),
 					dom.th('Value'),
 					dom.th('Actions'),
 				),
@@ -1216,12 +1216,12 @@ const pageZone = async (zonestr: string) => {
 						relName(r0.AbsName), style({textAlign: 'right'})
 					),
 					dom.td(
+						''+r0.TTL,
+					),
+					dom.td(
 						dnsTypeNames[r0.Type] || (''+r0.Type),
 						attr.title('Type '+r0.Type + (r0.ProviderID ? '\nID at provider: '+r0.ProviderID : '')),
 						style({textAlign: 'left'}),
-					),
-					dom.td(
-						''+r0.TTL,
 					),
 					dom.td(
 						style({textAlign: 'left'}),
