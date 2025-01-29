@@ -1,0 +1,4 @@
+*~
+*.bak
+**/.envrc
+**/.DS_Store

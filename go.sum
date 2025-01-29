@@ -200,6 +200,8 @@ github.com/AzureAD/microsoft-authentication-library-for-go v1.2.1 h1:DzHpqpoJVaC
 github.com/AzureAD/microsoft-authentication-library-for-go v1.2.1/go.mod h1:wP83P5OoQ5p6ip3ScPr0BAq0BvuPAvacpEuSzyouqAI=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
+github.com/G-Core/gcore-dns-sdk-go v0.2.9 h1:LMMZIRX8y3aJJuAviNSpFmLbovZUw+6Om+8VElp1F90=
+github.com/G-Core/gcore-dns-sdk-go v0.2.9/go.mod h1:35t795gOfzfVanhzkFyUXEzaBuMXwETmJldPpP28MN4=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
@@ -729,6 +731,8 @@ github.com/libdns/exoscale v1.0.0 h1:JV0rzOHgh4HELm+WWKjxhw2Rh08pjY1N1CtTff3QzPU
 github.com/libdns/exoscale v1.0.0/go.mod h1:Zs2CNJ4tBVaESoc5kCdgIvpVitUeqQz6S9Qm459sP1A=
 github.com/libdns/gandi v1.0.3 h1:FIvipWOg/O4zi75fPRmtcolRKqI6MgrbpFy2p5KYdUk=
 github.com/libdns/gandi v1.0.3/go.mod h1:G6dw58Xnji2xX+lb+uZxGbtmfxKllm1CGHE2bOPG3WA=
+github.com/libdns/gcore v0.0.0-20250127070537-4a9d185c9d20 h1:bQwFw+C9sX/zYZlV53ey0KnNkxrfWYIFpvptuAVhJ1Y=
+github.com/libdns/gcore v0.0.0-20250127070537-4a9d185c9d20/go.mod h1:JGoT1mbmqQwtYQqN5F/vGc9j4TTTMKw/hDm5vXADHUI=
 github.com/libdns/glesys v0.0.2 h1:FJgC9kiqzfbrQ9Q6qWK2h05MZYSTX2HEIsl5TPMNvIc=
 github.com/libdns/glesys v0.0.2/go.mod h1:gRTg/vhCgW5BHJWbgwAxDq0Ao+DY/XdU5cA2UILMxUw=
 github.com/libdns/godaddy v1.0.3 h1:PX1FOYDQ1HGQzz8mVOmtwm3aa6Sv5MwCkNzivUUTA44=

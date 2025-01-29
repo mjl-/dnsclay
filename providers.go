@@ -25,6 +25,7 @@ import (
 	"github.com/libdns/easydns"
 	"github.com/libdns/exoscale"
 	"github.com/libdns/gandi"
+	"github.com/libdns/gcore"
 	"github.com/libdns/glesys"
 	"github.com/libdns/godaddy"
 	"github.com/libdns/googleclouddns"
@@ -89,6 +90,7 @@ type KnownProviders struct {
 	Xeasydns        easydns.Provider
 	Xexoscale       exoscale.Provider
 	Xgandi          gandi.Provider
+	Xgcore          gcore.Provider
 	Xglesys         glesys.Provider
 	Xgodaddy        godaddy.Provider
 	Xgoogleclouddns googleclouddns.Provider
@@ -153,6 +155,7 @@ var providers = map[string]any{
 	"easydns":        easydns.Provider{},
 	"exoscale":       exoscale.Provider{},
 	"gandi":          gandi.Provider{},
+	"gcore":          gcore.Provider{},
 	"glesys":         glesys.Provider{},
 	"godaddy":        godaddy.Provider{},
 	"googleclouddns": googleclouddns.Provider{},

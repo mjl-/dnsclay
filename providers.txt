@@ -20,6 +20,7 @@ dynv6
 easydns
 exoscale
 gandi
+gcore
 glesys
 godaddy
 googleclouddns

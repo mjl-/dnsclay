@@ -1,0 +1,89 @@
+# This is our linters configuration
+# We use https://github.com/golangci/golangci-lint because it allows us to run multiple linters at the same time
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - stub
+
+linters:
+  enable-all: true
+  disable:
+    - maligned
+    - wsl
+    - whitespace
+    - godox
+    - godot
+    - interfacer
+    - nolintlint
+    - noctx
+    - gofumpt
+    - exhaustive
+    - gci
+    - nlreturn
+    - exhaustivestruct
+    - forbidigo
+    - paralleltest
+    - cyclop # we already have gocyclo enabled
+    - ifshort
+    - nilerr
+    - thelper
+
+linters-settings:
+  funlen:
+    lines: 100
+    statements: 40
+  nakedret:
+    max-func-lines: 0
+  lll:
+    line-length: 140
+  gocyclo:
+    min-complexity: 20
+  golint:
+    min-confidence: 0
+  dupl:
+    threshold: 100
+  govet:
+    check-shadowing: true
+
+output:
+  print-issued-lines: false
+
+issues:
+  exclude-use-default: false
+  max-per-linter: 0
+  max-same-issues: 0
+  new-from-rev: HEAD~
+  exclude:
+  - "should have a package comment, unless it's in another file for this package"
+  - "(struct field|var|func|method|func parameter|range var|const|type) .* should be .*"
+  - "the channel used with signal.Notify should be buffered"
+  - "G104:" # go-sec rule of err checking, it has the same logic as errcheck linter, so ignore duplicate
+  - "Error return value of `.*.Body.Close` is not checked"
+  - "Error return value of `.*.Close()` is not checked"
+  - "Error return value of `rows.Close` is not checked"
+  - "Error return value of `viper.BindEnv` is not checked"
+  - "G108: Profiling endpoint is automatically exposed on /debug/pprof"
+  - "exported var `Err.*` should have comment or be unexported"
+  - "put a space between `//` and comment text"
+  - "Function 'main' has too many statements"
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - scopelint
+        - gochecknoglobals
+        - goconst
+        - errcheck
+        - gosec
+        - gomnd
+        - funlen
+        - testpackage
+        - lll
+        - exportloopref
+        - bodyclose
+        - unparam
+        - dupl
+        - goerr113
+    - linters:
+        - lll
+      source: "^//go:generate "

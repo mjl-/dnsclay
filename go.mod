@@ -27,6 +27,7 @@ require (
 	github.com/libdns/easydns v0.2.1
 	github.com/libdns/exoscale v1.0.0
 	github.com/libdns/gandi v1.0.3
+	github.com/libdns/gcore v0.0.0-20250127070537-4a9d185c9d20
 	github.com/libdns/glesys v0.0.2
 	github.com/libdns/godaddy v1.0.3
 	github.com/libdns/googleclouddns v1.1.0
@@ -82,6 +83,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns v1.2.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.1 // indirect
+	github.com/G-Core/gcore-dns-sdk-go v0.2.9 // indirect
 	github.com/adamantal/go-dreamhost v0.1.1 // indirect
 	github.com/antchfx/htmlquery v1.2.5 // indirect
 	github.com/antchfx/xpath v1.2.1 // indirect

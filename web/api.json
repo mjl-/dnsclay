@@ -1170,6 +1170,13 @@
 					]
 				},
 				{
+					"Name": "Xgcore",
+					"Docs": "",
+					"Typewords": [
+						"Provider_gcore"
+					]
+				},
+				{
 					"Name": "Xglesys",
 					"Docs": "",
 					"Typewords": [
@@ -1947,6 +1954,20 @@
 			"Fields": [
 				{
 					"Name": "bearer_token",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_gcore",
+			"Docs": "Provider facilitates DNS record manipulation with GCore DNS.",
+			"Fields": [
+				{
+					"Name": "api_key",
 					"Docs": "",
 					"Typewords": [
 						"nullable",

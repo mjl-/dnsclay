@@ -160,6 +160,7 @@ implementations maintained at https://github.com/libdns:
   - easydns
   - exoscale
   - gandi
+  - gcore
   - glesys
   - godaddy
   - googleclouddns

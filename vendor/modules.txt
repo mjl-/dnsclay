@@ -63,6 +63,9 @@ github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/options
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/shared
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/version
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/public
+# github.com/G-Core/gcore-dns-sdk-go v0.2.9
+## explicit; go 1.18
+github.com/G-Core/gcore-dns-sdk-go
 # github.com/adamantal/go-dreamhost v0.1.1
 ## explicit; go 1.18
 github.com/adamantal/go-dreamhost/api
@@ -449,6 +452,9 @@ github.com/libdns/exoscale
 # github.com/libdns/gandi v1.0.3
 ## explicit; go 1.20
 github.com/libdns/gandi
+# github.com/libdns/gcore v0.0.0-20250127070537-4a9d185c9d20
+## explicit; go 1.23.1
+github.com/libdns/gcore
 # github.com/libdns/glesys v0.0.2
 ## explicit; go 1.21
 github.com/libdns/glesys
