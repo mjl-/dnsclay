@@ -1588,7 +1588,7 @@ const pageZone = async (zonestr) => {
 			await check(fieldset, () => client.ZoneImportRecords(zone.Name, zonefile.value));
 			await refresh(fieldset);
 			close();
-		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.div(dom.label(dom.div('Zone file'), zonefile = dom.textarea('$TTL 300 ; default 5m\n$ORIGIN ' + zone.Name + '\n\n; record syntax: name ttl type value\nrelativename 300 A 1.2.3.4\n', style({ width: '60em' }), attr.rows('10')))), dom.div(dom.submitbutton('Import')))));
+		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.div(dom.label(dom.div('Zone file'), zonefile = dom.textarea('$TTL 300 ; default 5m\n$ORIGIN ' + zone.Name + '\n\n; record syntax: name ttl type value\n; example:\n;relativename 300 A 1.2.3.4\n\n', style({ width: '60em' }), attr.rows('10')))), dom.div(dom.submitbutton('Import')))));
 		zonefile.focus();
 	}), ' ', dom.clickbutton('Purge history', attr.title('Remove history with previously existing but now removed records. History is used by IXFR for incremental zone transfers, but IXFR attempts will fall back to AXFR if history is not available.'), async function click(e) {
 		if (!confirm('Are you sure?')) {

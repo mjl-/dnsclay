@@ -1070,7 +1070,7 @@ const pageZone = async (zonestr: string) => {
 							dom.div(
 								dom.label(
 									dom.div('Zone file'),
-									zonefile=dom.textarea('$TTL 300 ; default 5m\n$ORIGIN '+zone.Name+'\n\n; record syntax: name ttl type value\nrelativename 300 A 1.2.3.4\n', style({width: '60em'}), attr.rows('10')),
+									zonefile=dom.textarea('$TTL 300 ; default 5m\n$ORIGIN '+zone.Name+'\n\n; record syntax: name ttl type value\n; example:\n;relativename 300 A 1.2.3.4\n\n', style({width: '60em'}), attr.rows('10')),
 								),
 							),
 							dom.div(
