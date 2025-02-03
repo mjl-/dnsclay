@@ -15,7 +15,7 @@ require (
 	github.com/libdns/ddnss v0.1.0
 	github.com/libdns/desec v0.2.4
 	github.com/libdns/digitalocean v0.0.0-20230728223659-4f9064657aea
-	github.com/libdns/directadmin v0.3.1
+	github.com/libdns/directadmin v0.3.2
 	github.com/libdns/dnsimple v0.1.3
 	github.com/libdns/dnsmadeeasy v1.1.3
 	github.com/libdns/dnspod v0.0.3

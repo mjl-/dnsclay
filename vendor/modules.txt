@@ -416,7 +416,7 @@ github.com/libdns/desec
 # github.com/libdns/digitalocean v0.0.0-20230728223659-4f9064657aea
 ## explicit; go 1.14
 github.com/libdns/digitalocean
-# github.com/libdns/directadmin v0.3.1
+# github.com/libdns/directadmin v0.3.2
 ## explicit; go 1.18
 github.com/libdns/directadmin
 # github.com/libdns/dnsimple v0.1.3
