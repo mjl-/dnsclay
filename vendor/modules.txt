@@ -588,9 +588,10 @@ github.com/libdns/scaleway
 # github.com/libdns/selectel v1.0.0
 ## explicit; go 1.18
 github.com/libdns/selectel
-# github.com/libdns/tencentcloud v1.1.0
+# github.com/libdns/tencentcloud v1.2.0
 ## explicit; go 1.18
 github.com/libdns/tencentcloud
+github.com/libdns/tencentcloud/dnspod
 # github.com/libdns/timeweb v1.0.1
 ## explicit; go 1.18
 github.com/libdns/timeweb
@@ -766,7 +767,7 @@ github.com/spf13/viper/internal/features
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1033
+# github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1051
 ## explicit; go 1.11
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors
@@ -774,9 +775,6 @@ github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/json
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/regions
-# github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod v1.0.1033
-## explicit; go 1.14
-github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod/v20210323
 # github.com/vultr/govultr/v3 v3.0.2
 ## explicit; go 1.20
 github.com/vultr/govultr/v3

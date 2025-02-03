@@ -63,7 +63,7 @@ require (
 	github.com/libdns/route53 v1.5.1
 	github.com/libdns/scaleway v0.1.11
 	github.com/libdns/selectel v1.0.0
-	github.com/libdns/tencentcloud v1.1.0
+	github.com/libdns/tencentcloud v1.2.0
 	github.com/libdns/timeweb v1.0.1
 	github.com/libdns/totaluptime v1.0.1
 	github.com/libdns/vultr v1.0.0
@@ -179,8 +179,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.18.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1033 // indirect
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod v1.0.1033 // indirect
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1051 // indirect
 	github.com/vultr/govultr/v3 v3.0.2 // indirect
 	go.etcd.io/bbolt v1.3.11 // indirect
 	go.mongodb.org/mongo-driver v1.11.1 // indirect

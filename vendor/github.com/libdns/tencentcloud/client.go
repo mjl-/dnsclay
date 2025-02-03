@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/libdns/libdns"
-
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	tp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
-	dnspod "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod/v20210323"
+
+	"github.com/libdns/tencentcloud/dnspod"
 )
 
 // getClient gets the client for Tencent Cloud DNS
@@ -38,7 +38,8 @@ func (p *Provider) describeRecordList(ctx context.Context, zone string) ([]libdn
 	if err != nil {
 		return nil, err
 	}
-	list := []libdns.Record{}
+
+	var list []libdns.Record
 	request := dnspod.NewDescribeRecordListRequest()
 	request.Domain = common.StringPtr(strings.Trim(zone, "."))
 	request.Offset = common.Uint64Ptr(0)
@@ -46,7 +47,7 @@ func (p *Provider) describeRecordList(ctx context.Context, zone string) ([]libdn
 
 	totalCount := uint64(100)
 	for *request.Offset < totalCount {
-		response, err := client.DescribeRecordList(request)
+		response, err := client.DescribeRecordListWithContext(ctx, request)
 		if err != nil {
 			return nil, err
 		}
@@ -73,13 +74,15 @@ func (p *Provider) createRecord(ctx context.Context, zone string, record libdns.
 	if err != nil {
 		return "", err
 	}
+
 	request := dnspod.NewCreateRecordRequest()
 	request.Domain = common.StringPtr(strings.Trim(zone, "."))
 	request.SubDomain = common.StringPtr(record.Name)
 	request.RecordType = common.StringPtr(record.Type)
 	request.RecordLine = common.StringPtr("默认")
 	request.Value = common.StringPtr(record.Value)
-	response, err := client.CreateRecord(request)
+	response, err := client.CreateRecordWithContext(ctx, request)
+
 	if err != nil {
 		return "", err
 	}
@@ -92,6 +95,7 @@ func (p *Provider) modifyRecord(ctx context.Context, zone string, record libdns.
 	if err != nil {
 		return err
 	}
+
 	recordId, _ := strconv.Atoi(record.ID)
 	request := dnspod.NewModifyRecordRequest()
 	request.Domain = common.StringPtr(strings.Trim(zone, "."))
@@ -101,7 +105,7 @@ func (p *Provider) modifyRecord(ctx context.Context, zone string, record libdns.
 	request.Value = common.StringPtr(record.Value)
 	request.RecordId = common.Uint64Ptr(uint64(recordId))
 
-	_, err = client.ModifyRecord(request)
+	_, err = client.ModifyRecordWithContext(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -114,12 +118,13 @@ func (p *Provider) deleteRecord(ctx context.Context, zone string, record libdns.
 	if err != nil {
 		return err
 	}
+
 	recordId, _ := strconv.Atoi(record.ID)
 	request := dnspod.NewDeleteRecordRequest()
 	request.Domain = common.StringPtr(strings.Trim(zone, "."))
 	request.RecordId = common.Uint64Ptr(uint64(recordId))
 
-	_, err = client.DeleteRecord(request)
+	_, err = client.DeleteRecordWithContext(ctx, request)
 	if err != nil {
 		return err
 	}

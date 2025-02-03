@@ -807,8 +807,8 @@ github.com/libdns/scaleway v0.1.11 h1:ZMMtVwhdr50JDwJqeGfs/Ch0eUdurRhI5DpFDGtMzg
 github.com/libdns/scaleway v0.1.11/go.mod h1:Kv8rPRRIOqFcol76hShROE2xI0aDMv82M7cAwAtvtv0=
 github.com/libdns/selectel v1.0.0 h1:Ppj/UlY+nFQXaZk4W+niMKVJSWSlbgUY8rtkXyim/hI=
 github.com/libdns/selectel v1.0.0/go.mod h1:0s7+DwZF8iNxSP46V+0xYBctHKNOfdqGr7DP3OcLs0c=
-github.com/libdns/tencentcloud v1.1.0 h1:UvrU9HR3Cc87vIkj/FrTGkaZigGcRyZFdLCYqKDac1c=
-github.com/libdns/tencentcloud v1.1.0/go.mod h1:PuP62hTGHSI3OqSUsrzuvsCWMD+9BlPtVjKasOrAtJ4=
+github.com/libdns/tencentcloud v1.2.0 h1:SBbZ9gUZ+ba/p2d8NpiOcj+WZTdYqB5Fz7zypdbK3YU=
+github.com/libdns/tencentcloud v1.2.0/go.mod h1:o0+WCxQ7LGLtyjnjYU4HbGW9uVjN44SdUDhxdUYLGPw=
 github.com/libdns/timeweb v1.0.1 h1:R67WdB38UK6h2BYsTe45eOB5/W6Ef+1rd4Rb4MEpNfY=
 github.com/libdns/timeweb v1.0.1/go.mod h1:v9sKUolTjDLvOifbkjjnxlXCLGVgZ+fiO2+P12VMSRE=
 github.com/libdns/totaluptime v1.0.1 h1:4QaWhGt++t748cRqPxz9i/NEp914MqAHZTrrfFiRz38=
@@ -1032,10 +1032,8 @@ github.com/subchen/go-xmldom v1.1.2/go.mod h1:6Pg/HuX5/T4Jlj0IPJF1sRxKVoI/rrKP6L
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
-github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1033 h1:g263/dapUpOAZJa1Y9x07WgfOl7Yy+FM5Mrf4WyttS8=
-github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1033/go.mod h1:r5r4xbfxSaeR04b166HGsBa/R4U3SueirEUpXGuw+Q0=
-github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod v1.0.1033 h1:bRCo+X6i/6B+5Q/G4+rexcMRxpSq+9XS/8+Usn6OcOA=
-github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod v1.0.1033/go.mod h1:ta9FOsQP/SvQAhDD6IhVhYWyY+eboPEbPWq7zpiNwZA=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1051 h1:3mg0L9vv9eO8UN4Oa7vNawe6yUIuXf9D0Q79rUmnblo=
+github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1051/go.mod h1:r5r4xbfxSaeR04b166HGsBa/R4U3SueirEUpXGuw+Q0=
 github.com/tidwall/pretty v1.0.0 h1:HsD+QiTn7sK6flMKIvNmpqz1qrpP3Ps6jOKIKMooyg4=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tjarratt/babble v0.0.0-20210505082055-cbca2a4833c1 h1:j8whCiEmvLCXI3scVn+YnklCU8mwJ9ZJ4/DGAKqQbRE=
