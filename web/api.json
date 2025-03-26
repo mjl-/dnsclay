@@ -1121,6 +1121,13 @@
 					]
 				},
 				{
+					"Name": "Xdomainnameshop",
+					"Docs": "",
+					"Typewords": [
+						"Provider_domainnameshop"
+					]
+				},
+				{
 					"Name": "Xdreamhost",
 					"Docs": "",
 					"Typewords": [
@@ -1827,6 +1834,26 @@
 					"Docs": "DNS server address",
 					"Typewords": [
 						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_domainnameshop",
+			"Docs": "Provider facilitates DNS record manipulation with Domainnameshop\nhttps://api.domeneshop.no/docs/#section/Authentication",
+			"Fields": [
+				{
+					"Name": "api_token",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "api_secret",
+					"Docs": "",
+					"Typewords": [
 						"string"
 					]
 				}

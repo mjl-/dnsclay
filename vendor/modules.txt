@@ -431,6 +431,9 @@ github.com/libdns/dnspod
 # github.com/libdns/dnsupdate v0.0.0-20230728193621-2e79c50ea2ee
 ## explicit; go 1.18
 github.com/libdns/dnsupdate
+# github.com/libdns/domainnameshop v0.1.1
+## explicit; go 1.22.3
+github.com/libdns/domainnameshop
 # github.com/libdns/dreamhost v0.1.1
 ## explicit; go 1.18
 github.com/libdns/dreamhost

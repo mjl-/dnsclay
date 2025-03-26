@@ -18,6 +18,7 @@ import (
 	"github.com/libdns/dnsmadeeasy"
 	"github.com/libdns/dnspod"
 	"github.com/libdns/dnsupdate"
+	"github.com/libdns/domainnameshop"
 	"github.com/libdns/dreamhost"
 	"github.com/libdns/duckdns"
 	"github.com/libdns/dynu"
@@ -83,6 +84,7 @@ type KnownProviders struct {
 	Xdnsmadeeasy    dnsmadeeasy.Provider
 	Xdnspod         dnspod.Provider
 	Xdnsupdate      dnsupdate.Provider
+	Xdomainnameshop domainnameshop.Provider
 	Xdreamhost      dreamhost.Provider
 	Xduckdns        duckdns.Provider
 	Xdynu           dynu.Provider
@@ -148,6 +150,7 @@ var providers = map[string]any{
 	"dnsmadeeasy":    dnsmadeeasy.Provider{},
 	"dnspod":         dnspod.Provider{},
 	"dnsupdate":      dnsupdate.Provider{},
+	"domainnameshop": domainnameshop.Provider{},
 	"dreamhost":      dreamhost.Provider{},
 	"duckdns":        duckdns.Provider{},
 	"dynu":           dynu.Provider{},

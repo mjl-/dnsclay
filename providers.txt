@@ -13,6 +13,7 @@ dnsimple
 dnsmadeeasy
 dnspod
 dnsupdate
+domainnameshop
 dreamhost
 duckdns
 dynu

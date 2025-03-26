@@ -20,6 +20,7 @@ require (
 	github.com/libdns/dnsmadeeasy v1.1.3
 	github.com/libdns/dnspod v0.0.3
 	github.com/libdns/dnsupdate v0.0.0-20230728193621-2e79c50ea2ee
+	github.com/libdns/domainnameshop v0.1.1
 	github.com/libdns/dreamhost v0.1.1
 	github.com/libdns/duckdns v0.2.0
 	github.com/libdns/dynu v0.1.1

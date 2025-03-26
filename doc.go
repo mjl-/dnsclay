@@ -153,6 +153,7 @@ implementations maintained at https://github.com/libdns:
   - dnsmadeeasy
   - dnspod
   - dnsupdate
+  - domainnameshop
   - dreamhost
   - duckdns
   - dynu
