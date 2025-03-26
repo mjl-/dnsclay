@@ -77,7 +77,7 @@ type cfDNSRecord struct {
 		PrecisionHorz int    `json:"precision_horz,omitempty"`
 		PrecisionVert int    `json:"precision_vert,omitempty"`
 
-		// SRV
+		// SRV, HTTPS
 		Service  string `json:"service,omitempty"`
 		Proto    string `json:"proto,omitempty"`
 		Name     string `json:"name,omitempty"`
@@ -85,6 +85,7 @@ type cfDNSRecord struct {
 		Weight   uint   `json:"weight,omitempty"`
 		Port     uint   `json:"port,omitempty"`
 		Target   string `json:"target,omitempty"`
+		Value    string `json:"value,omitempty"`
 
 		// DNSKEY
 		Flags     int `json:"flags,omitempty"`
@@ -122,13 +123,19 @@ func (r cfDNSRecord) libdnsRecord(zone string) libdns.Record {
 		}
 		return srv.ToRecord()
 	}
-	return libdns.Record{
+	rec := libdns.Record{
 		Type:  r.Type,
 		Name:  libdns.RelativeName(r.Name, zone),
 		Value: r.Content,
 		TTL:   time.Duration(r.TTL) * time.Second,
 		ID:    r.ID,
 	}
+	if r.Type == "HTTPS" {
+		rec.Value = r.Data.Value
+		rec.Priority = r.Data.Priority
+		rec.Target = r.Data.Target
+	}
+	return rec
 }
 
 func cloudflareRecord(r libdns.Record) (cfDNSRecord, error) {
@@ -137,7 +144,8 @@ func cloudflareRecord(r libdns.Record) (cfDNSRecord, error) {
 		Type: r.Type,
 		TTL:  int(r.TTL.Seconds()),
 	}
-	if r.Type == "SRV" {
+	switch r.Type {
+	case "SRV":
 		srv, err := r.ToSRV()
 		if err != nil {
 			return cfDNSRecord{}, err
@@ -149,8 +157,14 @@ func cloudflareRecord(r libdns.Record) (cfDNSRecord, error) {
 		rec.Data.Name = srv.Name
 		rec.Data.Port = srv.Port
 		rec.Data.Target = srv.Target
-	} else {
+	case "HTTPS":
 		rec.Name = r.Name
+		rec.Data.Priority = r.Priority
+		rec.Data.Target = r.Target
+		rec.Data.Value = r.Value
+	default:
+		rec.Name = r.Name
+		rec.Data.Priority = r.Priority
 		rec.Content = r.Value
 	}
 	return rec, nil

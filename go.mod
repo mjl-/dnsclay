@@ -10,7 +10,7 @@ require (
 	github.com/libdns/azure v0.4.0
 	github.com/libdns/bunny v1.3.2
 	github.com/libdns/civo v0.1.27
-	github.com/libdns/cloudflare v0.1.1
+	github.com/libdns/cloudflare v0.1.3
 	github.com/libdns/cloudns v1.0.0
 	github.com/libdns/ddnss v0.1.0
 	github.com/libdns/desec v0.2.4

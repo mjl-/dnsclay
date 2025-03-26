@@ -1599,7 +1599,15 @@
 			"Fields": [
 				{
 					"Name": "api_token",
-					"Docs": "API token is used for authentication. Make sure to use a scoped API **token**, NOT a global API **key**. It will need two permissions: Zone-Zone-Read and Zone-DNS-Edit, unless you are only using `GetRecords()`, in which case the second can be changed to Read.",
+					"Docs": "API tokens are used for authentication. Make sure to use scoped API **tokens**, NOT a global API **key**.; API token with Zone.DNS:Write (can be scoped to single Zone if ZoneToken is also provided)",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "zone_token",
+					"Docs": "Optional Zone:Read token (global scope)",
 					"Typewords": [
 						"nullable",
 						"string"

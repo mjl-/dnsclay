@@ -401,7 +401,7 @@ github.com/libdns/bunny
 # github.com/libdns/civo v0.1.27
 ## explicit; go 1.19
 github.com/libdns/civo
-# github.com/libdns/cloudflare v0.1.1
+# github.com/libdns/cloudflare v0.1.3
 ## explicit; go 1.18
 github.com/libdns/cloudflare
 # github.com/libdns/cloudns v1.0.0

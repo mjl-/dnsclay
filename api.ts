@@ -187,7 +187,8 @@ export interface Provider_civo {
 // Provider implements the libdns interfaces for Cloudflare.
 // TODO: Support pagination and retries, handle rate limits.
 export interface Provider_cloudflare {
-	api_token?: string | null  // API token is used for authentication. Make sure to use a scoped API **token**, NOT a global API **key**. It will need two permissions: Zone-Zone-Read and Zone-DNS-Edit, unless you are only using `GetRecords()`, in which case the second can be changed to Read.
+	api_token?: string | null  // API tokens are used for authentication. Make sure to use scoped API **tokens**, NOT a global API **key**.; API token with Zone.DNS:Write (can be scoped to single Zone if ZoneToken is also provided)
+	zone_token?: string | null  // Optional Zone:Read token (global scope)
 }
 
 // Provider facilitates DNS record manipulation with ClouDNS.
@@ -647,7 +648,7 @@ export const types: TypenameMap = {
 	"Provider_azure": {"Name":"Provider_azure","Docs":"","Fields":[{"Name":"subscription_id","Docs":"","Typewords":["nullable","string"]},{"Name":"resource_group_name","Docs":"","Typewords":["nullable","string"]},{"Name":"tenant_id","Docs":"","Typewords":["nullable","string"]},{"Name":"client_id","Docs":"","Typewords":["nullable","string"]},{"Name":"client_secret","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_bunny": {"Name":"Provider_bunny","Docs":"","Fields":[{"Name":"access_key","Docs":"","Typewords":["string"]},{"Name":"debug","Docs":"","Typewords":["bool"]}]},
 	"Provider_civo": {"Name":"Provider_civo","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
-	"Provider_cloudflare": {"Name":"Provider_cloudflare","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_cloudflare": {"Name":"Provider_cloudflare","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"zone_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_cloudns": {"Name":"Provider_cloudns","Docs":"","Fields":[{"Name":"auth_id","Docs":"","Typewords":["string"]},{"Name":"sub_auth_id","Docs":"","Typewords":["nullable","string"]},{"Name":"auth_password","Docs":"","Typewords":["string"]}]},
 	"Provider_ddnss": {"Name":"Provider_ddnss","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["string"]},{"Name":"username","Docs":"","Typewords":["nullable","string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_desec": {"Name":"Provider_desec","Docs":"","Fields":[{"Name":"token","Docs":"","Typewords":["nullable","string"]}]},
