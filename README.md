@@ -71,9 +71,9 @@ been added, except:
 ## Adding a new provider
 
 Adding a provider should be a matter of adding it to providers.txt (keep it
-sorted!) and running "make build". It regenerates providers.go and syncs the Go
-module dependencies. The config fields in the package's Provider should be
-automatically processed, into both backend and frontend.
+sorted!) and running "make build govendor". It regenerates providers.go and
+syncs the Go module dependencies. The config fields in the package's Provider
+should be automatically processed, into both backend and frontend.
 
 
 # About
