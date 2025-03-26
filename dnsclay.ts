@@ -613,29 +613,25 @@ const popupEdit = (zone: api.Zone, records: api.Record[], isNew: boolean) => {
 					e.preventDefault()
 					e.stopPropagation()
 
-					try {
-						const values = valuesView.values.map(vw => vw.input.value)
-						if (values.length === 0) {
-							alert('Specify at least one value.')
-							throw new Error('must specify at least one value')
-						}
-
-						const n: api.RecordSetChange = {
-							RelName: relName.value,
-							Type: parseInt(xtype.value),
-							TTL: parseInt(ttl.value),
-							Values: values,
-						}
-						if (isNew) {
-							await check(fieldset, () => client.RecordSetAdd(zone.Name, n))
-						} else {
-							await check(fieldset, () => client.RecordSetUpdate(zone.Name, zoneRelName(zone, records[0].AbsName), n, records.map(r => r.ID), valuesView.values.map(v => v.recordID)))
-						}
-						close()
-						resolve()
-					} catch (err) {
-						reject(err)
+					const values = valuesView.values.map(vw => vw.input.value)
+					if (values.length === 0) {
+						alert('Specify at least one value.')
+						throw new Error('must specify at least one value')
 					}
+
+					const n: api.RecordSetChange = {
+						RelName: relName.value,
+						Type: parseInt(xtype.value),
+						TTL: parseInt(ttl.value),
+						Values: values,
+					}
+					if (isNew) {
+						await check(fieldset, () => client.RecordSetAdd(zone.Name, n))
+					} else {
+						await check(fieldset, () => client.RecordSetUpdate(zone.Name, zoneRelName(zone, records[0].AbsName), n, records.map(r => r.ID), valuesView.values.map(v => v.recordID)))
+					}
+					close()
+					resolve()
 				},
 				fieldset=dom.fieldset(
 					style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
@@ -1044,7 +1040,6 @@ const pageZone = async (zonestr: string) => {
 			dom.clickbutton('Add records', async function click(e: {target: HTMLButtonElement}) {
 				await popupEdit(zone, [], true)
 				await refresh(e.target)
-
 			}), ' ',
 			dom.clickbutton('Import records', attr.title('Import records from zone file'), function click() {
 				let zonefile: HTMLTextAreaElement

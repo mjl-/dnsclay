@@ -1410,30 +1410,25 @@ const popupEdit = (zone, records, isNew) => {
 		const [close, closed] = popup(dom.h1(isNew ? 'New record set' : 'Edit record set'), dom.form(async function submit(e) {
 			e.preventDefault();
 			e.stopPropagation();
-			try {
-				const values = valuesView.values.map(vw => vw.input.value);
-				if (values.length === 0) {
-					alert('Specify at least one value.');
-					throw new Error('must specify at least one value');
-				}
-				const n = {
-					RelName: relName.value,
-					Type: parseInt(xtype.value),
-					TTL: parseInt(ttl.value),
-					Values: values,
-				};
-				if (isNew) {
-					await check(fieldset, () => client.RecordSetAdd(zone.Name, n));
-				}
-				else {
-					await check(fieldset, () => client.RecordSetUpdate(zone.Name, zoneRelName(zone, records[0].AbsName), n, records.map(r => r.ID), valuesView.values.map(v => v.recordID)));
-				}
-				close();
-				resolve();
+			const values = valuesView.values.map(vw => vw.input.value);
+			if (values.length === 0) {
+				alert('Specify at least one value.');
+				throw new Error('must specify at least one value');
 			}
-			catch (err) {
-				reject(err);
+			const n = {
+				RelName: relName.value,
+				Type: parseInt(xtype.value),
+				TTL: parseInt(ttl.value),
+				Values: values,
+			};
+			if (isNew) {
+				await check(fieldset, () => client.RecordSetAdd(zone.Name, n));
 			}
+			else {
+				await check(fieldset, () => client.RecordSetUpdate(zone.Name, zoneRelName(zone, records[0].AbsName), n, records.map(r => r.ID), valuesView.values.map(v => v.recordID)));
+			}
+			close();
+			resolve();
 		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.div(dom.label(dom.div('Name'), relName = dom.input(records.length > 0 ? attr.value(zoneRelName(zone, records[0].AbsName)) : [], style({ textAlign: 'right' })), '.' + zone.Name)), dom.div(dom.label(dom.div('TTL'), ttl = dom.input(attr.type('number'), attr.required(''), attr.value('300')))), dom.div(dom.label(dom.div('Type'), xtype = dom.select(dom.optgroup(attr.label('Common'), Object.entries(dnsTypeNames).filter(t => firstTypes.includes(t[1])).sort((ta, tb) => firstTypes.indexOf(ta[1]) - firstTypes.indexOf(tb[1])).map(t => dom.option(attr.value(t[0]), t[1]))), dom.optgroup(attr.label('Others'), Object.entries(dnsTypeNames).filter(t => !firstTypes.includes(t[1]) && !skipTypes.includes(t[1])).sort((ta, tb) => ta[1] < tb[1] ? -1 : 1).map(t => dom.option(attr.value(t[0]), t[1]))), isNew ? [] : attr.disabled(''), records.length === 0 ? [] : prop({ value: '' + records[0].Type })))), dom.div(dom.div(dom.label('Value(s)'), ' ', dom.clickbutton('Add', attr.title('Add another value'), function click() {
 			addValue('', 0);
 		})), valuesView), dom.div(dom.submitbutton(isNew ? 'Add record set' : 'Update record set')))));
