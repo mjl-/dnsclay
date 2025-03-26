@@ -812,8 +812,8 @@ github.com/libdns/selectel v1.0.0 h1:Ppj/UlY+nFQXaZk4W+niMKVJSWSlbgUY8rtkXyim/hI
 github.com/libdns/selectel v1.0.0/go.mod h1:0s7+DwZF8iNxSP46V+0xYBctHKNOfdqGr7DP3OcLs0c=
 github.com/libdns/tencentcloud v1.2.0 h1:SBbZ9gUZ+ba/p2d8NpiOcj+WZTdYqB5Fz7zypdbK3YU=
 github.com/libdns/tencentcloud v1.2.0/go.mod h1:o0+WCxQ7LGLtyjnjYU4HbGW9uVjN44SdUDhxdUYLGPw=
-github.com/libdns/timeweb v1.0.1 h1:R67WdB38UK6h2BYsTe45eOB5/W6Ef+1rd4Rb4MEpNfY=
-github.com/libdns/timeweb v1.0.1/go.mod h1:v9sKUolTjDLvOifbkjjnxlXCLGVgZ+fiO2+P12VMSRE=
+github.com/libdns/timeweb v1.0.2 h1:IZMUhao8dNwlDl2kpctjl1UIQoZXTtuRJ1WT9ujta4Y=
+github.com/libdns/timeweb v1.0.2/go.mod h1:Xa4uHirX/Exhm7BBk7av0+zk0D11tMtvGVOw7Nx7pWE=
 github.com/libdns/totaluptime v1.0.1 h1:4QaWhGt++t748cRqPxz9i/NEp914MqAHZTrrfFiRz38=
 github.com/libdns/totaluptime v1.0.1/go.mod h1:Ri00J3Mi+lT6X0lfN8NFQE/W4IGwXgocc5t8KIyXdHw=
 github.com/libdns/vultr v1.0.0 h1:W8B4+k2bm9ro3bZLSZV9hMOQI+uO6Svu+GmD+Olz7ZI=

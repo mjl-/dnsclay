@@ -65,7 +65,7 @@ require (
 	github.com/libdns/scaleway v0.1.11
 	github.com/libdns/selectel v1.0.0
 	github.com/libdns/tencentcloud v1.2.0
-	github.com/libdns/timeweb v1.0.1
+	github.com/libdns/timeweb v1.0.2
 	github.com/libdns/totaluptime v1.0.1
 	github.com/libdns/vultr v1.0.0
 	github.com/miekg/dns v1.1.62

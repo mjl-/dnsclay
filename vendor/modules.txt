@@ -595,7 +595,7 @@ github.com/libdns/selectel
 ## explicit; go 1.18
 github.com/libdns/tencentcloud
 github.com/libdns/tencentcloud/dnspod
-# github.com/libdns/timeweb v1.0.1
+# github.com/libdns/timeweb v1.0.2
 ## explicit; go 1.18
 github.com/libdns/timeweb
 # github.com/libdns/totaluptime v1.0.1
