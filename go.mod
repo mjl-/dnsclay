@@ -60,7 +60,7 @@ require (
 	github.com/libdns/ovh v0.0.3
 	github.com/libdns/porkbun v0.2.0
 	github.com/libdns/powerdns v0.1.3
-	github.com/libdns/rfc2136 v0.1.1
+	github.com/libdns/rfc2136 v0.2.0
 	github.com/libdns/route53 v1.5.1
 	github.com/libdns/scaleway v0.1.11
 	github.com/libdns/selectel v1.0.0
@@ -68,7 +68,7 @@ require (
 	github.com/libdns/timeweb v1.0.2
 	github.com/libdns/totaluptime v1.0.1
 	github.com/libdns/vultr v1.0.0
-	github.com/miekg/dns v1.1.62
+	github.com/miekg/dns v1.1.63
 	github.com/mjl-/bstore v0.0.8
 	github.com/mjl-/sherpa v0.6.7
 	github.com/mjl-/sherpadoc v0.0.18

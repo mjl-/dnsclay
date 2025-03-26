@@ -3,9 +3,10 @@ package rfc2136
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/libdns/libdns"
 	"github.com/miekg/dns"
-	"time"
 )
 
 type Provider struct {
@@ -66,11 +67,35 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	return records, nil
 }
 
-func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	return p.SetRecords(ctx, zone, records)
+func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	zone = dns.Fqdn(zone)
+
+	msg := dns.Msg{}
+	msg.SetUpdate(zone)
+
+	rrs := make([]dns.RR, 0, len(records))
+	for _, rec := range records {
+		rr, err := recordToRR(rec, zone)
+		if err != nil {
+			return nil, fmt.Errorf("invalid record %s: %w", rec.Name, err)
+		}
+		rrs = append(rrs, rr)
+	}
+
+	msg.RemoveRRset(rrs)
+	msg.Insert(rrs)
+
+	p.setTsig(&msg)
+
+	_, _, err := p.client().ExchangeContext(ctx, &msg, p.Server)
+	if err != nil {
+		return nil, err
+	}
+
+	return records, nil
 }
 
-func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	zone = dns.Fqdn(zone)
 
 	msg := dns.Msg{}
