@@ -61,11 +61,12 @@ been added, except:
 - dinahosting, only creates ACME TXT records
 - dnsexit, no proper GetRecords
 - dode, only creates ACME TXT records
-- vercel, cannot set TTL
+- neoserv, it doesn't use an api, but parses html pages
 - nicrudns, does not compile against latest libdns
+- openstack-designate, sherpadoc doesn't handle it being imported as openstack-designate and named openstackdesignate
 - regfish, does not compile against latest libdns
 - transip, requires a key in a file on disk
-- openstack-designate, sherpadoc doesn't handle it being imported as openstack-designate and named openstackdesignate
+- vercel, cannot set TTL
 
 ## Adding a new provider
 
