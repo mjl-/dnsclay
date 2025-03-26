@@ -475,7 +475,7 @@ github.com/libdns/hetzner
 ## explicit; go 1.21.1
 github.com/libdns/hexonet
 github.com/libdns/hexonet/txtsanitize
-# github.com/libdns/hosttech v1.1.0
+# github.com/libdns/hosttech v1.1.1
 ## explicit; go 1.18
 github.com/libdns/hosttech
 # github.com/libdns/huaweicloud v0.3.1
@@ -520,7 +520,7 @@ github.com/libdns/katapult
 # github.com/libdns/leaseweb v0.4.0
 ## explicit; go 1.22
 github.com/libdns/leaseweb
-# github.com/libdns/libdns v0.2.2
+# github.com/libdns/libdns v0.2.3
 ## explicit; go 1.18
 github.com/libdns/libdns
 # github.com/libdns/linode v0.4.1
