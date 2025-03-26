@@ -1041,11 +1041,6 @@ const pageZone = async (zonestr: string) => {
 		dom.div(
 			style({display: 'flex', gap: '.5em', alignItems: 'baseline'}),
 			dom.h2('Records'), ' ',
-			dom.clickbutton('Fetch latest records', async function click(e: {target: HTMLButtonElement}) {
-				const [_, nsets] = await check(e.target, () => client.ZoneRefresh(zone.Name))
-				sets = nsets || []
-				render()
-			}), ' ',
 			dom.clickbutton('Add records', async function click(e: {target: HTMLButtonElement}) {
 				await popupEdit(zone, [], true)
 				await refresh(e.target)
@@ -1081,6 +1076,11 @@ const pageZone = async (zonestr: string) => {
 					),
 				)
 				zonefile.focus()
+			}), ' ',
+			dom.clickbutton('Fetch latest records', async function click(e: {target: HTMLButtonElement}) {
+				const [_, nsets] = await check(e.target, () => client.ZoneRefresh(zone.Name))
+				sets = nsets || []
+				render()
 			}), ' ',
 			dom.clickbutton('Purge history', attr.title('Remove history with previously existing but now removed records. History is used by IXFR for incremental zone transfers, but IXFR attempts will fall back to AXFR if history is not available.'), async function click(e: {target: HTMLButtonElement}) {
 				if (!confirm('Are you sure?')) {

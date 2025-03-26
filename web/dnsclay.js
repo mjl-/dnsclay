@@ -1579,11 +1579,7 @@ const pageZone = async (zonestr) => {
 			row.remove();
 		})));
 		return row;
-	}))))), dom.br(), dom.div(style({ display: 'flex', gap: '.5em', alignItems: 'baseline' }), dom.h2('Records'), ' ', dom.clickbutton('Fetch latest records', async function click(e) {
-		const [_, nsets] = await check(e.target, () => client.ZoneRefresh(zone.Name));
-		sets = nsets || [];
-		render();
-	}), ' ', dom.clickbutton('Add records', async function click(e) {
+	}))))), dom.br(), dom.div(style({ display: 'flex', gap: '.5em', alignItems: 'baseline' }), dom.h2('Records'), ' ', dom.clickbutton('Add records', async function click(e) {
 		await popupEdit(zone, [], true);
 		await refresh(e.target);
 	}), ' ', dom.clickbutton('Import records', attr.title('Import records from zone file'), function click() {
@@ -1597,6 +1593,10 @@ const pageZone = async (zonestr) => {
 			close();
 		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.div(dom.label(dom.div('Zone file'), zonefile = dom.textarea('$TTL 300 ; default 5m\n$ORIGIN ' + zone.Name + '\n\n; record syntax: name ttl type value\n; example:\n;relativename 300 A 1.2.3.4\n\n', style({ width: '60em' }), attr.rows('10')))), dom.div(dom.submitbutton('Import')))));
 		zonefile.focus();
+	}), ' ', dom.clickbutton('Fetch latest records', async function click(e) {
+		const [_, nsets] = await check(e.target, () => client.ZoneRefresh(zone.Name));
+		sets = nsets || [];
+		render();
 	}), ' ', dom.clickbutton('Purge history', attr.title('Remove history with previously existing but now removed records. History is used by IXFR for incremental zone transfers, but IXFR attempts will fall back to AXFR if history is not available.'), async function click(e) {
 		if (!confirm('Are you sure?')) {
 			return;
