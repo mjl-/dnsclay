@@ -693,8 +693,8 @@ github.com/libdns/autodns v0.0.0-20241118163948-55a66a54abc3 h1:D3zl/+fIq1loUGzS
 github.com/libdns/autodns v0.0.0-20241118163948-55a66a54abc3/go.mod h1:3XqjQUYCW8nXQmWTMFp+AIMKwAYYO/gzd7BiCjgRDUU=
 github.com/libdns/azure v0.4.0 h1:GjCXV1b6p0OIFYUEKuVHqLKQWw0ohGF+I8UgtTt3JkM=
 github.com/libdns/azure v0.4.0/go.mod h1:CTB8t866k8z3rhedf4N90Pk3IFdbkB31tGddBuupeBU=
-github.com/libdns/bunny v1.2.1 h1:w/nNYOkp34Yjyj4empKX6OsPWNBH4WRaOHFyT+cWRJM=
-github.com/libdns/bunny v1.2.1/go.mod h1:tUfBopMefxj3B6zC+k9XmU6IvXRlM0NXpg2nlAgREUA=
+github.com/libdns/bunny v1.3.2 h1:m+kLMXToEKPvoiju6BlI6ot/Qg88a0KhXuFaJN7yZBw=
+github.com/libdns/bunny v1.3.2/go.mod h1:tUfBopMefxj3B6zC+k9XmU6IvXRlM0NXpg2nlAgREUA=
 github.com/libdns/civo v0.1.27 h1:Oov14ZyrXE4kAsQWd/NYkhwSSPGdcvfGyVq7XE2KOZI=
 github.com/libdns/civo v0.1.27/go.mod h1:i7af53SBFowpmnnGu4RSqIDyI2nxL2kSqjpJj+TDGlQ=
 github.com/libdns/cloudflare v0.1.1 h1:FVPfWwP8zZCqj268LZjmkDleXlHPlFU9KC4OJ3yn054=

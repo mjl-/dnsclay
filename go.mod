@@ -8,7 +8,7 @@ require (
 	github.com/libdns/alidns v1.0.3
 	github.com/libdns/autodns v0.0.0-20241118163948-55a66a54abc3
 	github.com/libdns/azure v0.4.0
-	github.com/libdns/bunny v1.2.1
+	github.com/libdns/bunny v1.3.2
 	github.com/libdns/civo v0.1.27
 	github.com/libdns/cloudflare v0.1.1
 	github.com/libdns/cloudns v1.0.0

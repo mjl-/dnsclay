@@ -76,13 +76,12 @@ You can enable logging by configuring a custom logger or by setting `Debug` to t
 Example output using the default logger:
 
 ```shell
-[bunny] fetching all records for example.com
+[bunny] fetching all records in zone example.com
 [bunny] fetching zone ID for example.com
-[bunny] done fetching zone ID 82940 for example.com
+[bunny] done found zone ID 82940 for example.com
 [bunny] done fetching 3 record(s) in zone example.com
 [bunny]   TXT: ID=7648777, TTL=2m0s, Priority=0, Name=test1, Value=test1
 [bunny]   TXT: ID=7648778, TTL=2m0s, Priority=0, Name=test2, Value=test2
 [bunny]   TXT: ID=7648779, TTL=2m0s, Priority=0, Name=test3, Value=test3
 [bunny] deleting TXT record in zone example.com
-[bunny]   TXT: ID=7648777, TTL=2m0s, Priority=0, Name=test1, Value=test1
 ```
