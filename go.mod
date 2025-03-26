@@ -69,7 +69,7 @@ require (
 	github.com/libdns/totaluptime v1.0.1
 	github.com/libdns/vultr v1.0.0
 	github.com/miekg/dns v1.1.62
-	github.com/mjl-/bstore v0.0.7
+	github.com/mjl-/bstore v0.0.8
 	github.com/mjl-/sherpa v0.6.7
 	github.com/mjl-/sherpadoc v0.0.18
 	github.com/mjl-/sherpaprom v0.0.2

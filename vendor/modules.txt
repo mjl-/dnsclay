@@ -638,7 +638,7 @@ github.com/mittwald/go-powerdns/apis/search
 github.com/mittwald/go-powerdns/apis/servers
 github.com/mittwald/go-powerdns/apis/zones
 github.com/mittwald/go-powerdns/pdnshttp
-# github.com/mjl-/bstore v0.0.7
+# github.com/mjl-/bstore v0.0.8
 ## explicit; go 1.22
 github.com/mjl-/bstore
 # github.com/mjl-/sherpa v0.6.7
