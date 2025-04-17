@@ -69,7 +69,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 
 	for i, record := range records {
 		// Fill the TTL with the default value if it is empty
-		if record.TTL == 0 {
+		if record.TTL <= 0 {
 			record.TTL = 10 * time.Minute
 		}
 		ttl := int32(record.TTL.Seconds())
@@ -105,16 +105,16 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	}
 
 	for i, record := range records {
+		// Fill the TTL with the default value if it is empty
+		if record.TTL <= 0 {
+			record.TTL = 10 * time.Minute
+		}
 		// If the record id is empty try to get it by name and type
 		if record.ID == "" {
-			id, err := p.getRecordIdByNameAndType(ctx, zone, record.Name, record.Type)
+			id, err := p.getRecordId(ctx, zone, record.Name, record.Type, record.Value)
 			if err == nil {
 				record.ID = id
 			}
-		}
-		// Fill the TTL with the default value if it is empty
-		if record.TTL == 0 {
-			record.TTL = 10 * time.Minute
 		}
 		// If the record id is still empty, it means it is a new record
 		if record.ID == "" {
@@ -160,6 +160,13 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	}
 
 	for record := range slices.Values(records) {
+		if record.ID == "" {
+			id, err := p.getRecordId(ctx, zone, record.Name, record.Type, record.Value)
+			if err != nil {
+				return nil, err
+			}
+			record.ID = id
+		}
 		request := &model.DeleteRecordSetRequest{
 			ZoneId:      zoneId,
 			RecordsetId: record.ID,

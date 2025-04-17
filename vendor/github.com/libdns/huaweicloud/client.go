@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/libdns/huaweicloud/sdk/core/auth/basic"
 	dns "github.com/libdns/huaweicloud/sdk/services/dns/v2"
@@ -13,35 +12,31 @@ import (
 )
 
 func (p *Provider) getClient() (*dns.DnsClient, error) {
-	client := sync.OnceValues(func() (*dns.DnsClient, error) {
-		auth, err := basic.NewCredentialsBuilder().
-			WithAk(p.AccessKeyId).
-			WithSk(p.SecretAccessKey).
-			SafeBuild()
-		if err != nil {
-			return nil, err
-		}
+	auth, err := basic.NewCredentialsBuilder().
+		WithAk(p.AccessKeyId).
+		WithSk(p.SecretAccessKey).
+		SafeBuild()
+	if err != nil {
+		return nil, err
+	}
 
-		if p.RegionId == "" {
-			p.RegionId = "cn-south-1"
-		}
-		region, err := regions.SafeValueOf(p.RegionId)
-		if err != nil {
-			return nil, err
-		}
+	if p.RegionId == "" {
+		p.RegionId = "cn-south-1"
+	}
+	region, err := regions.SafeValueOf(p.RegionId)
+	if err != nil {
+		return nil, err
+	}
 
-		builder, err := dns.DnsClientBuilder().
-			WithRegion(region).
-			WithCredential(auth).
-			SafeBuild()
-		if err != nil {
-			return nil, err
-		}
+	builder, err := dns.DnsClientBuilder().
+		WithRegion(region).
+		WithCredential(auth).
+		SafeBuild()
+	if err != nil {
+		return nil, err
+	}
 
-		return dns.NewDnsClient(builder), nil
-	})
-
-	return client()
+	return dns.NewDnsClient(builder), nil
 }
 
 func (p *Provider) getZoneIdByName(name string) (string, error) {
@@ -73,7 +68,7 @@ func (p *Provider) getZoneIdByName(name string) (string, error) {
 	return *zones[0].Id, nil
 }
 
-func (p *Provider) getRecordIdByNameAndType(ctx context.Context, zone, recName, recType string) (string, error) {
+func (p *Provider) getRecordId(ctx context.Context, zone, recName, recType string, recVal ...string) (string, error) {
 	records, err := p.GetRecords(ctx, zone)
 	if err != nil {
 		return "", err
@@ -81,6 +76,9 @@ func (p *Provider) getRecordIdByNameAndType(ctx context.Context, zone, recName, 
 
 	for _, record := range records {
 		if recName == record.Name && recType == record.Type {
+			if len(recVal) > 0 && recVal[0] != "" && record.Value != recVal[0] {
+				continue
+			}
 			return record.ID, nil
 		}
 	}

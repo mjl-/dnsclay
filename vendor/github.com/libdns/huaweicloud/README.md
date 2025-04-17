@@ -38,5 +38,6 @@ func main() {
 		fmt.Printf("%s %v %s %s\n", record.Name, record.TTL.Seconds(), record.Type, record.Value)
 	}
 }
+
 ```
 For complete demo check [_example/main.go](_example/main.go)

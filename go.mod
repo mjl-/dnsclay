@@ -36,7 +36,7 @@ require (
 	github.com/libdns/hetzner v0.0.1
 	github.com/libdns/hexonet v0.1.0
 	github.com/libdns/hosttech v1.1.1
-	github.com/libdns/huaweicloud v0.3.1
+	github.com/libdns/huaweicloud v0.3.5
 	github.com/libdns/infomaniak v0.1.3
 	github.com/libdns/inwx v0.2.1
 	github.com/libdns/ionos v1.1.0

@@ -494,8 +494,8 @@ github.com/libdns/hexonet/txtsanitize
 # github.com/libdns/hosttech v1.1.1
 ## explicit; go 1.18
 github.com/libdns/hosttech
-# github.com/libdns/huaweicloud v0.3.1
-## explicit; go 1.23
+# github.com/libdns/huaweicloud v0.3.5
+## explicit; go 1.23.0
 github.com/libdns/huaweicloud
 github.com/libdns/huaweicloud/sdk/core
 github.com/libdns/huaweicloud/sdk/core/auth
