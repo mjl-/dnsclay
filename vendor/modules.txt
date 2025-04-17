@@ -554,6 +554,9 @@ github.com/libdns/mailinabox
 # github.com/libdns/metaname v0.3.0
 ## explicit; go 1.16
 github.com/libdns/metaname
+# github.com/libdns/mijnhost v0.1.0
+## explicit; go 1.18
+github.com/libdns/mijnhost
 # github.com/libdns/mythicbeasts v1.0.1
 ## explicit; go 1.16
 github.com/libdns/mythicbeasts

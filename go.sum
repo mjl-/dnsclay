@@ -780,6 +780,8 @@ github.com/libdns/mailinabox v0.0.1 h1:In/g4FO2g31PwLEPM9KS+MftAP8G7fa53bcbShg7g
 github.com/libdns/mailinabox v0.0.1/go.mod h1:QVVTTkDKfNjxb5fXL3DRucAekxuHRAIv1KdZ5sCVWAo=
 github.com/libdns/metaname v0.3.0 h1:HJudLYthdv52TupOPczojip/nEQHW7xqk5+whGReva4=
 github.com/libdns/metaname v0.3.0/go.mod h1:a3hqEgj59tjWaWlF4WxQGhvMVtjz1E4Ngs1GfVS+VhQ=
+github.com/libdns/mijnhost v0.1.0 h1:9LtwUIP94mzAfPWL2yQlyyiQ9VF332Pprs199iastjw=
+github.com/libdns/mijnhost v0.1.0/go.mod h1:j+PQYRQJ0RlH+XX+ugZ1A5cfdsoJqdTA6epFKYr8YxU=
 github.com/libdns/mythicbeasts v1.0.1 h1:WEcUOm4to/ozGJdopZ8YldrWtngg1LQea618JKMWZjs=
 github.com/libdns/mythicbeasts v1.0.1/go.mod h1:ru58ZGjd/3UBxdB9xWXTxSRsBn+oAYanSdr+eqP8q6w=
 github.com/libdns/namecheap v0.0.0-20211109042440-fc7440785c8e h1:WCcKyxiiK/sJnST1ulVBKNg4J8luCYDdgUrp2ySMO2s=

@@ -180,6 +180,7 @@ implementations maintained at https://github.com/libdns:
   - https://github.com/libdns/luadns
   - https://github.com/libdns/mailinabox
   - https://github.com/libdns/metaname
+  - https://github.com/libdns/mijnhost
   - https://github.com/libdns/mythicbeasts
   - https://github.com/libdns/namecheap
   - https://github.com/libdns/namedotcom

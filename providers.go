@@ -45,6 +45,7 @@ import (
 	luadns "github.com/libdns/luadns"
 	mailinabox "github.com/libdns/mailinabox"
 	metaname "github.com/libdns/metaname"
+	mijnhost "github.com/libdns/mijnhost"
 	mythicbeasts "github.com/libdns/mythicbeasts"
 	namecheap "github.com/libdns/namecheap"
 	namedotcom "github.com/libdns/namedotcom"
@@ -113,6 +114,7 @@ type KnownProviders struct {
 	Xluadns             luadns.Provider
 	Xmailinabox         mailinabox.Provider
 	Xmetaname           metaname.Provider
+	Xmijnhost           mijnhost.Provider
 	Xmythicbeasts       mythicbeasts.Provider
 	Xnamecheap          namecheap.Provider
 	Xnamedotcom         namedotcom.Provider
@@ -181,6 +183,7 @@ var providers = map[string]any{
 	"luadns":             luadns.Provider{},
 	"mailinabox":         mailinabox.Provider{},
 	"metaname":           metaname.Provider{},
+	"mijnhost":           mijnhost.Provider{},
 	"mythicbeasts":       mythicbeasts.Provider{},
 	"namecheap":          namecheap.Provider{},
 	"namedotcom":         namedotcom.Provider{},
@@ -249,6 +252,7 @@ var providerURLs = map[string]string{
 	"luadns":             "github.com/libdns/luadns",
 	"mailinabox":         "github.com/libdns/mailinabox",
 	"metaname":           "github.com/libdns/metaname",
+	"mijnhost":           "github.com/libdns/mijnhost",
 	"mythicbeasts":       "github.com/libdns/mythicbeasts",
 	"namecheap":          "github.com/libdns/namecheap",
 	"namedotcom":         "github.com/libdns/namedotcom",

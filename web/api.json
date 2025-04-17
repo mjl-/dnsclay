@@ -1324,6 +1324,13 @@
 					]
 				},
 				{
+					"Name": "Xmijnhost",
+					"Docs": "",
+					"Typewords": [
+						"Provider_mijnhost"
+					]
+				},
+				{
 					"Name": "Xmythicbeasts",
 					"Docs": "",
 					"Typewords": [
@@ -2424,6 +2431,20 @@
 				},
 				{
 					"Name": "endpoint",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_mijnhost",
+			"Docs": "Provider facilitates DNS record manipulation with mijn.host.",
+			"Fields": [
+				{
+					"Name": "api_token",
 					"Docs": "",
 					"Typewords": [
 						"nullable",

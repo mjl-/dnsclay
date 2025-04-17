@@ -48,6 +48,7 @@ require (
 	github.com/libdns/luadns v0.1.0
 	github.com/libdns/mailinabox v0.0.1
 	github.com/libdns/metaname v0.3.0
+	github.com/libdns/mijnhost v0.1.0
 	github.com/libdns/mythicbeasts v1.0.1
 	github.com/libdns/namecheap v0.0.0-20211109042440-fc7440785c8e
 	github.com/libdns/namedotcom v0.3.3
