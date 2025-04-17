@@ -37,6 +37,7 @@ test-race:
 
 knotd:
 	-mkdir testdata/knot/run testdata/knot/db testdata/knot/var
+	test -f testdata/knot/var/example.com.zone || cp testdata/knot/example.com.zone.initial testdata/knot/var/example.com.zone
 	/usr/sbin/knotd -c testdata/knot/knot.conf -v
 
 tswatch:

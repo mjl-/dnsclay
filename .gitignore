@@ -12,3 +12,4 @@
 /testdata/dnsclay-test.ed25519.privkey-pkcs8.pem
 /testdata/knot/db/
 /testdata/knot/run/
+/testdata/knot/var/

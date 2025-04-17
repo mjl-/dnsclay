@@ -1,0 +1,15 @@
+;; Zone dump (Knot DNS 3.4.6)
+example.com.        	3600	SOA	ns0.localhost. test.example.com. 2024072597 3600 300 1209600 300
+example.com.        	300	NS	ns0.localhost.
+example.com.        	300	MX	10 host.example.com.
+host.example.com.   	300	A	10.2.3.4
+host.example.com.   	300	A	10.2.3.5
+test.example.com.   	300	MX	10 host.example.com.
+test.example.com.   	300	SRV	0 0 143 .
+test.example.com.	300	TXT	"x"
+test.example.com.	300	TXT	"y"
+*.wildcard.example.com.	300	A	10.2.3.4
+*.wildcard.example.com.	300	A	10.2.3.5
+x.wildcard.example.com.	300	A	10.2.3.6
+;; Written 17 records
+;; Time 2025-04-17 14:23:00 CEST
