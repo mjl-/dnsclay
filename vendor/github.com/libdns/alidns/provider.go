@@ -38,13 +38,6 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, recs []libdns
 	var rls []libdns.Record
 	for _, rec := range recs {
 		ar := alidnsRecordWithZone(rec, zone)
-		if len(ar.RecID) == 0 {
-			r0, err := p.queryDomainRecord(ctx, ar.Rr, ar.DName, ar.DTyp)
-			ar.RecID = r0.RecID
-			if err != nil {
-				return nil, err
-			}
-		}
 		_, err := p.delDomainRecord(ctx, ar)
 		if err != nil {
 			return nil, err
@@ -71,22 +64,19 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 // or creating new ones. It returns the updated records.
 func (p *Provider) SetRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
 	var rls []libdns.Record
+	var err error
 	for _, rec := range recs {
 		ar := alidnsRecordWithZone(rec, zone)
-		if len(ar.RecID) == 0 {
-			r0, err := p.queryDomainRecord(ctx, ar.Rr, ar.DName, ar.DTyp)
-			if err != nil {
-				ar.RecID, err = p.addDomainRecord(ctx, ar)
-			} else {
-				ar.RecID = r0.RecID
-			}
+		if ar.RecID == "" {
+			ar.RecID, err = p.addDomainRecord(ctx, ar)
 			if err != nil {
 				return nil, err
 			}
-		}
-		_, err := p.setDomainRecord(ctx, ar)
-		if err != nil {
-			return nil, err
+		} else {
+			_, err = p.setDomainRecord(ctx, ar)
+			if err != nil {
+				return nil, err
+			}
 		}
 		rls = append(rls, ar.LibdnsRecord())
 	}

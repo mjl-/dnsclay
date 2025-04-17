@@ -689,8 +689,8 @@ github.com/kyoh86/richgo v0.3.3/go.mod h1:S65jllVRxBm59fqIXfCa3cPxQYRT9u9v45EPQV
 github.com/kyoh86/xdg v0.0.0-20171007020617-d28e4c5d7b81/go.mod h1:Z5mDqe0fxyxn3W2yTxsBAOQqIrXADQIh02wrTnaRM38=
 github.com/leodido/go-urn v1.2.1 h1:BqpAaACuzVSgi/VLzGZIobT2z4v53pjosyNd9Yv6n/w=
 github.com/leodido/go-urn v1.2.1/go.mod h1:zt4jvISO2HfUBqxjfIshjdMTYS56ZS/qv49ictyFfxY=
-github.com/libdns/alidns v1.0.3 h1:LFHuGnbseq5+HCeGa1aW8awyX/4M2psB9962fdD2+yQ=
-github.com/libdns/alidns v1.0.3/go.mod h1:e18uAG6GanfRhcJj6/tps2rCMzQJaYVcGKT+ELjdjGE=
+github.com/libdns/alidns v1.0.4 h1:Rc3Yy2SzMoho+3q3+fNy9vOVr2h9dcL8OLTgNKgxYbU=
+github.com/libdns/alidns v1.0.4/go.mod h1:e18uAG6GanfRhcJj6/tps2rCMzQJaYVcGKT+ELjdjGE=
 github.com/libdns/autodns v0.0.0-20241118163948-55a66a54abc3 h1:D3zl/+fIq1loUGzSQNvLVD2Oy0IamT/ne+pV6eby7OA=
 github.com/libdns/autodns v0.0.0-20241118163948-55a66a54abc3/go.mod h1:3XqjQUYCW8nXQmWTMFp+AIMKwAYYO/gzd7BiCjgRDUU=
 github.com/libdns/azure v0.4.0 h1:GjCXV1b6p0OIFYUEKuVHqLKQWw0ohGF+I8UgtTt3JkM=

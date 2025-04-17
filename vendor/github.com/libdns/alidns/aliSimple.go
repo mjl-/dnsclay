@@ -21,7 +21,6 @@ import (
 
 const defRegID string = "cn-hangzhou"
 const addrOfAPI string = "%s://alidns.aliyuncs.com/"
-const dbgTAG string = "DEBUG:>\t"
 
 // CredInfo implements param of the crediential
 type CredInfo struct {
@@ -89,7 +88,7 @@ func (c *mClient) applyReq(cxt context.Context, method string, body io.Reader) (
 
 func (c *aliClient) getAliClientSche(cred *CredInfo, scheme string) (*aliClient, error) {
 	if cred == nil {
-		return &aliClient{}, errors.New("alicloud: credentials missing")
+		return &aliClient{}, errors.New("alidns: credentials missing")
 	}
 	if scheme == "" {
 		scheme = "http"
@@ -115,13 +114,11 @@ func (c *aliClient) getAliClientSche(cred *CredInfo, scheme string) (*aliClient,
 
 func (c *aliClient) signReq(method string) error {
 	if c.sigPwd == "" || len(c.reqMap) == 0 {
-		return errors.New("alicloud: AccessKeySecret or Request(includes AccessKeyId) is Misssing")
+		return errors.New("alidns: AccessKeySecret or Request(includes AccessKeyId) is Misssing")
 	}
 	sort.Sort(byKey(c.reqMap))
 	str := c.reqMapToStr()
-	fmt.Println(dbgTAG+"Request map to str:", str)
 	str = c.reqStrToSign(str, method)
-	fmt.Println(dbgTAG+"URL to sign:", str)
 	c.sigStr = signStr(str, c.sigPwd)
 	return nil
 }

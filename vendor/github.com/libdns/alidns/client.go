@@ -67,6 +67,9 @@ func (p *Provider) setDomainRecord(ctx context.Context, rc aliDomaRecord) (recID
 	p.client.mutex.Lock()
 	defer p.client.mutex.Unlock()
 	p.getClientWithZone(rc.DName)
+	if rc.TTL <= 0 {
+		rc.TTL = 600
+	}
 	p.client.aClient.addReqBody("Action", "UpdateDomainRecord")
 	p.client.aClient.addReqBody("RecordId", rc.RecID)
 	p.client.aClient.addReqBody("RR", rc.Rr)

@@ -399,7 +399,7 @@ github.com/kylelemons/godebug/pretty
 # github.com/leodido/go-urn v1.2.1
 ## explicit; go 1.13
 github.com/leodido/go-urn
-# github.com/libdns/alidns v1.0.3
+# github.com/libdns/alidns v1.0.4
 ## explicit; go 1.16
 github.com/libdns/alidns
 # github.com/libdns/autodns v0.0.0-20241118163948-55a66a54abc3
