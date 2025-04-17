@@ -939,6 +939,12 @@ func (x API) ProviderConfigs(ctx context.Context) (providerConfigs []ProviderCon
 	return
 }
 
+// ProviderURLs returns a mapping of provider names to URLs of their
+// repositories, for further help/instructions.
+func (x API) ProviderURLs(ctx context.Context) map[string]string {
+	return providerURLs
+}
+
 // ProviderConfigAdd adds a new provider config.
 func (x API) ProviderConfigAdd(ctx context.Context, pc ProviderConfig) (npc ProviderConfig) {
 	_dbwrite(ctx, func(tx *bstore.Tx) {

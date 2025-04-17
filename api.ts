@@ -1084,6 +1084,16 @@ export class Client {
 		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as ProviderConfig[] | null
 	}
 
+	// ProviderURLs returns a mapping of provider names to URLs of their
+	// repositories, for further help/instructions.
+	async ProviderURLs(): Promise<{ [key: string]: string }> {
+		const fn: string = "ProviderURLs"
+		const paramTypes: string[][] = []
+		const returnTypes: string[][] = [["{}","string"]]
+		const params: any[] = []
+		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as { [key: string]: string }
+	}
+
 	// ProviderConfigAdd adds a new provider config.
 	async ProviderConfigAdd(pc: ProviderConfig): Promise<ProviderConfig> {
 		const fn: string = "ProviderConfigAdd"

@@ -530,6 +530,20 @@
 			]
 		},
 		{
+			"Name": "ProviderURLs",
+			"Docs": "ProviderURLs returns a mapping of provider names to URLs of their\nrepositories, for further help/instructions.",
+			"Params": [],
+			"Returns": [
+				{
+					"Name": "r0",
+					"Typewords": [
+						"{}",
+						"string"
+					]
+				}
+			]
+		},
+		{
 			"Name": "ProviderConfigAdd",
 			"Docs": "ProviderConfigAdd adds a new provider config.",
 			"Params": [

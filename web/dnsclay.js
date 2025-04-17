@@ -655,6 +655,15 @@ var api;
 			const params = [];
 			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
 		}
+		// ProviderURLs returns a mapping of provider names to URLs of their
+		// repositories, for further help/instructions.
+		async ProviderURLs() {
+			const fn = "ProviderURLs";
+			const paramTypes = [];
+			const returnTypes = [["{}", "string"]];
+			const params = [];
+			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
+		}
 		// ProviderConfigAdd adds a new provider config.
 		async ProviderConfigAdd(pc) {
 			const fn = "ProviderConfigAdd";
@@ -1214,7 +1223,10 @@ const pageHome = async () => {
 		let testResult;
 		let newProviderConfigName;
 		let existingProviderConfigName;
-		const [stringEnums, providers] = await availableProviders();
+		const [[stringEnums, providers], providerURLs] = await Promise.all([
+			availableProviders(),
+			client.ProviderURLs(),
+		]);
 		const providerConfigs = await client.ProviderConfigs() || [];
 		let fields;
 		let providerName = '';
@@ -1225,7 +1237,8 @@ const pageHome = async () => {
 				alert('cannot find provider ' + providerName);
 				return;
 			}
-			dom._kids(providerConfigBox, style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.label(dom.div('Name'), dom.div(newProviderConfigName = dom.input(attr.required(''), attr.value(newProviderConfigName?.value || zone.value)))), dom.div(style({ padding: '1em', border: '1px solid #ddd' }), dom.h2('"' + providerName + '" fields'), dom.p('Implemented through github/libdns/' + providerName + ', see ', dom.a(attr.href('https://pkg.go.dev/github.com/libdns/' + providerName), 'documentation', attr.rel('noreferrer noopener'))), dom.div(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), fields = providerFields(p, stringEnums, null))));
+			const url = providerURLs[providerName];
+			dom._kids(providerConfigBox, style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.label(dom.div('Name'), dom.div(newProviderConfigName = dom.input(attr.required(''), attr.value(newProviderConfigName?.value || zone.value)))), dom.div(style({ padding: '1em', border: '1px solid #ddd' }), dom.h2('"' + providerName + '" fields'), dom.p('Implemented through ', dom.a(attr.href('https://' + url), url, attr.rel('noreferrer noopener')), ', see ', dom.a(attr.href('https://pkg.go.dev/' + url), 'Go documentation', attr.rel('noreferrer noopener'))), dom.div(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), fields = providerFields(p, stringEnums, null))));
 		};
 		let providerConfigBox;
 		const [close] = popup(dom.div(dom.h1('New zone'), dom.form(async function submit(e) {

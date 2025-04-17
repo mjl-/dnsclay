@@ -105,8 +105,8 @@ The following providers are implemented in dnsclay, with community-provided
 implementations maintained at https://github.com/libdns:
 
 EOF
-for i in $(cat providers.txt); do
-	echo "  - $i"
+for i in $(cat providers.txt | cut -f2 -d' ' | sed 's/"//g'); do
+	echo "  - https://$i"
 done
 
 cat <<EOF

@@ -9,14 +9,7 @@ package main
 import (
 EOF
 
-for i in $(cat providers.txt); do
-	# can generalize on next occurrence of special import name
-	prefix=''
-	if test $i = 'openstack-designate'; then
-		prefix='openstackdesignate '
-	fi
-	echo "	$prefix\"github.com/libdns/$i\""
-done
+sed 's/^/	/' providers.txt
 
 cat <<EOF
 
@@ -26,11 +19,7 @@ cat <<EOF
 type KnownProviders struct {
 EOF
 
-for i in $(cat providers.txt); do
-	if test $i = 'openstack-designate'; then
-		i='openstackdesignate'
-	fi
-
+for i in $(cat providers.txt | cut -f1 -d' '); do
 	echo "	X$i $i.Provider"
 done
 
@@ -41,13 +30,18 @@ cat <<EOF
 var providers = map[string]any{
 EOF
 
-for i in $(cat providers.txt); do
-	if test $i = 'openstack-designate'; then
-		i='openstackdesignate'
-	fi
-
+for i in $(cat providers.txt | cut -f1 -d' '); do
 	echo "	\"$i\": $i.Provider{},"
 done
+
+cat <<EOF
+}
+
+// providerURLs map provider names to repository URLs for help.
+var providerURLs = map[string]string{
+EOF
+
+sed 's/^\(.*\) \(.*\)$/"\1": \2,/' providers.txt
 
 cat <<EOF
 }

@@ -222,7 +222,10 @@ const pageHome = async () => {
 				let newProviderConfigName: HTMLInputElement
 				let existingProviderConfigName: HTMLSelectElement
 
-				const [stringEnums, providers] = await availableProviders()
+				const [[stringEnums, providers], providerURLs] = await Promise.all([
+					availableProviders(),
+					client.ProviderURLs(),
+				])
 				const providerConfigs = await client.ProviderConfigs() || []
 
 				let fields: ProviderFields
@@ -236,6 +239,8 @@ const pageHome = async () => {
 						return
 					}
 
+					const url = providerURLs[providerName]
+
 					dom._kids(providerConfigBox,
 						style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
 						dom.label(
@@ -245,7 +250,7 @@ const pageHome = async () => {
 						dom.div(
 							style({padding: '1em', border: '1px solid #ddd'}),
 							dom.h2('"'+providerName+'" fields'),
-							dom.p('Implemented through github/libdns/'+providerName+', see ', dom.a(attr.href('https://pkg.go.dev/github.com/libdns/'+providerName), 'documentation', attr.rel('noreferrer noopener'))),
+							dom.p('Implemented through ', dom.a(attr.href('https://'+url), url, attr.rel('noreferrer noopener')), ', see ', dom.a(attr.href('https://pkg.go.dev/'+url), 'Go documentation', attr.rel('noreferrer noopener'))),
 							dom.div(
 								style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
 								fields=providerFields(p, stringEnums, null),

@@ -579,9 +579,6 @@ github.com/libdns/porkbun
 ## explicit; go 1.16
 github.com/libdns/powerdns
 github.com/libdns/powerdns/txtsanitize
-# github.com/libdns/rfc2136 v0.1.1
-## explicit; go 1.18
-github.com/libdns/rfc2136
 # github.com/libdns/route53 v1.5.1
 ## explicit; go 1.19
 github.com/libdns/route53
@@ -641,6 +638,9 @@ github.com/mittwald/go-powerdns/pdnshttp
 # github.com/mjl-/bstore v0.0.8
 ## explicit; go 1.22
 github.com/mjl-/bstore
+# github.com/mjl-/libdns-rfc2136 v0.0.0-20250417121826-6995a8b9ebb5
+## explicit; go 1.18
+github.com/mjl-/libdns-rfc2136
 # github.com/mjl-/sherpa v0.6.7
 ## explicit; go 1.12
 github.com/mjl-/sherpa

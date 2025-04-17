@@ -3,68 +3,68 @@ package main
 // WARNING: Automatically generated, do not edit manually. Add new providers to providers.txt, keeping it sorted, and run "make build".
 
 import (
-	"github.com/libdns/alidns"
-	"github.com/libdns/autodns"
-	"github.com/libdns/azure"
-	"github.com/libdns/bunny"
-	"github.com/libdns/civo"
-	"github.com/libdns/cloudflare"
-	"github.com/libdns/cloudns"
-	"github.com/libdns/ddnss"
-	"github.com/libdns/desec"
-	"github.com/libdns/digitalocean"
-	"github.com/libdns/directadmin"
-	"github.com/libdns/dnsimple"
-	"github.com/libdns/dnsmadeeasy"
-	"github.com/libdns/dnspod"
-	"github.com/libdns/dnsupdate"
-	"github.com/libdns/domainnameshop"
-	"github.com/libdns/dreamhost"
-	"github.com/libdns/duckdns"
-	"github.com/libdns/dynu"
-	"github.com/libdns/dynv6"
-	"github.com/libdns/easydns"
-	"github.com/libdns/exoscale"
-	"github.com/libdns/gandi"
-	"github.com/libdns/gcore"
-	"github.com/libdns/glesys"
-	"github.com/libdns/godaddy"
-	"github.com/libdns/googleclouddns"
-	"github.com/libdns/he"
-	"github.com/libdns/hetzner"
-	"github.com/libdns/hexonet"
-	"github.com/libdns/hosttech"
-	"github.com/libdns/huaweicloud"
-	"github.com/libdns/infomaniak"
-	"github.com/libdns/inwx"
-	"github.com/libdns/ionos"
-	"github.com/libdns/katapult"
-	"github.com/libdns/leaseweb"
-	"github.com/libdns/linode"
-	"github.com/libdns/loopia"
-	"github.com/libdns/luadns"
-	"github.com/libdns/mailinabox"
-	"github.com/libdns/metaname"
-	"github.com/libdns/mythicbeasts"
-	"github.com/libdns/namecheap"
-	"github.com/libdns/namedotcom"
-	"github.com/libdns/namesilo"
-	"github.com/libdns/nanelo"
-	"github.com/libdns/netcup"
-	"github.com/libdns/netlify"
-	"github.com/libdns/nfsn"
-	"github.com/libdns/njalla"
-	"github.com/libdns/ovh"
-	"github.com/libdns/porkbun"
-	"github.com/libdns/powerdns"
-	"github.com/libdns/rfc2136"
-	"github.com/libdns/route53"
-	"github.com/libdns/scaleway"
-	"github.com/libdns/selectel"
-	"github.com/libdns/tencentcloud"
-	"github.com/libdns/timeweb"
-	"github.com/libdns/totaluptime"
-	"github.com/libdns/vultr"
+	alidns "github.com/libdns/alidns"
+	autodns "github.com/libdns/autodns"
+	azure "github.com/libdns/azure"
+	bunny "github.com/libdns/bunny"
+	civo "github.com/libdns/civo"
+	cloudflare "github.com/libdns/cloudflare"
+	cloudns "github.com/libdns/cloudns"
+	ddnss "github.com/libdns/ddnss"
+	desec "github.com/libdns/desec"
+	digitalocean "github.com/libdns/digitalocean"
+	directadmin "github.com/libdns/directadmin"
+	dnsimple "github.com/libdns/dnsimple"
+	dnsmadeeasy "github.com/libdns/dnsmadeeasy"
+	dnspod "github.com/libdns/dnspod"
+	dnsupdate "github.com/libdns/dnsupdate"
+	domainnameshop "github.com/libdns/domainnameshop"
+	dreamhost "github.com/libdns/dreamhost"
+	duckdns "github.com/libdns/duckdns"
+	dynu "github.com/libdns/dynu"
+	dynv6 "github.com/libdns/dynv6"
+	easydns "github.com/libdns/easydns"
+	exoscale "github.com/libdns/exoscale"
+	gandi "github.com/libdns/gandi"
+	gcore "github.com/libdns/gcore"
+	glesys "github.com/libdns/glesys"
+	godaddy "github.com/libdns/godaddy"
+	googleclouddns "github.com/libdns/googleclouddns"
+	he "github.com/libdns/he"
+	hetzner "github.com/libdns/hetzner"
+	hexonet "github.com/libdns/hexonet"
+	hosttech "github.com/libdns/hosttech"
+	huaweicloud "github.com/libdns/huaweicloud"
+	infomaniak "github.com/libdns/infomaniak"
+	inwx "github.com/libdns/inwx"
+	ionos "github.com/libdns/ionos"
+	katapult "github.com/libdns/katapult"
+	leaseweb "github.com/libdns/leaseweb"
+	linode "github.com/libdns/linode"
+	loopia "github.com/libdns/loopia"
+	luadns "github.com/libdns/luadns"
+	mailinabox "github.com/libdns/mailinabox"
+	metaname "github.com/libdns/metaname"
+	mythicbeasts "github.com/libdns/mythicbeasts"
+	namecheap "github.com/libdns/namecheap"
+	namedotcom "github.com/libdns/namedotcom"
+	namesilo "github.com/libdns/namesilo"
+	nanelo "github.com/libdns/nanelo"
+	netcup "github.com/libdns/netcup"
+	netlify "github.com/libdns/netlify"
+	nfsn "github.com/libdns/nfsn"
+	njalla "github.com/libdns/njalla"
+	ovh "github.com/libdns/ovh"
+	porkbun "github.com/libdns/porkbun"
+	powerdns "github.com/libdns/powerdns"
+	route53 "github.com/libdns/route53"
+	scaleway "github.com/libdns/scaleway"
+	selectel "github.com/libdns/selectel"
+	tencentcloud "github.com/libdns/tencentcloud"
+	timeweb "github.com/libdns/timeweb"
+	totaluptime "github.com/libdns/totaluptime"
+	vultr "github.com/libdns/vultr"
+	rfc2136 "github.com/mjl-/libdns-rfc2136"
 )
 
 // KnownProviders ensures all providers types are included in sherpadoc API documentation.
@@ -197,4 +197,70 @@ var providers = map[string]any{
 	"timeweb":        timeweb.Provider{},
 	"totaluptime":    totaluptime.Provider{},
 	"vultr":          vultr.Provider{},
+}
+
+// providerURLs map provider names to repository URLs for help.
+var providerURLs = map[string]string{
+	"alidns":         "github.com/libdns/alidns",
+	"autodns":        "github.com/libdns/autodns",
+	"azure":          "github.com/libdns/azure",
+	"bunny":          "github.com/libdns/bunny",
+	"civo":           "github.com/libdns/civo",
+	"cloudflare":     "github.com/libdns/cloudflare",
+	"cloudns":        "github.com/libdns/cloudns",
+	"ddnss":          "github.com/libdns/ddnss",
+	"desec":          "github.com/libdns/desec",
+	"digitalocean":   "github.com/libdns/digitalocean",
+	"directadmin":    "github.com/libdns/directadmin",
+	"dnsimple":       "github.com/libdns/dnsimple",
+	"dnsmadeeasy":    "github.com/libdns/dnsmadeeasy",
+	"dnspod":         "github.com/libdns/dnspod",
+	"dnsupdate":      "github.com/libdns/dnsupdate",
+	"domainnameshop": "github.com/libdns/domainnameshop",
+	"dreamhost":      "github.com/libdns/dreamhost",
+	"duckdns":        "github.com/libdns/duckdns",
+	"dynu":           "github.com/libdns/dynu",
+	"dynv6":          "github.com/libdns/dynv6",
+	"easydns":        "github.com/libdns/easydns",
+	"exoscale":       "github.com/libdns/exoscale",
+	"gandi":          "github.com/libdns/gandi",
+	"gcore":          "github.com/libdns/gcore",
+	"glesys":         "github.com/libdns/glesys",
+	"godaddy":        "github.com/libdns/godaddy",
+	"googleclouddns": "github.com/libdns/googleclouddns",
+	"he":             "github.com/libdns/he",
+	"hetzner":        "github.com/libdns/hetzner",
+	"hexonet":        "github.com/libdns/hexonet",
+	"hosttech":       "github.com/libdns/hosttech",
+	"huaweicloud":    "github.com/libdns/huaweicloud",
+	"infomaniak":     "github.com/libdns/infomaniak",
+	"inwx":           "github.com/libdns/inwx",
+	"ionos":          "github.com/libdns/ionos",
+	"katapult":       "github.com/libdns/katapult",
+	"leaseweb":       "github.com/libdns/leaseweb",
+	"linode":         "github.com/libdns/linode",
+	"loopia":         "github.com/libdns/loopia",
+	"luadns":         "github.com/libdns/luadns",
+	"mailinabox":     "github.com/libdns/mailinabox",
+	"metaname":       "github.com/libdns/metaname",
+	"mythicbeasts":   "github.com/libdns/mythicbeasts",
+	"namecheap":      "github.com/libdns/namecheap",
+	"namedotcom":     "github.com/libdns/namedotcom",
+	"namesilo":       "github.com/libdns/namesilo",
+	"nanelo":         "github.com/libdns/nanelo",
+	"netcup":         "github.com/libdns/netcup",
+	"netlify":        "github.com/libdns/netlify",
+	"nfsn":           "github.com/libdns/nfsn",
+	"njalla":         "github.com/libdns/njalla",
+	"ovh":            "github.com/libdns/ovh",
+	"porkbun":        "github.com/libdns/porkbun",
+	"powerdns":       "github.com/libdns/powerdns",
+	"rfc2136":        "github.com/mjl-/libdns-rfc2136",
+	"route53":        "github.com/libdns/route53",
+	"scaleway":       "github.com/libdns/scaleway",
+	"selectel":       "github.com/libdns/selectel",
+	"tencentcloud":   "github.com/libdns/tencentcloud",
+	"timeweb":        "github.com/libdns/timeweb",
+	"totaluptime":    "github.com/libdns/totaluptime",
+	"vultr":          "github.com/libdns/vultr",
 }
