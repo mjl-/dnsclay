@@ -94,7 +94,7 @@ func main() {
 		log.Printf("usage: dnsclay serve [flags]")
 		log.Printf("       dnsclay genkey >privkey-ed25519.pkcs8.pem")
 		log.Printf("       dnsclay dns [flags] notify [flags] addr zone")
-		log.Printf("       dnsclay dns [flags] update [flags] addr zone [add|del name type ttl value] ...")
+		log.Printf("       dnsclay dns [flags] update [flags] addr zone [add name type ttl value | del...] ...")
 		log.Printf("       dnsclay dns [flags] xfr [flags] addr zone")
 		log.Printf("       dnsclay version")
 		log.Printf("       dnsclay license")

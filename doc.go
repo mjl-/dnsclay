@@ -74,7 +74,7 @@ parallel.
 	usage: dnsclay serve [flags]
 	       dnsclay genkey >privkey-ed25519.pkcs8.pem
 	       dnsclay dns [flags] notify [flags] addr zone
-	       dnsclay dns [flags] update [flags] addr zone [add|del name type ttl value] ...
+	       dnsclay dns [flags] update [flags] addr zone [add name type ttl value | del...] ...
 	       dnsclay dns [flags] xfr [flags] addr zone
 	       dnsclay version
 	       dnsclay license
