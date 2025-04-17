@@ -65,6 +65,7 @@ import (
 	timeweb "github.com/libdns/timeweb"
 	totaluptime "github.com/libdns/totaluptime"
 	vultr "github.com/libdns/vultr"
+	westcn "github.com/libdns/westcn"
 	rfc2136 "github.com/mjl-/libdns-rfc2136"
 )
 
@@ -133,6 +134,7 @@ type KnownProviders struct {
 	Xtimeweb            timeweb.Provider
 	Xtotaluptime        totaluptime.Provider
 	Xvultr              vultr.Provider
+	Xwestcn             westcn.Provider
 }
 
 // providers is used for instantiating a provider by name.
@@ -200,6 +202,7 @@ var providers = map[string]any{
 	"timeweb":            timeweb.Provider{},
 	"totaluptime":        totaluptime.Provider{},
 	"vultr":              vultr.Provider{},
+	"westcn":             westcn.Provider{},
 }
 
 // providerURLs map provider names to repository URLs for help.
@@ -267,4 +270,5 @@ var providerURLs = map[string]string{
 	"timeweb":            "github.com/libdns/timeweb",
 	"totaluptime":        "github.com/libdns/totaluptime",
 	"vultr":              "github.com/libdns/vultr",
+	"westcn":             "github.com/libdns/westcn",
 }

@@ -201,5 +201,6 @@ implementations maintained at https://github.com/libdns:
   - https://github.com/libdns/timeweb
   - https://github.com/libdns/totaluptime
   - https://github.com/libdns/vultr
+  - https://github.com/libdns/westcn
 */
 package main

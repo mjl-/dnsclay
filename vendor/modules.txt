@@ -617,6 +617,9 @@ github.com/libdns/totaluptime
 # github.com/libdns/vultr v1.0.0
 ## explicit; go 1.20
 github.com/libdns/vultr
+# github.com/libdns/westcn v0.1.0
+## explicit; go 1.23.0
+github.com/libdns/westcn
 # github.com/linode/linodego v1.23.0
 ## explicit; go 1.20
 github.com/linode/linodego

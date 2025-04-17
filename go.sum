@@ -820,6 +820,8 @@ github.com/libdns/totaluptime v1.0.1 h1:4QaWhGt++t748cRqPxz9i/NEp914MqAHZTrrfFiR
 github.com/libdns/totaluptime v1.0.1/go.mod h1:Ri00J3Mi+lT6X0lfN8NFQE/W4IGwXgocc5t8KIyXdHw=
 github.com/libdns/vultr v1.0.0 h1:W8B4+k2bm9ro3bZLSZV9hMOQI+uO6Svu+GmD+Olz7ZI=
 github.com/libdns/vultr v1.0.0/go.mod h1:8K1HJExcbeHS4YPkFHRZpqpXZzZ+DZAA0m0VikJgEqk=
+github.com/libdns/westcn v0.1.0 h1:Py5dxidiCOnag1sl5q+ZXEpJuyBfofYrzURjXMke5YQ=
+github.com/libdns/westcn v0.1.0/go.mod h1:Z1bAbW8o0rdbzb41OdMWElfIt0wfIYUqiHBozeLdzhA=
 github.com/linode/linodego v1.23.0 h1:s0ReCZtuN9Z1IoUN9w1RLeYO1dMZUGPwOQ/IBFsBHtU=
 github.com/linode/linodego v1.23.0/go.mod h1:0U7wj/UQOqBNbKv1FYTXiBUXueR8DY4HvIotwE0ENgg=
 github.com/luadns/luadns-go v0.2.0 h1:bDOfg0qOwzEBsi0ByIRN0nXylDQtDUxRWz5TDwcQ2Vk=

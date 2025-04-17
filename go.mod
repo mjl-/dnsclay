@@ -68,6 +68,7 @@ require (
 	github.com/libdns/timeweb v1.0.2
 	github.com/libdns/totaluptime v1.0.1
 	github.com/libdns/vultr v1.0.0
+	github.com/libdns/westcn v0.1.0
 	github.com/miekg/dns v1.1.63
 	github.com/mjl-/bstore v0.0.8
 	github.com/mjl-/libdns-rfc2136 v0.0.0-20250417121826-6995a8b9ebb5

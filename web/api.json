@@ -1469,6 +1469,13 @@
 					"Typewords": [
 						"Provider_vultr"
 					]
+				},
+				{
+					"Name": "Xwestcn",
+					"Docs": "",
+					"Typewords": [
+						"Provider_westcn"
+					]
 				}
 			]
 		},
@@ -3060,6 +3067,28 @@
 				{
 					"Name": "api_token",
 					"Docs": "APIToken is the Vultr API token see https://my.vultr.com/settings/#settingsapi",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider_westcn",
+			"Docs": "Provider facilitates DNS record manipulation with west.cn.",
+			"Fields": [
+				{
+					"Name": "username",
+					"Docs": "Username is your username for west.cn, see https://www.west.cn/CustomerCenter/doc/apiv2.html#12u3001u8eabu4efdu9a8cu8bc10a3ca20id3d12u3001u8eabu4efdu9a8cu8bc13e203ca3e",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "api_password",
+					"Docs": "APIPassword is your API password for west.cn, see https://www.west.cn/CustomerCenter/doc/apiv2.html#12u3001u8eabu4efdu9a8cu8bc10a3ca20id3d12u3001u8eabu4efdu9a8cu8bc13e203ca3e",
 					"Typewords": [
 						"nullable",
 						"string"
