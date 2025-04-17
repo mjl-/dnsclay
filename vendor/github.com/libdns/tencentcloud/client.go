@@ -2,6 +2,7 @@ package tencentcloud
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -129,4 +130,18 @@ func (p *Provider) deleteRecord(ctx context.Context, zone string, record libdns.
 		return err
 	}
 	return nil
+}
+
+// getRecordIdByNameAndType gets the record id by name and type
+func (p *Provider) getRecordIdByNameAndType(ctx context.Context, zone, recName, recType string) (string, error) {
+	records, err := p.GetRecords(ctx, zone)
+	if err != nil {
+		return "", err
+	}
+	for _, record := range records {
+		if record.Name == recName && record.Type == recType {
+			return record.ID, nil
+		}
+	}
+	return "", fmt.Errorf("record %q not found", recName)
 }

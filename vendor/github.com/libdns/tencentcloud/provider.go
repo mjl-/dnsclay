@@ -34,6 +34,13 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 // SetRecords sets the records for a zone
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	for i, record := range records {
+		// If record is is empty try to get the record id by name and type
+		if record.ID == "" {
+			id, err := p.getRecordIdByNameAndType(ctx, zone, record.Name, record.Type)
+			if err == nil {
+				record.ID = id
+			}
+		}
 		if record.ID == "" {
 			newRecord, err := p.AppendRecords(ctx, zone, []libdns.Record{record})
 			if err != nil {
