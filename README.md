@@ -63,7 +63,6 @@ been added, except:
 - dode, only creates ACME TXT records
 - neoserv, it doesn't use an api, but parses html pages
 - nicrudns, does not compile against latest libdns
-- openstack-designate, sherpadoc doesn't handle it being imported as openstack-designate and named openstackdesignate
 - regfish, does not compile against latest libdns
 - transip, requires a key in a file on disk
 - vercel, cannot set TTL
@@ -71,9 +70,9 @@ been added, except:
 ## Adding a new provider
 
 Adding a provider should be a matter of adding it to providers.txt (keep it
-sorted!) and running "make build govendor". It regenerates providers.go and
-syncs the Go module dependencies. The config fields in the package's Provider
-should be automatically processed, into both backend and frontend.
+sorted!) and running "make build". It regenerates providers.go and syncs the Go
+module dependencies. The config fields in the package's Provider should be
+automatically processed, into both backend and frontend.
 
 
 # About

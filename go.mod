@@ -57,6 +57,7 @@ require (
 	github.com/libdns/netlify v1.1.0
 	github.com/libdns/nfsn v0.1.1
 	github.com/libdns/njalla v0.0.0-20230106195713-96e29ec4149e
+	github.com/libdns/openstack-designate v0.1.0
 	github.com/libdns/ovh v0.0.3
 	github.com/libdns/porkbun v0.2.0
 	github.com/libdns/powerdns v0.1.3
@@ -137,6 +138,7 @@ require (
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
+	github.com/gophercloud/gophercloud v0.15.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect

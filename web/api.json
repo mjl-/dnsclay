@@ -1387,6 +1387,13 @@
 					]
 				},
 				{
+					"Name": "Xopenstackdesignate",
+					"Docs": "",
+					"Typewords": [
+						"Provider"
+					]
+				},
+				{
 					"Name": "Xovh",
 					"Docs": "",
 					"Typewords": [
@@ -2608,6 +2615,81 @@
 					"Docs": "",
 					"Typewords": [
 						"nullable",
+						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "Provider",
+			"Docs": "Provider implements the libdns interfaces for OpenStack Designate.",
+			"Fields": [
+				{
+					"Name": "auth_open_stack",
+					"Docs": "",
+					"Typewords": [
+						"AuthOpenStack"
+					]
+				}
+			]
+		},
+		{
+			"Name": "AuthOpenStack",
+			"Docs": "AuthOpenStack contains credentials for OpenStack Designate.",
+			"Fields": [
+				{
+					"Name": "region_name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "tenant_id",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "identity_api_version",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "password",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "auth_url",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "username",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "tenant_name",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "endpoint_type",
+					"Docs": "",
+					"Typewords": [
 						"string"
 					]
 				}

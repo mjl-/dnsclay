@@ -189,6 +189,7 @@ implementations maintained at https://github.com/libdns:
   - https://github.com/libdns/netlify
   - https://github.com/libdns/nfsn
   - https://github.com/libdns/njalla
+  - https://github.com/libdns/openstack-designate
   - https://github.com/libdns/ovh
   - https://github.com/libdns/porkbun
   - https://github.com/libdns/powerdns
