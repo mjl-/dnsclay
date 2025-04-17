@@ -33,3 +33,17 @@ groups:
       summary: errors handling dns requests
     labels:
       page: workhours
+
+  - alert: dnsclay-sync-errors
+    expr: rate(dnsclay_sync_errors_total[5m]) > 0
+    annotations:
+      summary: errors processing updated records during sync
+    labels:
+      page: workhours
+
+  - alert: dnsclay-propagate-errors
+    expr: rate(dnsclay_propagate_errors_total[5m]) > 0
+    annotations:
+      summary: errors ensuring dns changes have been propagated at provider
+    labels:
+      page: workhours
