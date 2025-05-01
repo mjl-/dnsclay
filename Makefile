@@ -20,10 +20,11 @@ race:
 
 check:
 	GOARCH=386 CGO_ENABLED=0 go vet
+	CGO_ENABLED=0 ineffassign .
 	CGO_ENABLED=0 staticcheck
 
 check-shadow:
-	go vet -vettool=$$(which shadow) ./... 2>&1 | grep -v '"err"'
+	CGO_ENABLED=0 go vet -vettool=$$(which shadow) ./... 2>&1 | grep -v '"err"'
 
 # for debugging or dns tracing:
 # DNSCLAY_TEST_LOGLEVEL=debug
