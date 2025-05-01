@@ -274,17 +274,6 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.Record
 	}
 	nz.LastSync = &now
 	nz.NextSync = now.Add(max(nz.SyncInterval, time.Minute))
-	soaRR, err := latestSOA.RR()
-	if err != nil {
-		return false, nil, nil, nil, fmt.Errorf("parsing soa rr: %v", err)
-	}
-	if soa, ok := soaRR.(*dns.SOA); ok {
-		if nz.RefreshInterval > 0 {
-			nz.RefreshInterval = time.Duration(soa.Refresh) * time.Second
-		}
-	} else {
-		return false, nil, nil, nil, fmt.Errorf("soa db record not a soa rr but %#v", soaRR)
-	}
 	if newSOA {
 		nz.LastRecordChange = &now
 		nz.SerialLocal = Serial(latestSOA.SerialFirst)
