@@ -140,7 +140,7 @@
 		},
 		{
 			"Name": "ZoneAdd",
-			"Docs": "ZoneAdd adds a new zone to the database. A TSIG credential is created\nautomatically. Records are fetched returning the new zone, in the background.\n\nIf pc.ProviderName is non-empty, a new ProviderConfig is added.",
+			"Docs": "ZoneAdd adds a new zone to the database. A TSIG credential is created\nautomatically. Records are fetched for the new zone in the background.\n\nIf pc.ProviderName is non-empty, a new ProviderConfig is added.",
 			"Params": [
 				{
 					"Name": "z",
@@ -494,6 +494,12 @@
 					]
 				},
 				{
+					"Name": "refreshIntervalSeconds",
+					"Typewords": [
+						"int64"
+					]
+				},
+				{
 					"Name": "provider",
 					"Typewords": [
 						"string"
@@ -697,7 +703,7 @@
 				},
 				{
 					"Name": "RefreshInterval",
-					"Docs": "Time between zone refresh: checks for an updated SOA record (after which a sync is initiated). After a detected record change, checks are done more often. For 1 RefreshInterval, during the first 1/10th of time, a check is done 5 times. For the remaining 9/10th of time, a check is also done every 10 times.",
+					"Docs": "Time between zone refresh: checks for an updated SOA record (after which a sync is initiated). After a detected record change, checks are done more often. For 1 RefreshInterval, during the first 1/10th of time, a check is done 5 times. For the remaining 9/10th of time, a check is also done every 10 times. If 0, refresh is disabled.",
 					"Typewords": [
 						"int64"
 					]
@@ -711,7 +717,7 @@
 				},
 				{
 					"Name": "NextRefresh",
-					"Docs": "",
+					"Docs": "Only used when RefreshInterval \u003e 0.",
 					"Typewords": [
 						"timestamp"
 					]

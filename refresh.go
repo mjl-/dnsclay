@@ -36,7 +36,7 @@ func refresher() {
 				return fmt.Errorf("query zones for next automatic sync: %w", err)
 			}
 
-			if z, err := bstore.QueryTx[Zone](tx).SortAsc("NextRefresh").Limit(1).Get(); err == nil {
+			if z, err := bstore.QueryTx[Zone](tx).FilterNotEqual("RefreshInterval", time.Duration(0)).SortAsc("NextRefresh").Limit(1).Get(); err == nil {
 				soaCheck.Reset(time.Until(z.NextRefresh))
 				log.Debug("next automatic refresh", "wait", time.Until(z.NextRefresh))
 			} else if err != bstore.ErrAbsent {
@@ -100,7 +100,7 @@ func refresher() {
 			err := database.Write(shutdownCtx, func(tx *bstore.Tx) error {
 				now := time.Now()
 				var err error
-				zones, err = bstore.QueryTx[Zone](tx).FilterLessEqual("NextRefresh", now).List()
+				zones, err = bstore.QueryTx[Zone](tx).FilterNotEqual("RefreshInterval", time.Duration(0)).FilterLessEqual("NextRefresh", now).List()
 				if err != nil {
 					return fmt.Errorf("listing zones to soa-check: %w", err)
 				}
@@ -175,7 +175,7 @@ func refreshZoneSync(log *slog.Logger, z Zone) error {
 	defer unlock()
 
 	// Get latest.
-	latest, err := getRecords(ctx, log, provider, z.Name)
+	latest, err := getRecords(ctx, log, provider, z.Name, false)
 	if err != nil {
 		return fmt.Errorf("get latest records: %w", err)
 	}

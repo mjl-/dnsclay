@@ -279,16 +279,20 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.Record
 		return false, nil, nil, nil, fmt.Errorf("parsing soa rr: %v", err)
 	}
 	if soa, ok := soaRR.(*dns.SOA); ok {
-		nz.RefreshInterval = time.Duration(soa.Refresh) * time.Second
+		if nz.RefreshInterval > 0 {
+			nz.RefreshInterval = time.Duration(soa.Refresh) * time.Second
+		}
 	} else {
 		return false, nil, nil, nil, fmt.Errorf("soa db record not a soa rr but %#v", soaRR)
 	}
 	if newSOA {
 		nz.LastRecordChange = &now
-		ival := nz.RefreshInterval / (5 * 10)
-		nz.NextRefresh = now.Add(max(ival, 5*time.Second))
 		nz.SerialLocal = Serial(latestSOA.SerialFirst)
 		nz.SerialRemote = newSerialRemote
+		if nz.RefreshInterval > 0 {
+			ival := nz.RefreshInterval / (5 * 10)
+			nz.NextRefresh = now.Add(max(ival, 5*time.Second))
+		}
 	}
 	if err := tx.Update(&nz); err != nil {
 		return false, nil, nil, nil, fmt.Errorf("update zone with time of last sync/change: %v", err)
@@ -364,7 +368,7 @@ func ensurePropagate(ctx context.Context, log *slog.Logger, provider Provider, z
 	}
 
 	sync := func() error {
-		latest, err := getRecords(ctx, log, provider, z.Name)
+		latest, err := getRecords(ctx, log, provider, z.Name, false)
 		if err != nil {
 			return fmt.Errorf("getting latest records through provider: %v", err)
 		}

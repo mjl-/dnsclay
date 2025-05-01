@@ -557,7 +557,7 @@ func (c *conn) handleNotify(ctx context.Context) (ok bool) {
 
 		ctx, cancel := context.WithTimeout(shutdownCtx, 30*time.Second)
 		defer cancel()
-		latest, err := getRecords(ctx, c.log, provider, z.Name)
+		latest, err := getRecords(ctx, c.log, provider, z.Name, false)
 		if err != nil {
 			log.Error("get records from provider", "err", err)
 			return
@@ -640,7 +640,7 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 	// Sync latest zone before attempting to make any changes.
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	latest, err := getRecords(ctx, c.log, provider, z.Name)
+	latest, err := getRecords(ctx, c.log, provider, z.Name, false)
 	if err != nil {
 		return c.respondExtErrorf(dns.RcodeServerFailure, dns.ExtendedErrorCodeNetworkError, "get records from provider: %v", err)
 	}
@@ -1054,7 +1054,7 @@ func (c *conn) handleXFR(ctx context.Context) (ok bool) {
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	latest, err := getRecords(ctx, c.log, provider, z.Name)
+	latest, err := getRecords(ctx, c.log, provider, z.Name, false)
 	if err != nil {
 		return c.respondExtErrorf(dns.RcodeServerFailure, dns.ExtendedErrorCodeNetworkError, "get records from provider: %v", err)
 	}

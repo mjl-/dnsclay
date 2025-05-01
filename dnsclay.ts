@@ -217,6 +217,8 @@ const pageHome = async () => {
 		dom.div(
 			dom.clickbutton('Add zone', async function click() {
 				let zone: HTMLInputElement
+				let refreshInterval: HTMLInputElement
+				let syncInterval: HTMLInputElement
 				let fieldset: HTMLFieldSetElement
 				let testResult: HTMLElement
 				let newProviderConfigName: HTMLInputElement
@@ -296,7 +298,7 @@ const pageHome = async () => {
 									pcJSON = providerConfigJSON(fields)
 								}
 
-								const nrecords = await check(fieldset, () => client.ProviderConfigTest(trimSuffix(zone.value, '.')+'.', pName, pcJSON))
+								const nrecords = await check(fieldset, () => client.ProviderConfigTest(trimSuffix(zone.value, '.')+'.', parseInt(refreshInterval.value), pName, pcJSON))
 								testResult.innerText = 'Success, found '+nrecords+' DNS records'
 							},
 							fieldset=dom.fieldset(
@@ -304,6 +306,15 @@ const pageHome = async () => {
 								dom.div(
 									dom.div(dom.label('Zone')),
 									zone=dom.input(attr.required('')),
+								),
+								dom.div(
+									dom.div(dom.label('Refresh interval (in seconds)'), attr.title('The zone SOA DNS record is fetched through the DNS resolver to check for updates. An interval of 0 disables periodic SOA DNS record lookup.')),
+									refreshInterval=dom.input(attr.type('number'), attr.required(''), attr.value('3600')),
+									dom.div(style({fontStyle: 'italic'}), '0 disables SOA refresh checks'),
+								),
+								dom.div(
+									dom.div(dom.label('Sync interval (in seconds)'), attr.title('The zone is fetched in full during each sync.')),
+									syncInterval=dom.input(attr.type('number'), attr.required(''), attr.value('86400')),
 								),
 								dom.div(
 									dom.div(dom.label('Create new provider config')),
@@ -359,8 +370,8 @@ const pageHome = async () => {
 											ProviderConfigName: pcName,
 											SerialLocal: 0,
 											SerialRemote: 0,
-											SyncInterval: 0,
-											RefreshInterval: 0,
+											SyncInterval: parseInt(syncInterval.value)*1000*1000*1000,
+											RefreshInterval: parseInt(refreshInterval.value)*1000*1000*1000,
 											NextSync: new Date(),
 											NextRefresh: new Date(),
 										}
@@ -408,12 +419,17 @@ const pageHome = async () => {
 					dom.td(
 						''+z.SerialLocal,
 						z.SerialLocal !== z.SerialRemote ? ' (at remote: '+z.SerialRemote+')' : '',
-						attr.title(`Next SOA check in ${ formatAge(undefined, z.NextRefresh) } at ${ formatDate(z.NextRefresh) }.\nNext sync in ${ formatAge(undefined, z.NextSync) } at ${ formatDate(z.NextSync) }.`),
+						attr.title(
+							(z.RefreshInterval === 0 ? 'Periodic refresh with SOA-check disabled\n' : `Next SOA check in ${ formatAge(undefined, z.NextRefresh) } at ${ formatDate(z.NextRefresh) }.\n`) +
+							`Next sync in ${ formatAge(undefined, z.NextSync) } at ${ formatDate(z.NextSync) }.`
+						),
 					),
 					dom.td(
-						formatAge(now, z.NextRefresh),
-						' / ',
-						formatAge(now, new Date(now.getTime() + z.RefreshInterval/(1000*1000))),
+						z.RefreshInterval === 0 ? '-' : [
+							formatAge(now, z.NextRefresh),
+							' / ',
+							formatAge(now, new Date(now.getTime() + z.RefreshInterval/(1000*1000))),
+						],
 					),
 					dom.td(
 						formatAge(now, z.NextSync),
@@ -760,11 +776,12 @@ const pageZone = async (zonestr: string) => {
 							fieldset=dom.fieldset(
 								style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
 								dom.label(
-									dom.div('Refresh interval (in seconds)'),
+									dom.div('Refresh interval (in seconds)', attr.title('The zone SOA DNS record is fetched through the DNS resolver to check for updates. An interval of 0 disables periodic SOA DNS record lookup.')),
 									refreshival=dom.input(attr.type('number'), attr.required(''), attr.value(''+(zone.RefreshInterval/(1000*1000*1000)))),
+									dom.div(style({fontStyle: 'italic'}), '0 disables SOA refresh checks'),
 								),
 								dom.label(
-									dom.div('Sync interval (in seconds)'),
+									dom.div('Sync interval (in seconds)', attr.title('The zone is fetched in full during each sync.')),
 									syncival=dom.input(attr.type('number'), attr.required(''), attr.value(''+(zone.SyncInterval/(1000*1000*1000)))),
 								),
 								dom.label(
@@ -806,7 +823,7 @@ const pageZone = async (zonestr: string) => {
 
 								// Test config.
 								testResult.innerText = ''
-								const nrecords = await check(fieldset, () => client.ProviderConfigTest(zone.Name, providerConfig.ProviderName, providerConfigJSON(fields)))
+								const nrecords = await check(fieldset, () => client.ProviderConfigTest(zone.Name, zone.RefreshInterval/(1000*1000*1000), providerConfig.ProviderName, providerConfigJSON(fields)))
 								testResult.innerText = 'Success, found '+nrecords+' DNS records'
 							},
 							fieldset=dom.fieldset(

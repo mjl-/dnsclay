@@ -13,9 +13,9 @@ export interface Zone {
 	LastSync?: Date | null  // Last time an attempt to sync was made. Used for periodic sync.
 	LastRecordChange?: Date | null  // Last time a change in records was detected.
 	SyncInterval: number  // Time between automatic synchronizations by getting all records.
-	RefreshInterval: number  // Time between zone refresh: checks for an updated SOA record (after which a sync is initiated). After a detected record change, checks are done more often. For 1 RefreshInterval, during the first 1/10th of time, a check is done 5 times. For the remaining 9/10th of time, a check is also done every 10 times.
+	RefreshInterval: number  // Time between zone refresh: checks for an updated SOA record (after which a sync is initiated). After a detected record change, checks are done more often. For 1 RefreshInterval, during the first 1/10th of time, a check is done 5 times. For the remaining 9/10th of time, a check is also done every 10 times. If 0, refresh is disabled.
 	NextSync: Date
-	NextRefresh: Date
+	NextRefresh: Date  // Only used when RefreshInterval > 0.
 }
 
 export interface ProviderConfig {
@@ -930,7 +930,7 @@ export class Client {
 	}
 
 	// ZoneAdd adds a new zone to the database. A TSIG credential is created
-	// automatically. Records are fetched returning the new zone, in the background.
+	// automatically. Records are fetched for the new zone in the background.
 	// 
 	// If pc.ProviderName is non-empty, a new ProviderConfig is added.
 	async ZoneAdd(z: Zone, notifies: ZoneNotify[] | null): Promise<Zone> {
@@ -1106,11 +1106,11 @@ export class Client {
 
 	// ProviderConfigTest tests the provider configuration for zone. Used before
 	// creating a zone with a new config or updating the config for an existing zone.
-	async ProviderConfigTest(zone: string, provider: string, providerConfigJSON: string): Promise<number> {
+	async ProviderConfigTest(zone: string, refreshIntervalSeconds: number, provider: string, providerConfigJSON: string): Promise<number> {
 		const fn: string = "ProviderConfigTest"
-		const paramTypes: string[][] = [["string"],["string"],["string"]]
+		const paramTypes: string[][] = [["string"],["int64"],["string"],["string"]]
 		const returnTypes: string[][] = [["int32"]]
-		const params: any[] = [zone, provider, providerConfigJSON]
+		const params: any[] = [zone, refreshIntervalSeconds, provider, providerConfigJSON]
 		return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params) as number
 	}
 

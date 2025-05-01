@@ -41,20 +41,21 @@ One of the implemented backend providers, "rfc2136", connects to DNS servers
 implementing the standard DNS UPDATE/AXFR protocols, making dnsclay a web-based
 zone editor for standard DNS servers.
 
-Like secondary DNS servers, dnsclay periodically fetches the SOA record from
-authoritative name servers, and does an AXFR if the zone serial changes.
-Dnsclay also periodically does a full sync regardless of SOA serial, since some
-DNS operators don't change the serial when a zone changes. In such cases,
-dnsclay will keep track of its own serial, so its clients can properly detect
-zone changes. The "refresh interval" from the SOA record is not used, since it
-is often configured to work only with the setup of the primary/secondary
-servers of the DNS operator.  After a change to a zone, either because of DNS
-UPDATE through dnsclay or by dnsclay detecting a record change at the DNS
-operator, dnsclay will temporarily increase the interval with which it checks
-again for a new update, speculating more changes are coming. Timely
-notification of DNS record changes is useful during lock-step changes like key
-rollovers. Cloud DNS operators typically don't have a mechanism to notify
-applications of changes to records.
+Like secondary DNS servers, dnsclay can periodically fetch the SOA record from
+authoritative name servers, fetching the full zone and synchronizing it into
+its local state if the zone serial in the SOA record changes.  Dnsclay also
+periodically does a full sync regardless of SOA serial, since some DNS
+operators don't change the serial when a zone changes. In such cases, dnsclay
+will keep track of its own serial, so its clients can properly detect zone
+changes. The "refresh interval" from the SOA record is not used, since it is
+often configured to work only with the setup of the primary/secondary servers
+of the DNS operator.  After a change to a zone, either because of DNS UPDATE
+through dnsclay or by dnsclay detecting a record change at the DNS operator,
+dnsclay will temporarily increase the interval with which it checks again for a
+new update, speculating more changes are coming. Timely notification of DNS
+record changes are useful during lock-step changes like key rollovers. Cloud
+DNS operators typically don't have a mechanism to notify applications of
+changes to records.
 
 # Limitations
 

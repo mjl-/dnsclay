@@ -418,7 +418,7 @@ func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), absNames, fixedS
 	z0n.drain()
 	pc0 := ProviderConfig{Name: "z0.example", ProviderName: "fake", ProviderConfigJSON: `{"ID": "z0"}`}
 	pc0 = api.ProviderConfigAdd(ctxbg, pc0)
-	z0 := Zone{Name: "z0.example.", ProviderConfigName: pc0.Name}
+	z0 := Zone{Name: "z0.example.", RefreshInterval: time.Hour, SyncInterval: 24 * time.Hour, ProviderConfigName: pc0.Name}
 	z0 = api.ZoneAdd(ctxbg, z0, []ZoneNotify{{0, time.Time{}, z0.Name, z0n.addr, "tcp"}})
 	z0n.wait()
 	z0, _, _, creds0, sets0 := api.Zone(ctxbg, z0.Name)
@@ -429,7 +429,7 @@ func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), absNames, fixedS
 	z1n.drain()
 	pc1 := ProviderConfig{Name: "z1.example", ProviderName: "fake", ProviderConfigJSON: `{"ID": "z1"}`}
 	pc1 = api.ProviderConfigAdd(ctxbg, pc1)
-	z1 := Zone{Name: "z1.example.", ProviderConfigName: pc1.Name}
+	z1 := Zone{Name: "z1.example.", RefreshInterval: time.Hour, SyncInterval: 24 * time.Hour, ProviderConfigName: pc1.Name}
 	z1 = api.ZoneAdd(ctxbg, z1, []ZoneNotify{{0, time.Time{}, z1.Name, z1n.addr, "tcp"}})
 	z1n.wait()
 	z1, _, _, creds1, sets1 := api.Zone(ctxbg, z1.Name)

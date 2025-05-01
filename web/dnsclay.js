@@ -488,7 +488,7 @@ var api;
 			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
 		}
 		// ZoneAdd adds a new zone to the database. A TSIG credential is created
-		// automatically. Records are fetched returning the new zone, in the background.
+		// automatically. Records are fetched for the new zone in the background.
 		// 
 		// If pc.ProviderName is non-empty, a new ProviderConfig is added.
 		async ZoneAdd(z, notifies) {
@@ -648,11 +648,11 @@ var api;
 		}
 		// ProviderConfigTest tests the provider configuration for zone. Used before
 		// creating a zone with a new config or updating the config for an existing zone.
-		async ProviderConfigTest(zone, provider, providerConfigJSON) {
+		async ProviderConfigTest(zone, refreshIntervalSeconds, provider, providerConfigJSON) {
 			const fn = "ProviderConfigTest";
-			const paramTypes = [["string"], ["string"], ["string"]];
+			const paramTypes = [["string"], ["int64"], ["string"], ["string"]];
 			const returnTypes = [["int32"]];
-			const params = [zone, provider, providerConfigJSON];
+			const params = [zone, refreshIntervalSeconds, provider, providerConfigJSON];
 			return await _sherpaCall(this.baseURL, this.authState, { ...this.options }, paramTypes, returnTypes, fn, params);
 		}
 		// ProviderConfigs returns all provider configs.
@@ -1227,6 +1227,8 @@ const pageHome = async () => {
 	let zonesTbody;
 	const root = dom.div(dom.div(dom.clickbutton('Add zone', async function click() {
 		let zone;
+		let refreshInterval;
+		let syncInterval;
 		let fieldset;
 		let testResult;
 		let newProviderConfigName;
@@ -1279,9 +1281,9 @@ const pageHome = async () => {
 				pName = providerName;
 				pcJSON = providerConfigJSON(fields);
 			}
-			const nrecords = await check(fieldset, () => client.ProviderConfigTest(trimSuffix(zone.value, '.') + '.', pName, pcJSON));
+			const nrecords = await check(fieldset, () => client.ProviderConfigTest(trimSuffix(zone.value, '.') + '.', parseInt(refreshInterval.value), pName, pcJSON));
 			testResult.innerText = 'Success, found ' + nrecords + ' DNS records';
-		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.div(dom.div(dom.label('Zone')), zone = dom.input(attr.required(''))), dom.div(dom.div(dom.label('Create new provider config')), dom.div(style({ display: 'flex', gap: '1em' }), chunked(providers, 10).map(plist => dom.div(plist.map(p => {
+		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.div(dom.div(dom.label('Zone')), zone = dom.input(attr.required(''))), dom.div(dom.div(dom.label('Refresh interval (in seconds)'), attr.title('The zone SOA DNS record is fetched through the DNS resolver to check for updates. An interval of 0 disables periodic SOA DNS record lookup.')), refreshInterval = dom.input(attr.type('number'), attr.required(''), attr.value('3600')), dom.div(style({ fontStyle: 'italic' }), '0 disables SOA refresh checks')), dom.div(dom.div(dom.label('Sync interval (in seconds)'), attr.title('The zone is fetched in full during each sync.')), syncInterval = dom.input(attr.type('number'), attr.required(''), attr.value('86400'))), dom.div(dom.div(dom.label('Create new provider config')), dom.div(style({ display: 'flex', gap: '1em' }), chunked(providers, 10).map(plist => dom.div(plist.map(p => {
 			return dom.div(dom.label(dom.input(attr.type('radio'), attr.name('provider'), attr.value(trimPrefix(p.Name, 'Provider_')), function change() { updateProviderConfig(); }), ' ', trimPrefix(p.Name, 'Provider_')));
 		}))))), providerConfigBox = dom.div(), dom.label(dom.div('Use existing provider config'), dom.div(existingProviderConfigName = dom.select(dom.option('', attr.value('')), providerConfigs.map(pc => dom.option(pc.Name))))), dom.div(dom.submitbutton('Test config'), ' ', testResult = dom.span()), dom.div(dom.clickbutton('Add zone', async function click() {
 			let pcName = existingProviderConfigName.value;
@@ -1303,8 +1305,8 @@ const pageHome = async () => {
 				ProviderConfigName: pcName,
 				SerialLocal: 0,
 				SerialRemote: 0,
-				SyncInterval: 0,
-				RefreshInterval: 0,
+				SyncInterval: parseInt(syncInterval.value) * 1000 * 1000 * 1000,
+				RefreshInterval: parseInt(refreshInterval.value) * 1000 * 1000 * 1000,
 				NextSync: new Date(),
 				NextRefresh: new Date(),
 			};
@@ -1317,7 +1319,12 @@ const pageHome = async () => {
 	})), dom.br(), dom.h1('Zones (Domains)'), dom.table(dom.thead(dom.tr(dom.th('Zone'), dom.th('Provider Config'), dom.th('Last sync'), dom.th('Last record change'), dom.th('Serial'), dom.th('Refresh next/interval'), dom.th('Sync next/interval'))), zonesTbody = dom.tbody()));
 	const render = () => {
 		const now = new Date();
-		dom._kids(zonesTbody, zones.length ? [] : dom.tr(dom.td(attr.colspan('6'), 'No zones.', style({ textAlign: 'left' }))), zones.map(z => dom.tr(dom.td(dom.a(attr.href('#zones/' + trimDot(z.Name)), trimDot(z.Name))), dom.td(z.ProviderConfigName), dom.td(z.LastSync ? [formatAge(z.LastSync), attr.title(formatDate(z.LastSync))] : []), dom.td(z.LastRecordChange ? [formatAge(z.LastRecordChange), attr.title(formatDate(z.LastRecordChange))] : []), dom.td('' + z.SerialLocal, z.SerialLocal !== z.SerialRemote ? ' (at remote: ' + z.SerialRemote + ')' : '', attr.title(`Next SOA check in ${formatAge(undefined, z.NextRefresh)} at ${formatDate(z.NextRefresh)}.\nNext sync in ${formatAge(undefined, z.NextSync)} at ${formatDate(z.NextSync)}.`)), dom.td(formatAge(now, z.NextRefresh), ' / ', formatAge(now, new Date(now.getTime() + z.RefreshInterval / (1000 * 1000)))), dom.td(formatAge(now, z.NextSync), ' / ', formatAge(now, new Date(now.getTime() + z.SyncInterval / (1000 * 1000)))))));
+		dom._kids(zonesTbody, zones.length ? [] : dom.tr(dom.td(attr.colspan('6'), 'No zones.', style({ textAlign: 'left' }))), zones.map(z => dom.tr(dom.td(dom.a(attr.href('#zones/' + trimDot(z.Name)), trimDot(z.Name))), dom.td(z.ProviderConfigName), dom.td(z.LastSync ? [formatAge(z.LastSync), attr.title(formatDate(z.LastSync))] : []), dom.td(z.LastRecordChange ? [formatAge(z.LastRecordChange), attr.title(formatDate(z.LastRecordChange))] : []), dom.td('' + z.SerialLocal, z.SerialLocal !== z.SerialRemote ? ' (at remote: ' + z.SerialRemote + ')' : '', attr.title((z.RefreshInterval === 0 ? 'Periodic refresh with SOA-check disabled\n' : `Next SOA check in ${formatAge(undefined, z.NextRefresh)} at ${formatDate(z.NextRefresh)}.\n`) +
+			`Next sync in ${formatAge(undefined, z.NextSync)} at ${formatDate(z.NextSync)}.`)), dom.td(z.RefreshInterval === 0 ? '-' : [
+			formatAge(now, z.NextRefresh),
+			' / ',
+			formatAge(now, new Date(now.getTime() + z.RefreshInterval / (1000 * 1000))),
+		]), dom.td(formatAge(now, z.NextSync), ' / ', formatAge(now, new Date(now.getTime() + z.SyncInterval / (1000 * 1000)))))));
 	};
 	render();
 	return root;
@@ -1504,7 +1511,7 @@ const pageZone = async (zonestr) => {
 			nz.SyncInterval = 1000 * 1000 * 1000 * parseInt(syncival.value);
 			zone = await check(fieldset, () => client.ZoneUpdate(nz));
 			close();
-		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.label(dom.div('Refresh interval (in seconds)'), refreshival = dom.input(attr.type('number'), attr.required(''), attr.value('' + (zone.RefreshInterval / (1000 * 1000 * 1000))))), dom.label(dom.div('Sync interval (in seconds)'), syncival = dom.input(attr.type('number'), attr.required(''), attr.value('' + (zone.SyncInterval / (1000 * 1000 * 1000))))), dom.label(dom.div('Provider config'), providerConfigName = dom.select(providerConfigs.sort((a, b) => a.Name < b.Name ? -1 : 1).map(pc => dom.option(pc.Name)), prop({ value: zone.ProviderConfigName }))), dom.div(dom.submitbutton('Save')))));
+		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.label(dom.div('Refresh interval (in seconds)', attr.title('The zone SOA DNS record is fetched through the DNS resolver to check for updates. An interval of 0 disables periodic SOA DNS record lookup.')), refreshival = dom.input(attr.type('number'), attr.required(''), attr.value('' + (zone.RefreshInterval / (1000 * 1000 * 1000)))), dom.div(style({ fontStyle: 'italic' }), '0 disables SOA refresh checks')), dom.label(dom.div('Sync interval (in seconds)', attr.title('The zone is fetched in full during each sync.')), syncival = dom.input(attr.type('number'), attr.required(''), attr.value('' + (zone.SyncInterval / (1000 * 1000 * 1000))))), dom.label(dom.div('Provider config'), providerConfigName = dom.select(providerConfigs.sort((a, b) => a.Name < b.Name ? -1 : 1).map(pc => dom.option(pc.Name)), prop({ value: zone.ProviderConfigName }))), dom.div(dom.submitbutton('Save')))));
 	}), ' ', dom.clickbutton('Edit provider config', async function click(e) {
 		let fieldset;
 		const [stringEnums, providers] = await check(e.target, () => availableProviders());
@@ -1520,7 +1527,7 @@ const pageZone = async (zonestr) => {
 			e.stopPropagation();
 			// Test config.
 			testResult.innerText = '';
-			const nrecords = await check(fieldset, () => client.ProviderConfigTest(zone.Name, providerConfig.ProviderName, providerConfigJSON(fields)));
+			const nrecords = await check(fieldset, () => client.ProviderConfigTest(zone.Name, zone.RefreshInterval / (1000 * 1000 * 1000), providerConfig.ProviderName, providerConfigJSON(fields)));
 			testResult.innerText = 'Success, found ' + nrecords + ' DNS records';
 		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.label(dom.div('Name'), dom.div(dom.input(attr.value(providerConfig.Name), attr.disabled('')))), dom.label(dom.div('Provider'), dom.div(dom.select(attr.disabled(''), dom.option(providerConfig.ProviderName), prop({ value: providerConfig.ProviderName })))), dom.div(style({ padding: '1em', border: '1px solid #ddd' }), dom.h2('Provider config'), dom.div(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), fields = providerFields(p, stringEnums, providerConfig.ProviderConfigJSON))), dom.div(dom.submitbutton('Test config'), ' ', testResult = dom.span()), dom.div(dom.clickbutton('Save', async function click() {
 			let npc = {

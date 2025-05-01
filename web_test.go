@@ -197,11 +197,11 @@ func TestZones(t *testing.T) {
 
 func TestProviderConfigTest(t *testing.T) {
 	testDNS(t, func(te testEnv, z Zone) {
-		te.sherpaError("user:error", func() { te.api.ProviderConfigTest(ctxbg, z.Name, "badprovider", te.z0.pc.ProviderConfigJSON) })
-		te.sherpaError("user:error", func() { te.api.ProviderConfigTest(ctxbg, z.Name, "fake", "bad json") })
-		te.sherpaError("user:error", func() { te.api.ProviderConfigTest(ctxbg, z.Name, "fake", `{"ID": "unknownzone"}`) })
+		te.sherpaError("user:error", func() { te.api.ProviderConfigTest(ctxbg, z.Name, 3600, "badprovider", te.z0.pc.ProviderConfigJSON) })
+		te.sherpaError("user:error", func() { te.api.ProviderConfigTest(ctxbg, z.Name, 3600, "fake", "bad json") })
+		te.sherpaError("user:error", func() { te.api.ProviderConfigTest(ctxbg, z.Name, 3600, "fake", `{"ID": "unknownzone"}`) })
 
-		te.api.ProviderConfigTest(ctxbg, z.Name, "fake", te.z0.pc.ProviderConfigJSON)
+		te.api.ProviderConfigTest(ctxbg, z.Name, 3600, "fake", te.z0.pc.ProviderConfigJSON)
 	})
 }
 

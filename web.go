@@ -174,7 +174,7 @@ func (x API) ZoneRefresh(ctx context.Context, zone string) (z Zone, sets []Recor
 	var cancel func()
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	latest, err := getRecords(ctx, log, provider, zone)
+	latest, err := getRecords(ctx, log, provider, zone, false)
 	_checkf(err, "getting latest records through provider")
 
 	var notify bool
@@ -214,7 +214,7 @@ func (x API) ZonePurgeHistory(ctx context.Context, zone string) (z Zone, sets []
 }
 
 // ZoneAdd adds a new zone to the database. A TSIG credential is created
-// automatically. Records are fetched returning the new zone, in the background.
+// automatically. Records are fetched for the new zone in the background.
 //
 // If pc.ProviderName is non-empty, a new ProviderConfig is added.
 func (x API) ZoneAdd(ctx context.Context, z Zone, notifies []ZoneNotify) (nzone Zone) {
@@ -225,10 +225,10 @@ func (x API) ZoneAdd(ctx context.Context, z Zone, notifies []ZoneNotify) (nzone 
 		now := time.Now()
 
 		z.Name = _cleanAbsName(strings.TrimSuffix(z.Name, ".") + ".")
-		z.SyncInterval = 24 * time.Hour
-		z.RefreshInterval = time.Hour
 		z.NextSync = now.Add(z.SyncInterval)
-		z.NextRefresh = now.Add(z.RefreshInterval / (5 * 10))
+		if z.RefreshInterval > 0 {
+			z.NextRefresh = now.Add(z.RefreshInterval / (5 * 10))
+		}
 		err := tx.Insert(&z)
 		_checkf(err, "adding zone")
 
@@ -275,7 +275,7 @@ func (x API) ZoneAdd(ctx context.Context, z Zone, notifies []ZoneNotify) (nzone 
 		var cancel func()
 		ctx, cancel = context.WithTimeout(shutdownCtx, 30*time.Second)
 		defer cancel()
-		latest, err := getRecords(ctx, log, provider, z.Name)
+		latest, err := getRecords(ctx, log, provider, z.Name, false)
 		if err != nil {
 			log.Debug("getting latest records through provider", "err", err)
 			return
@@ -339,10 +339,18 @@ func (x API) ZoneUpdate(ctx context.Context, z Zone) (nz Zone) {
 		oz.ProviderConfigName = z.ProviderConfigName
 		oz.RefreshInterval = z.RefreshInterval
 		oz.SyncInterval = z.SyncInterval
+		if refresh := time.Now().Add(oz.RefreshInterval); refresh.Before(oz.NextRefresh) {
+			oz.NextRefresh = refresh
+		}
+		if sync := time.Now().Add(oz.SyncInterval); sync.Before(oz.NextSync) {
+			oz.NextSync = sync
+		}
 		err := tx.Update(&oz)
 		_checkf(err, "update zone")
 		nz = oz
 	})
+
+	refreshKick()
 	return
 }
 
@@ -509,7 +517,7 @@ func (x API) ZoneImportRecords(ctx context.Context, zone, zonefile string) []Rec
 	defer unlock()
 
 	// Get latest.
-	latest, err := getRecords(ctx, log, provider, z.Name)
+	latest, err := getRecords(ctx, log, provider, z.Name, false)
 	_checkf(err, "get latest records")
 
 	var notify bool
@@ -607,7 +615,7 @@ func (x API) RecordSetAdd(ctx context.Context, zone string, rsc RecordSetChange)
 	defer unlock()
 
 	// Get latest.
-	latest, err := getRecords(ctx, log, provider, zone)
+	latest, err := getRecords(ctx, log, provider, zone, false)
 	_checkf(err, "get latest records")
 
 	var notify bool
@@ -685,7 +693,7 @@ func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string
 	defer unlock()
 
 	// Get latest.
-	latest, err := getRecords(ctx, log, provider, zone)
+	latest, err := getRecords(ctx, log, provider, zone, false)
 	_checkf(err, "get latest records")
 
 	var notify bool
@@ -834,7 +842,7 @@ func (x API) RecordSetDelete(ctx context.Context, zone string, relName string, t
 	defer unlock()
 
 	// Get latest.
-	latest, err := getRecords(ctx, log, provider, zone)
+	latest, err := getRecords(ctx, log, provider, zone, false)
 	_checkf(err, "get latest records")
 
 	var notify bool
@@ -911,7 +919,7 @@ func (x API) Docs(ctx context.Context) sherpadoc.Section {
 
 // ProviderConfigTest tests the provider configuration for zone. Used before
 // creating a zone with a new config or updating the config for an existing zone.
-func (x API) ProviderConfigTest(ctx context.Context, zone string, provider string, providerConfigJSON string) (nrecords int) {
+func (x API) ProviderConfigTest(ctx context.Context, zone string, refreshIntervalSeconds int64, provider string, providerConfigJSON string) (nrecords int) {
 	log := cidlog(ctx)
 
 	zone = strings.TrimSuffix(zone, ".") + "."
@@ -923,7 +931,7 @@ func (x API) ProviderConfigTest(ctx context.Context, zone string, provider strin
 	}
 	_checkf(err, "checking provider")
 
-	records, err := getRecords(ctx, log, p, zone)
+	records, err := getRecords(ctx, log, p, zone, refreshIntervalSeconds > 0)
 	_checkuserf(err, "fetching records for testing provider config")
 
 	return len(records)

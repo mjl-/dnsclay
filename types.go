@@ -46,10 +46,11 @@ type Zone struct {
 	// is initiated). After a detected record change, checks are done more often. For 1
 	// RefreshInterval, during the first 1/10th of time, a check is done 5 times. For
 	// the remaining 9/10th of time, a check is also done every 10 times.
+	// If 0, refresh is disabled.
 	RefreshInterval time.Duration
 
 	NextSync    time.Time
-	NextRefresh time.Time
+	NextRefresh time.Time // Only used when RefreshInterval > 0.
 }
 
 type ProviderConfig struct {
