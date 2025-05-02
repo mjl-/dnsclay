@@ -191,7 +191,7 @@ func propagationStates(now time.Time, l []Record, relName string, typ int, oldAc
 	m := map[RecordSetKey][]RecordSet{}
 
 	if len(l) == 0 {
-		return nil, fmt.Errorf("at least one record required")
+		return m, nil
 	}
 	absName := libdns.AbsoluteName(relName, l[0].Zone)
 
