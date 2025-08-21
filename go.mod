@@ -2,8 +2,6 @@ module github.com/mjl-/dnsclay
 
 go 1.23.1
 
-toolchain go1.23.4
-
 require (
 	github.com/libdns/alidns v1.0.4
 	github.com/libdns/autodns v0.0.0-20241118163948-55a66a54abc3
@@ -71,7 +69,7 @@ require (
 	github.com/libdns/vultr v1.0.0
 	github.com/libdns/westcn v0.1.0
 	github.com/miekg/dns v1.1.65
-	github.com/mjl-/bstore v0.0.9
+	github.com/mjl-/bstore v0.0.10
 	github.com/mjl-/libdns-rfc2136 v0.0.0-20250417121826-6995a8b9ebb5
 	github.com/mjl-/sherpa v0.6.7
 	github.com/mjl-/sherpadoc v0.0.18
@@ -186,7 +184,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1051 // indirect
 	github.com/vultr/govultr/v3 v3.0.2 // indirect
-	go.etcd.io/bbolt v1.3.11 // indirect
+	go.etcd.io/bbolt v1.3.12 // indirect
 	go.mongodb.org/mongo-driver v1.11.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
