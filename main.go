@@ -137,13 +137,17 @@ func cmdGenkey(args []string) {
 	if len(args) != 0 {
 		flag.Usage()
 	}
-	_, privKey, err := ed25519.GenerateKey(cryptorand.Reader)
-	xcheckf(err, "generating ed25519 key")
+	seed := make([]byte, ed25519.SeedSize)
+	if _, err := cryptorand.Read(seed); err != nil {
+		panic(fmt.Errorf("read random: %w", err))
+	}
+	privKey := ed25519.NewKeyFromSeed(seed)
 	buf, err := x509.MarshalPKCS8PrivateKey(privKey)
 	xcheckf(err, "marshal private key to pkcs8")
 	b := pem.Block{Type: "PRIVATE KEY", Bytes: buf}
 	err = pem.Encode(os.Stdout, &b)
 	xcheckf(err, "write private key pkcs8 pem to stdout")
+	log.Printf("tls private key seed as base64url: %s", base64.RawURLEncoding.EncodeToString(seed))
 
 	tlsCert = xminimalCert(privKey)
 	sum := sha256.Sum256(tlsCert.Leaf.RawSubjectPublicKeyInfo)
