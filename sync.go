@@ -266,6 +266,52 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.Record
 		}
 	}
 
+	// Ensure we update the SOA record in the database in case all other records stayed
+	// the same.
+
+	soaChanged := func() (bool, error) {
+		// AWS Route53 keeps serials at 1, most other servers have usable serials.
+		if latestSOA.SerialFirst > 1 {
+			return knownSOA.SerialFirst != latestSOA.SerialFirst, nil
+		}
+
+		// Check whether any SOA values other than the serial changed.
+
+		parseSOA := func(r Record) (*dns.SOA, error) {
+			text := fmt.Sprintf("%s %d %s %s", z.Name, r.TTL, dns.TypeToString[uint16(r.Type)], r.Value)
+			rr, err := dns.NewRR(text)
+			if err != nil {
+				return nil, fmt.Errorf("parsing record %q from remote: %v", text, err)
+			}
+			x, ok := rr.(*dns.SOA)
+			if !ok {
+				return nil, fmt.Errorf("record not SOA but %T", rr)
+			}
+			return x, nil
+		}
+
+		// Compare all fields except Serial.
+		equal := func(a, b *dns.SOA) bool {
+			return a.Ns == b.Ns && a.Mbox == b.Mbox && a.Refresh == b.Refresh && a.Retry == b.Retry && a.Expire == b.Expire && a.Minttl == b.Minttl
+		}
+
+		if soaLatest, err := parseSOA(*latestSOA); err != nil {
+			return false, fmt.Errorf("parsing latest soa: %w", err)
+		} else if soaKnown, err := parseSOA(*knownSOA); err != nil {
+			return false, fmt.Errorf("parsing known soa: %w", err)
+		} else {
+			return equal(soaLatest, soaKnown), nil
+		}
+	}
+
+	if changed, err := soaChanged(); err != nil {
+		return false, nil, nil, nil, fmt.Errorf("checking whether soa changed: %w", err)
+	} else if changed {
+		if err := ensureSOA(); err != nil {
+			return false, nil, nil, nil, fmt.Errorf("ensuring we have an updated soa: %w", err)
+		}
+	}
+
 	log.Debug("insert/remove rrsets", "inserted", inserted, "deleted", deleted)
 
 	nz := Zone{Name: z.Name}

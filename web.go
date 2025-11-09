@@ -744,7 +744,8 @@ func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string
 	// adding. If the name changed, we'll just deleted & add. Otherwise (the common
 	// case), we use SetRecords only for records that changed and have ProviderIDs
 	// (because we don't really know what "setting records" means otherwise if there is
-	// no reference), and use AppendRecords/DeleteRecords otherwise.
+	// no reference; SOA is an exception, there is always exactly 1), and use
+	// AppendRecords/DeleteRecords otherwise.
 	var adds []Record
 	var expAdds []recordKey
 	var dels []Record
@@ -753,7 +754,7 @@ func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string
 		index := slices.Index(valueRecordIDs, or.ID)
 		if index >= 0 && or.recordKey() == nset[index].recordKey() {
 			continue // Unchanged.
-		} else if or.AbsName != oldAbsName || index < 0 || or.ProviderID == "" {
+		} else if or.AbsName != oldAbsName || index < 0 || (or.ProviderID == "" && or.Type != Type(dns.TypeSOA)) {
 			dels = append(dels, or)
 		}
 		// Otherwise, the record will be updated and we'll handle it below.
@@ -761,7 +762,7 @@ func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string
 	for i, nr := range nset {
 		if orID := valueRecordIDs[i]; orID > 0 && ormap[orID].recordKey() == nr.recordKey() {
 			continue // Unchanged.
-		} else if oset[0].AbsName != oldAbsName || orID <= 0 || ormap[orID].ProviderID == "" {
+		} else if oset[0].AbsName != oldAbsName || orID <= 0 || (ormap[orID].ProviderID == "" && ormap[orID].Type != Type(dns.TypeSOA)) {
 			adds = append(adds, nr)
 			expAdds = append(expAdds, nr.recordKey())
 		} else {
@@ -775,7 +776,7 @@ func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string
 		_checkuserf(errors.New("no added/removed/updated records"), "gathering changes")
 	}
 
-	log.Debug("updating record set", "oset", oset, "nset", nset, "dels", dels, "sets", sets, "dels", dels)
+	log.Debug("updating record set", "oset", oset, "nset", nset, "dels", dels, "sets", sets, "adds", adds)
 
 	var cancel func()
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
