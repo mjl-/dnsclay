@@ -53,19 +53,89 @@ providers at https://github.com/libdns. If your DNS operator of choice is
 missing in dnsclay, check if someone has implemented a provider, or consider
 implementing it yourself. See https://github.com/libdns/libdns.
 
-All providers available at https://github.com/libdns at the time of writing have
-been added, except:
+Most providers available at https://github.com/libdns at the time of writing have
+been added.
 
-- acmedns, only creates ACME TXT records
-- acmeproxy, only creates ACME TXT records
-- dinahosting, only creates ACME TXT records
-- dnsexit, no proper GetRecords
-- dode, only creates ACME TXT records
-- neoserv, it doesn't use an api, but parses html pages
-- nicrudns, does not compile against latest libdns
-- regfish, does not compile against latest libdns
-- transip, requires a key in a file on disk
-- vercel, cannot set TTL
+## Supported providers
+
+- github.com/libdns/alidns
+- github.com/libdns/autodns
+- github.com/libdns/azure
+- github.com/libdns/bunny
+- github.com/libdns/civo
+- github.com/libdns/cloudflare
+- github.com/libdns/cloudns
+- github.com/libdns/ddnss
+- github.com/libdns/desec
+- github.com/libdns/digitalocean
+- github.com/libdns/directadmin
+- github.com/libdns/dnsimple
+- github.com/libdns/dnsmadeeasy
+- github.com/libdns/dnspod
+- github.com/libdns/dnsupdate
+- github.com/libdns/domainnameshop
+- github.com/libdns/dreamhost
+- github.com/libdns/duckdns
+- github.com/libdns/dynu
+- github.com/libdns/dynv6
+- github.com/libdns/easydns
+- github.com/libdns/exoscale
+- github.com/libdns/gandi
+- github.com/libdns/gcore
+- github.com/libdns/glesys
+- github.com/libdns/godaddy
+- github.com/libdns/googleclouddns
+- github.com/libdns/he
+- github.com/libdns/hetzner
+- github.com/libdns/hexonet
+- github.com/libdns/hosttech
+- github.com/libdns/huaweicloud
+- github.com/libdns/infomaniak
+- github.com/libdns/inwx
+- github.com/libdns/ionos
+- github.com/libdns/katapult
+- github.com/libdns/leaseweb
+- github.com/libdns/linode
+- github.com/libdns/loopia
+- github.com/libdns/luadns
+- github.com/libdns/mailinabox
+- github.com/libdns/metaname
+- github.com/libdns/mijnhost
+- github.com/libdns/mythicbeasts
+- github.com/libdns/namecheap
+- github.com/libdns/namedotcom
+- github.com/libdns/namesilo
+- github.com/libdns/nanelo
+- github.com/libdns/netcup
+- github.com/libdns/netlify
+- github.com/libdns/nfsn
+- github.com/libdns/njalla
+- github.com/libdns/openstack-designate
+- github.com/libdns/ovh
+- github.com/libdns/porkbun
+- github.com/libdns/powerdns
+- github.com/mjl-/libdns-rfc2136
+- github.com/libdns/route53
+- github.com/libdns/scaleway
+- github.com/libdns/selectel
+- github.com/libdns/tencentcloud
+- github.com/libdns/timeweb
+- github.com/libdns/totaluptime
+- github.com/libdns/vultr
+- github.com/libdns/westcn
+
+## Unsupported providers
+
+- github.com/libdns/acmedns, only creates ACME TXT records
+- github.com/libdns/acmeproxy, only creates ACME TXT records
+- github.com/libdns/dinahosting, only creates ACME TXT records
+- github.com/libdns/dnsexit, no proper GetRecords
+- github.com/libdns/dode, only creates ACME TXT records
+- github.com/libdns/neoserv, it doesn't use an api, but parses html pages
+- github.com/libdns/nicrudns, does not compile against latest libdns
+- github.com/libdns/regfish, does not compile against latest libdns
+- github.com/libdns/transip, requires a key in a file on disk
+- github.com/libdns/vercel, cannot set TTL
 
 ## Adding a new provider
 

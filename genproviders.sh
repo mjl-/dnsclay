@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Replace list of supported providers in the README.
+(
+sed '/## Supported providers/q' < README.md
+echo
+sed 's/.* "\(.*\)"/- \1/' < providers.txt
+echo
+sed -n '/## Unsupported providers/,//p' < README.md
+) >README.md.new
+mv README.md.new README.md
+
 (
 cat <<EOF
 package main
