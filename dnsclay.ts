@@ -665,7 +665,7 @@ const popupEdit = (zone: api.Zone, records: api.Record[], isNew: boolean) => {
 					dom.div(
 						dom.label(
 							dom.div('TTL'),
-							ttl=dom.input(attr.type('number'), attr.required(''), attr.value('300')),
+							ttl=dom.input(attr.type('number'), attr.required(''), attr.value(records.length > 0 ? ''+records[0].TTL : '300')),
 						),
 					),
 					dom.div(
