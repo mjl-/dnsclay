@@ -424,7 +424,11 @@ func (c *conn) handleDNS(imbuf []byte) (ok bool) {
 	}
 	q := c.im.Question[0]
 
-	if q.Qclass != dns.ClassINET {
+	// We allow CHAOS queries, for returning our version.
+	switch {
+	case q.Qclass == dns.ClassINET,
+		q.Qclass == dns.ClassCHAOS && c.listener.auth && c.im.Opcode == dns.OpcodeQuery:
+	default:
 		return c.respondCodeErrorf(dns.RcodeRefused, "only class inet allowed")
 	}
 
@@ -1139,19 +1143,36 @@ func (c *conn) handleXFR(ctx context.Context) (ok bool) {
 }
 
 // For regular dns queries for authoritative data. We only answer requests for SOA
-// records. Useful because XFR clients may check if they are up to date before
-// initiating a full zone transfer.
+// records or CHAOS version.bind. Useful because XFR clients may check if they are
+// up to date before initiating a full zone transfer.
 func (c *conn) handleAuth(ctx context.Context) (ok bool) {
 	q := c.im.Question[0]
+
+	if len(c.im.Answer) != 0 || len(c.im.Ns) != 0 {
+		return c.respondCodeErrorf(dns.RcodeFormatError, "answer and authority section must be empty")
+	}
+
+	if q.Qclass == dns.ClassCHAOS {
+		if q.Qtype != dns.TypeTXT || q.Name != "version.bind." {
+			return c.respondCodeErrorf(dns.RcodeRefused, "only the version.bind txt can be requested for chaos")
+		}
+
+		txt := dns.TXT{
+			Hdr: dns.RR_Header{Name: "version.bind.", Rrtype: dns.TypeTXT, Class: dns.ClassCHAOS},
+			Txt: []string{version},
+		}
+		var xm dns.Msg
+		om := xm.SetReply(&c.im)
+		om.Authoritative = true
+		om.AuthenticatedData = false
+		om.Answer = []dns.RR{&txt}
+		return c.respond(om)
+	}
 
 	// rfc/8906:234 We should respond with NOERROR/NXDOMAIN, but we don't want to
 	// mislead. Better tell clients something is wrong.
 	if q.Qtype != dns.TypeSOA {
 		return c.respondErrorf("only soa records can be requested")
-	}
-
-	if len(c.im.Answer) != 0 || len(c.im.Ns) != 0 {
-		return c.respondCodeErrorf(dns.RcodeFormatError, "answer and authority section must be empty")
 	}
 
 	// Get zone & SOA. The found zone may be for a parent name, so we can return
