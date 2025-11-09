@@ -529,7 +529,7 @@ func (c *conn) handleNotify(ctx context.Context) (ok bool) {
 
 	// rfc/1996:157
 	if len(c.im.Answer) == 1 {
-		if nsoa, ok := c.im.Answer[0].(*dns.SOA); ok && Serial(nsoa.Serial) == soa.SerialFirst {
+		if nsoa, ok := c.im.Answer[0].(*dns.SOA); ok && soa != nil && Serial(nsoa.Serial) == soa.SerialFirst {
 			c.log.Debug("received dns notify with soa record with serial we already have")
 			var xm dns.Msg
 			om := xm.SetRcode(&c.im, dns.RcodeSuccess)
