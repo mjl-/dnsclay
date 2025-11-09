@@ -681,7 +681,13 @@ const popupEdit = (zone: api.Zone, records: api.Record[], isNew: boolean) => {
 									Object.entries(dnsTypeNames).filter(t => !firstTypes.includes(t[1]) && !skipTypes.includes(t[1])).sort((ta, tb) => ta[1] < tb[1] ? -1 : 1).map(t => dom.option(attr.value(t[0]), t[1])),
 								),
 								isNew ? [] : attr.disabled(''),
-								records.length === 0 ? [] : prop({value: ''+records[0].Type}),
+								prop({
+									value: records.length > 0 ? records[0].Type : (
+										zone.Name.endsWith('.in-addr.arpa.') || zone.Name.endsWith('.ip6.arpa.') ?
+											Object.entries(dnsTypeNames).find(t => t[1] == 'PTR')?.[0] :
+											Object.entries(dnsTypeNames).find(t => t[1] == 'A')?.[0]
+									)
+								}),
 							),
 						),
 					),
