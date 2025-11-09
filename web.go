@@ -577,7 +577,7 @@ func _parseNewSet(zone string, rsc RecordSetChange) []Record {
 		_checkuserf(errors.New("at least one value required"), "checking values")
 	}
 	for _, v := range rsc.Values {
-		text := fmt.Sprintf("%s %d %s %s", absname, rsc.TTL, typ, v)
+		text := fmt.Sprintf("$ORIGIN %s\n%s %d %s %s", zone, absname, rsc.TTL, typ, v)
 		rr, err := dns.NewRR(text)
 		_checkuserf(err, "parsing new record")
 
