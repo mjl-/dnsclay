@@ -1707,7 +1707,8 @@ const pageZone = async (zonestr) => {
 					await refresh(e.target);
 				}), ' ',
 				dom.clickbutton('Delete', async function click(e) {
-					if (!confirm('Are you sure you want to delete this record set?')) {
+					const text = (set.Records || []).map(r => [relName(r.AbsName), r.TTL, dnsTypeNames[r.Type], r.Value].join(' ')).join('\n');
+					if (!confirm('Are you sure you want to delete this record set?' + '\n\n' + text)) {
 						return;
 					}
 					await check(e.target, () => client.RecordSetDelete(zone.Name, relName(r0.AbsName), r0.Type, set.Records.map(r => r.ID)));
