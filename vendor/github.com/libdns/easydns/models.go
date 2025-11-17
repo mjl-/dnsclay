@@ -1,5 +1,7 @@
 package easydns
 
+import "github.com/libdns/libdns"
+
 // ZoneRecordResponse is the response from the EasyDNS API for a zone record request.
 type ZoneRecordResponse struct {
 	Timestamp int `json:"tm,omitempty"` // Result Timestamp
@@ -36,4 +38,15 @@ type UpdateEntry struct {
 	TTL   int    `json:"ttl,omitempty"`
 	Type  string `json:"type,omitempty"`
 	Rdata string `json:"rdata,omitempty"`
+}
+
+// DNS custom struct that implements the libdns.Record interface
+type DnsRecord struct {
+	Id     string
+	Record libdns.RR
+}
+
+// Function that implements RR function for custom DnsRecord struct
+func (dnsRecord DnsRecord) RR() libdns.RR {
+	return dnsRecord.Record
 }

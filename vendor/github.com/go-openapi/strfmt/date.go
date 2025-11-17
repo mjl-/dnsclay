@@ -180,8 +180,3 @@ func (d *Date) UnmarshalBinary(data []byte) error {
 
 	return nil
 }
-
-// Equal checks if two Date instances are equal
-func (d Date) Equal(d2 Date) bool {
-	return time.Time(d).Equal(time.Time(d2))
-}

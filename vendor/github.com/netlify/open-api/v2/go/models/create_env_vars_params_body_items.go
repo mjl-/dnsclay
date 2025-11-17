@@ -20,6 +20,9 @@ import (
 // swagger:model createEnvVarsParamsBodyItems
 type CreateEnvVarsParamsBodyItems struct {
 
+	// Secret values are only readable by code running on Netlify's systems. With secrets, only the local development context values are readable from the UI, API, and CLI. By default, environment variable values are not secret.
+	IsSecret bool `json:"is_secret,omitempty"`
+
 	// The existing or new name of the key, if you wish to rename it (case-sensitive)
 	Key string `json:"key,omitempty"`
 
@@ -61,7 +64,7 @@ func init() {
 }
 
 func (m *CreateEnvVarsParamsBodyItems) validateScopesItemsEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, createEnvVarsParamsBodyItemsScopesItemsEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, createEnvVarsParamsBodyItemsScopesItemsEnum, true); err != nil {
 		return err
 	}
 	return nil

@@ -68,12 +68,17 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	var records []libdns.Record
 
 	for _, r := range result.Records {
-		records = append(records, libdns.Record{
-			Type:  r.Type,
-			Name:  r.Name,
-			Value: r.Value,
-			TTL:   time.Duration(r.TTL) * time.Second,
-		})
+		record, err := libdns.RR{
+			Type: r.Type,
+			Name: r.Name,
+			Data: r.Value,
+			TTL:  time.Duration(r.TTL) * time.Second,
+		}.Parse()
+		if err != nil {
+			return nil, fmt.Errorf("GetRecords: failed to parse record %s: %d", r.Name, err)
+		}
+
+		records = append(records, record)
 	}
 	return records, nil
 }

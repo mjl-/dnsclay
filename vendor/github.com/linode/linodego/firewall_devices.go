@@ -3,10 +3,8 @@ package linodego
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/linode/linodego/internal/parseabletime"
 )
 
@@ -17,6 +15,7 @@ type FirewallDeviceType string
 const (
 	FirewallDeviceLinode       FirewallDeviceType = "linode"
 	FirewallDeviceNodeBalancer FirewallDeviceType = "nodebalancer"
+	FirewallDeviceInterface    FirewallDeviceType = "interface"
 )
 
 // FirewallDevice represents a device governed by a Firewall
@@ -39,6 +38,7 @@ func (device *FirewallDevice) UnmarshalJSON(b []byte) error {
 
 	p := struct {
 		*Mask
+
 		Created *parseabletime.ParseableTime `json:"created"`
 		Updated *parseabletime.ParseableTime `json:"updated"`
 	}{
@@ -51,6 +51,7 @@ func (device *FirewallDevice) UnmarshalJSON(b []byte) error {
 
 	device.Created = (*time.Time)(p.Created)
 	device.Updated = (*time.Time)(p.Updated)
+
 	return nil
 }
 
@@ -62,68 +63,25 @@ type FirewallDeviceEntity struct {
 	URL   string             `json:"url"`
 }
 
-// FirewallDevicesPagedResponse represents a Linode API response for FirewallDevices
-type FirewallDevicesPagedResponse struct {
-	*PageOptions
-	Data []FirewallDevice `json:"data"`
-}
-
-// endpoint gets the endpoint URL for FirewallDevices of a given Firewall
-func (FirewallDevicesPagedResponse) endpoint(ids ...any) string {
-	id, _ := ids[0].(int)
-	return fmt.Sprintf("networking/firewalls/%d/devices", id)
-}
-
-func (resp *FirewallDevicesPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
-	res, err := coupleAPIErrors(r.SetResult(FirewallDevicesPagedResponse{}).Get(e))
-	if err != nil {
-		return 0, 0, err
-	}
-	castedRes := res.Result().(*FirewallDevicesPagedResponse)
-	resp.Data = append(resp.Data, castedRes.Data...)
-	return castedRes.Pages, castedRes.Results, nil
-}
-
 // ListFirewallDevices get devices associated with a given Firewall
 func (c *Client) ListFirewallDevices(ctx context.Context, firewallID int, opts *ListOptions) ([]FirewallDevice, error) {
-	response := FirewallDevicesPagedResponse{}
-	err := c.listHelper(ctx, &response, opts, firewallID)
-	if err != nil {
-		return nil, err
-	}
-	return response.Data, nil
+	return getPaginatedResults[FirewallDevice](ctx, c, formatAPIPath("networking/firewalls/%d/devices", firewallID), opts)
 }
 
 // GetFirewallDevice gets a FirewallDevice given an ID
 func (c *Client) GetFirewallDevice(ctx context.Context, firewallID, deviceID int) (*FirewallDevice, error) {
-	e := fmt.Sprintf("networking/firewalls/%d/devices/%d", firewallID, deviceID)
-	req := c.R(ctx).SetResult(&FirewallDevice{})
-	r, err := coupleAPIErrors(req.Get(e))
-	if err != nil {
-		return nil, err
-	}
-	return r.Result().(*FirewallDevice), nil
+	e := formatAPIPath("networking/firewalls/%d/devices/%d", firewallID, deviceID)
+	return doGETRequest[FirewallDevice](ctx, c, e)
 }
 
 // AddFirewallDevice associates a Device with a given Firewall
 func (c *Client) CreateFirewallDevice(ctx context.Context, firewallID int, opts FirewallDeviceCreateOptions) (*FirewallDevice, error) {
-	body, err := json.Marshal(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	e := fmt.Sprintf("networking/firewalls/%d/devices", firewallID)
-	req := c.R(ctx).SetResult(&FirewallDevice{}).SetBody(string(body))
-	r, err := coupleAPIErrors(req.Post(e))
-	if err != nil {
-		return nil, err
-	}
-	return r.Result().(*FirewallDevice), nil
+	e := formatAPIPath("networking/firewalls/%d/devices", firewallID)
+	return doPOSTRequest[FirewallDevice](ctx, c, e, opts)
 }
 
 // DeleteFirewallDevice disassociates a Device with a given Firewall
 func (c *Client) DeleteFirewallDevice(ctx context.Context, firewallID, deviceID int) error {
-	e := fmt.Sprintf("networking/firewalls/%d/devices/%d", firewallID, deviceID)
-	_, err := coupleAPIErrors(c.R(ctx).Delete(e))
-	return err
+	e := formatAPIPath("networking/firewalls/%d/devices/%d", firewallID, deviceID)
+	return doDELETERequest(ctx, c, e)
 }

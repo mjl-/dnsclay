@@ -100,3 +100,84 @@ func (c *Client) DeleteRecord(ctx context.Context, zone *Zone, recordID int64) (
 
 	return &record, nil
 }
+
+// CreateManyRecords creates multiple DNS records using supplied RRs.
+//
+// See: http://www.luadns.com/api.html#create-many-records
+func (c *Client) CreateManyRecords(ctx context.Context, zone *Zone, recs []*RR) ([]*Record, error) {
+	var records []*Record
+
+	req := func(ctx context.Context) ([]byte, error) {
+		return c.client.Post(ctx, c.endpoint("/zones/%d/records/create_many", zone.ID), recs)
+	}
+
+	err := c.do(ctx, req, &records)
+	if err != nil {
+		return nil, err
+	}
+
+	return records, nil
+}
+
+// UpdateManyRecords updates multiple DNS records using supplied RRs.
+//
+// For any (name, type) pairs in the input it will change zone records with
+// supplied input records, other records remains unchanged.
+//
+// See: http://www.luadns.com/api.html#update-many-records
+//
+// Example:
+//
+//	;; Original records
+//	example.com. 3600 IN A   1.1.1.1
+//	example.com. 3600 IN A   2.2.2.2
+//	example.com. 3600 IN TXT "hello world"
+//
+//	;; Input records
+//	example.com. 3600 IN A   1.1.1.1
+//	example.com. 3600 IN A   3.3.3.3
+//
+//	;; Result records
+//	example.com. 3600 IN A   1.1.1.1
+//	example.com. 3600 IN A   3.3.3.3
+//	example.com. 3600 IN TXT "hello world"
+func (c *Client) UpdateManyRecords(ctx context.Context, zone *Zone, recs []*RR) ([]*Record, error) {
+	var records []*Record
+
+	req := func(ctx context.Context) ([]byte, error) {
+		return c.client.Patch(ctx, c.endpoint("/zones/%d/records", zone.ID), recs)
+	}
+
+	err := c.do(ctx, req, &records)
+	if err != nil {
+		return nil, err
+	}
+
+	return records, nil
+}
+
+// DeleteManyRecords deletes multiple zone records matching supplied RRs.
+//
+// Only records with exact match of input name, type, content and TTL are being deleted.
+// For input RRs only name is required, the other fields are optional.
+//
+// See: http://www.luadns.com/api.html#delete-many-records
+//
+// Example:
+//
+//   - &RR{{Name: "example.com."}}		- matches all example.com. records
+//   - &RR{{Name: "example.com.", Type: "TXT"}}	- matches all example.com. records of TXT type
+func (c *Client) DeleteManyRecords(ctx context.Context, zone *Zone, recs []*RR) ([]*Record, error) {
+	var records []*Record
+
+	req := func(ctx context.Context) ([]byte, error) {
+		return c.client.Post(ctx, c.endpoint("/zones/%d/records/delete_many", zone.ID), recs)
+	}
+
+	err := c.do(ctx, req, &records)
+	if err != nil {
+		return nil, err
+	}
+
+	return records, nil
+}

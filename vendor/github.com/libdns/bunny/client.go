@@ -24,17 +24,23 @@ type getAllZonesResponse struct {
 }
 
 type bunnyZone struct {
-	ID     int    `json:"Id"`
-	Domain string `json:"Domain"`
-	Name   string `json:"-"`
+	ID            int    `json:"Id"`
+	Domain        string `json:"Domain"`
+	DnsSecEnabled bool   `json:"DnsSecEnabled"`
+	nameBase      string `json:"-"`
 }
 
 type bunnyRecord struct {
-	ID    int    `json:"Id,omitempty"`
-	Type  int    `json:"Type"`
-	Name  string `json:"Name"`
-	Value string `json:"Value"`
-	TTL   int    `json:"Ttl"`
+	ID       int    `json:"Id,omitempty"`
+	Type     int    `json:"Type"`
+	TTL      int    `json:"Ttl"`
+	Value    string `json:"Value"`
+	Name     string `json:"Name"`
+	Weight   int32  `json:"Weight,omitempty"`
+	Priority int32  `json:"Priority,omitempty"`
+	Flags    int    `json:"Flags,omitempty"`
+	Tag      string `json:"Tag,omitempty"`
+	Port     int32  `json:"Port,omitempty"`
 }
 
 func (p *Provider) doRequest(request *http.Request) ([]byte, error) {
@@ -60,9 +66,43 @@ func (p *Provider) doRequest(request *http.Request) ([]byte, error) {
 	return data, nil
 }
 
+func (p *Provider) getAllZones(ctx context.Context) ([]bunnyZone, error) {
+	p.log("fetching all zones")
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.bunny.net/dnszone", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := p.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	result := getAllZonesResponse{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+
+	p.log(fmt.Sprintf("retrieved %d zone(s)", len(result.Zones)))
+
+	return result.Zones, nil
+}
+
 func (p *Provider) getZone(ctx context.Context, domain string) (bunnyZone, error) {
+	p.zonesMu.Lock()
+	defer p.zonesMu.Unlock()
+
 	if domain == "" {
 		return bunnyZone{}, fmt.Errorf("domain is an empty string")
+	}
+
+	// If we already got the zone info, reuse it
+	if p.zones == nil {
+		p.zones = make(map[string]bunnyZone)
+	}
+	if zone, ok := p.zones[domain]; ok {
+		return zone, nil
 	}
 
 	p.log(fmt.Sprintf("fetching zone for %s", domain))
@@ -98,13 +138,16 @@ func (p *Provider) getZone(ctx context.Context, domain string) (bunnyZone, error
 		for _, zone := range result.Zones {
 			if strings.EqualFold(zone.Domain, zoneGuess) {
 				if len(domain) > len(zone.Domain) {
-					zone.Name = strings.ToLower(domain[:len(domain)-len(zone.Domain)-1])
+					zone.nameBase = strings.ToLower(domain[:len(domain)-len(zone.Domain)-1])
 					p.log(fmt.Sprintf("found zone ID %d (%s) for %s",
 						zone.ID, zone.Domain, domain))
 				} else {
 					p.log(fmt.Sprintf("found zone ID %d for %s",
 						zone.ID, domain))
 				}
+
+				// cache this zone for possible reuse
+				p.zones[domain] = zone
 
 				return zone, nil
 			}
@@ -133,13 +176,8 @@ func getBaseDomainNameGuesses(domain string) []string {
 	return guesses
 }
 
-func (p *Provider) getAllRecords(ctx context.Context, domain string) ([]libdns.Record, error) {
-	p.log(fmt.Sprintf("fetching all records in zone %s", domain))
-
-	zone, err := p.getZone(ctx, domain)
-	if err != nil {
-		return nil, err
-	}
+func (p *Provider) getDNSRecords(ctx context.Context, zone bunnyZone) ([]bunnyRecord, error) {
+	p.log(fmt.Sprintf("fetching all records in zone %s", zone.Domain))
 
 	req, err := http.NewRequestWithContext(ctx, "GET",
 		fmt.Sprintf("https://api.bunny.net/dnszone/%d", zone.ID), nil)
@@ -157,125 +195,81 @@ func (p *Provider) getAllRecords(ctx context.Context, domain string) ([]libdns.R
 		return nil, err
 	}
 
-	records := []libdns.Record{}
-	for _, resData := range result.Records {
+	p.log(fmt.Sprintf("done fetching %d record(s) in zone %s", len(result.Records), zone.Domain))
 
-		// Shift the base of the record name if the domain is a reference to a
-		// sub-domain of the zone.
-		if zone.Name != "" {
-			if resData.Name == zone.Name {
-				resData.Name = "" // root domain
-			} else if strings.HasSuffix(resData.Name, "."+zone.Name) {
-				resData.Name = strings.TrimSuffix(resData.Name, "."+zone.Name)
-			} else {
-				continue
-			}
-		}
-		records = append(records, libdns.Record{
-			ID:    fmt.Sprint(resData.ID),
-			Type:  fromBunnyType(resData.Type),
-			Name:  resData.Name,
-			Value: resData.Value,
-			TTL:   time.Duration(resData.TTL) * time.Second,
-		})
+	return result.Records, nil
+}
+
+func (p *Provider) getAllRecords(ctx context.Context, zone bunnyZone) ([]libdns.Record, error) {
+	bunnyRecords, err := p.getDNSRecords(ctx, zone)
+	if err != nil {
+		return nil, err
 	}
 
-	p.log(fmt.Sprintf("done fetching %d record(s) in zone %s", len(records), domain), records...)
+	records := []libdns.Record{}
+	for _, resData := range bunnyRecords {
+		record, err := zone.libdnsRecord(resData)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+
+	p.log(fmt.Sprintf("retrieved %d record(s)", len(records)), records...)
 
 	return records, nil
 }
 
-func (p *Provider) createRecord(ctx context.Context, domain string, record libdns.Record) (libdns.Record, error) {
-	p.log(fmt.Sprintf("creating %s record in zone %s", record.Type, domain), record)
+func (p *Provider) createRecord(ctx context.Context, zone bunnyZone, record libdns.Record) (libdns.Record, error) {
+	rr := record.RR()
 
-	zone, err := p.getZone(ctx, domain)
+	p.log(fmt.Sprintf("creating %s record in zone %s", rr.Type, zone.Domain), record)
+
+	reqData, err := zone.bunnyRecord(record)
 	if err != nil {
-		return libdns.Record{}, err
-	}
-
-	if record.Name == "@" {
-		record.Name = ""
-	}
-
-	reqData := bunnyRecord{
-		Type:  toBunnyType(record.Type),
-		Name:  record.Name,
-		Value: record.Value,
-		TTL:   int(record.TTL.Seconds()),
-	}
-
-	if zone.Name != "" {
-		if reqData.Name == "" {
-			reqData.Name = zone.Name
-		} else {
-			reqData.Name = fmt.Sprintf("%s.%s", reqData.Name, zone.Name)
-		}
+		return nil, err
 	}
 
 	reqBuffer, err := json.Marshal(reqData)
 	if err != nil {
-		return libdns.Record{}, err
+		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "PUT",
 		fmt.Sprintf("https://api.bunny.net/dnszone/%d/records", zone.ID), bytes.NewBuffer(reqBuffer))
 	if err != nil {
-		return libdns.Record{}, err
+		return nil, err
 	}
 
 	req.Header.Add("content-type", "application/json")
 	data, err := p.doRequest(req)
 	if err != nil {
-		return libdns.Record{}, err
+		return nil, err
 	}
 
 	result := bunnyRecord{}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return libdns.Record{}, err
+		return nil, err
 	}
 
-	record = libdns.Record{
-		ID:    fmt.Sprint(result.ID),
-		Type:  fromBunnyType(result.Type),
-		Name:  result.Name,
-		Value: result.Value,
-		TTL:   time.Duration(result.TTL) * time.Second,
+	record, err = zone.libdnsRecord(result)
+	if err != nil {
+		return nil, err
 	}
 
-	if zone.Name != "" {
-		record.Name = strings.TrimSuffix(strings.TrimSuffix(record.Name, zone.Name), ".")
-	}
-
-	p.log(fmt.Sprintf("done creating %s record %s in zone %s", record.Type, record.ID, domain), record)
+	p.log(fmt.Sprintf("done creating %s record %d in zone %s", rr.Type, result.ID, zone.Domain), record)
 
 	return record, nil
 }
 
-func (p *Provider) updateRecord(ctx context.Context, domain string, record libdns.Record) error {
-	p.log(fmt.Sprintf("updating %s record in zone %s", record.Type, domain), record)
+func (p *Provider) updateRecord(ctx context.Context, zone bunnyZone, record libdns.Record, id int) error {
+	rr := record.RR()
 
-	zone, err := p.getZone(ctx, domain)
+	p.log(fmt.Sprintf("updating %s record in zone %s", rr.Type, zone.Domain), record)
+
+	reqData, err := zone.bunnyRecord(record)
 	if err != nil {
 		return err
-	}
-
-	if record.Name == "@" {
-		record.Name = ""
-	}
-
-	reqData := bunnyRecord{
-		Type:  toBunnyType(record.Type),
-		Name:  record.Name,
-		Value: record.Value,
-		TTL:   int(record.TTL.Seconds()),
-	}
-
-	if zone.Name != "" {
-		if reqData.Name == "" {
-			reqData.Name = zone.Name
-		} else {
-			reqData.Name = fmt.Sprintf("%s.%s", reqData.Name, zone.Name)
-		}
 	}
 
 	reqBuffer, err := json.Marshal(reqData)
@@ -284,7 +278,7 @@ func (p *Provider) updateRecord(ctx context.Context, domain string, record libdn
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://api.bunny.net/dnszone/%d/records/%s", zone.ID, url.PathEscape(record.ID)), bytes.NewBuffer(reqBuffer))
+		fmt.Sprintf("https://api.bunny.net/dnszone/%d/records/%d", zone.ID, id), bytes.NewBuffer(reqBuffer))
 	if err != nil {
 		return err
 	}
@@ -296,31 +290,54 @@ func (p *Provider) updateRecord(ctx context.Context, domain string, record libdn
 		return err
 	}
 
-	p.log(fmt.Sprintf("done updating %s record %s in zone %s", record.Type, record.ID, domain), record)
+	p.log(fmt.Sprintf("done updating %s record %s in zone %s", rr.Type, rr.Name, zone.Domain), record)
 
 	return nil
 }
 
 // Creates a new record if it does not exist, or updates an existing one.
-func (p *Provider) createOrUpdateRecord(ctx context.Context, zone string, record libdns.Record) (libdns.Record, error) {
-	if record.ID == "" {
-		return p.createRecord(ctx, zone, record)
+func (p *Provider) createOrUpdateRecord(ctx context.Context, zone bunnyZone, record libdns.Record) (libdns.Record, error) {
+	bunnyRecords, err := p.getDNSRecords(ctx, zone)
+	if err != nil {
+		return nil, err
 	}
 
-	err := p.updateRecord(ctx, zone, record)
+	matchingRecords, err := zone.filterBunnyRecords(bunnyRecords, record)
+	if err != nil {
+		return nil, err
+	}
+	if len(matchingRecords) == 0 {
+		return p.createRecord(ctx, zone, record)
+	}
+	if len(matchingRecords) > 1 {
+		return nil, fmt.Errorf("unexpectedly found more than 1 record for %s in zone %s", record.RR().Name, zone.Domain)
+	}
+	err = p.updateRecord(ctx, zone, record, matchingRecords[0].ID)
 	return record, err
 }
 
-func (p *Provider) deleteRecord(ctx context.Context, domain string, record libdns.Record) error {
-	p.log(fmt.Sprintf("deleting %s record in zone %s", record.Type, domain))
+func (p *Provider) deleteRecord(ctx context.Context, zone bunnyZone, record libdns.Record) error {
+	rr := record.RR()
 
-	zone, err := p.getZone(ctx, domain)
+	p.log(fmt.Sprintf("deleting %s record in zone %s", rr.Type, zone.Domain))
+
+	bunnyRecords, err := p.getDNSRecords(ctx, zone)
 	if err != nil {
 		return err
 	}
 
+	matchingRecords, err := zone.filterBunnyRecords(bunnyRecords, record)
+	if err != nil {
+		return err
+	}
+
+	if len(matchingRecords) == 0 {
+		p.log(fmt.Sprintf("no matching record found for %s in zone %s, skipping deletion", rr.Name, zone.Domain))
+		return nil
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "DELETE",
-		fmt.Sprintf("https://api.bunny.net/dnszone/%d/records/%s", zone.ID, url.PathEscape(record.ID)), nil)
+		fmt.Sprintf("https://api.bunny.net/dnszone/%d/records/%d", zone.ID, matchingRecords[0].ID), nil)
 	if err != nil {
 		return err
 	}
@@ -330,7 +347,7 @@ func (p *Provider) deleteRecord(ctx context.Context, domain string, record libdn
 		return err
 	}
 
-	p.log(fmt.Sprintf("done deleting %s record %s in zone %s", record.Type, record.ID, domain))
+	p.log(fmt.Sprintf("done deleting %s record %d in zone %s", rr.Type, matchingRecords[0].ID, zone.Domain))
 
 	return nil
 }
@@ -341,14 +358,8 @@ func (p *Provider) log(msg string, records ...libdns.Record) {
 	} else if p.Debug {
 		fmt.Printf("[bunny] %s\n", msg)
 		for _, record := range records {
-			var id string
-			if record.ID == "" {
-				id = "(new)"
-			} else {
-				id = record.ID
-			}
-			fmt.Printf("[bunny]   %s: ID=%s, TTL=%s, Priority=%d, Name=%s, Value=%s\n",
-				record.Type, id, record.TTL, record.Priority, record.Name, record.Value)
+			rr := record.RR()
+			fmt.Printf("[bunny]   %s: Name=%s, Value=%s TTL=%s\n", rr.Type, rr.Name, rr.Data, rr.TTL)
 		}
 	}
 }
@@ -371,69 +382,188 @@ const (
 )
 
 // Converts the Bunny.net record type to the libdns record type.
-func fromBunnyType(t int) string {
+func fromBunnyType(t int) (string, error) {
 	switch t {
 	case bunnyTypeA:
-		return "A"
+		return "A", nil
 	case bunnyTypeAAAA:
-		return "AAAA"
+		return "AAAA", nil
 	case bunnyTypeCNAME:
-		return "CNAME"
+		return "CNAME", nil
 	case bunnyTypeTXT:
-		return "TXT"
+		return "TXT", nil
 	case bunnyTypeMX:
-		return "MX"
+		return "MX", nil
 	case bunnyTypeRedirect:
-		return "Redirect"
+		return "Redirect", nil
 	case bunnyTypeFlatten:
-		return "Flatten"
+		return "Flatten", nil
 	case bunnyTypePullZone:
-		return "PullZone"
+		return "PullZone", nil
 	case bunnyTypeSRV:
-		return "SRV"
+		return "SRV", nil
 	case bunnyTypeCAA:
-		return "CAA"
+		return "CAA", nil
 	case bunnyTypePTR:
-		return "PTR"
+		return "PTR", nil
 	case bunnyTypeScript:
-		return "Script"
+		return "Script", nil
 	case bunnyTypeNS:
-		return "NS"
+		return "NS", nil
 	default:
-		panic(fmt.Sprintf("unknown record type: %d", t))
+		return "", fmt.Errorf("unknown record type ID: %d", t)
 	}
 }
 
 // Converts the libdns record type to the Bunny.net record type.
-func toBunnyType(t string) int {
+func toBunnyType(t string) (int, error) {
 	switch t {
 	case "A":
-		return bunnyTypeA
+		return bunnyTypeA, nil
 	case "AAAA":
-		return bunnyTypeAAAA
+		return bunnyTypeAAAA, nil
 	case "CNAME":
-		return bunnyTypeCNAME
+		return bunnyTypeCNAME, nil
 	case "TXT":
-		return bunnyTypeTXT
+		return bunnyTypeTXT, nil
 	case "MX":
-		return bunnyTypeMX
+		return bunnyTypeMX, nil
 	case "Redirect":
-		return bunnyTypeRedirect
+		return bunnyTypeRedirect, nil
 	case "Flatten":
-		return bunnyTypeFlatten
+		return bunnyTypeFlatten, nil
 	case "PullZone":
-		return bunnyTypePullZone
+		return bunnyTypePullZone, nil
 	case "SRV":
-		return bunnyTypeSRV
+		return bunnyTypeSRV, nil
 	case "CAA":
-		return bunnyTypeCAA
+		return bunnyTypeCAA, nil
 	case "PTR":
-		return bunnyTypePTR
+		return bunnyTypePTR, nil
 	case "Script":
-		return bunnyTypeScript
+		return bunnyTypeScript, nil
 	case "NS":
-		return bunnyTypeNS
+		return bunnyTypeNS, nil
 	default:
-		panic(fmt.Sprintf("unknown record type: %s", t))
+		return -1, fmt.Errorf("unknown record type: %s", t)
 	}
+}
+
+func (zone bunnyZone) bunnyRecord(record libdns.Record) (bunnyRecord, error) {
+	rr := record.RR()
+
+	rType, err := toBunnyType(rr.Type)
+	if err != nil {
+		return bunnyRecord{}, err
+	}
+	r := bunnyRecord{
+		Type:  rType,
+		Name:  rr.Name,
+		Value: rr.Data,
+		TTL:   int(rr.TTL.Seconds()),
+	}
+	if r.Name == "@" {
+		r.Name = ""
+	}
+	if zone.nameBase != "" {
+		if r.Name == "" {
+			r.Name = zone.nameBase
+		} else {
+			r.Name = fmt.Sprintf("%s.%s", r.Name, zone.nameBase)
+		}
+	}
+	switch rec := record.(type) {
+	case libdns.CAA:
+		r.Flags = int(rec.Flags)
+		r.Tag = rec.Tag
+		r.Value = rec.Value
+	case libdns.MX:
+		r.Priority = int32(rec.Preference)
+		r.Value = rec.Target
+	case libdns.SRV:
+		r.Priority = int32(rec.Priority)
+		r.Weight = int32(rec.Weight)
+		r.Port = int32(rec.Port)
+		r.Value = rec.Target
+	}
+	return r, nil
+}
+
+func (zone bunnyZone) libdnsRecord(record bunnyRecord) (libdns.Record, error) {
+	rType, err := fromBunnyType(record.Type)
+	if err != nil {
+		return nil, err
+	}
+	r := libdns.RR{
+		Type: rType,
+		Name: record.Name,
+		Data: record.Value,
+		TTL:  time.Duration(record.TTL) * time.Second,
+	}
+
+	if zone.nameBase != "" {
+		if r.Name == zone.nameBase {
+			r.Name = ""
+		} else if strings.HasSuffix(r.Name, "."+zone.nameBase) {
+			r.Name = strings.TrimSuffix(r.Name, "."+zone.nameBase)
+		}
+	}
+	if r.Name == "" {
+		r.Name = "@"
+	}
+	switch r.Type {
+	// Types that are compatible with RR.Parse()
+	case "A", "AAAA", "CNAME", "NS", "TXT":
+		return r.Parse()
+	case "CAA":
+		return libdns.CAA{
+			Name:  r.Name,
+			TTL:   r.TTL,
+			Flags: uint8(record.Flags),
+			Tag:   record.Tag,
+			Value: record.Value,
+		}, nil
+	case "MX":
+		return libdns.MX{
+			Name:       r.Name,
+			TTL:        r.TTL,
+			Preference: uint16(record.Priority),
+			Target:     record.Value,
+		}, nil
+	case "SRV":
+		parts := strings.SplitN(r.Name, ".", 3)
+		if len(parts) < 2 {
+			return libdns.SRV{}, fmt.Errorf("name %v does not contain enough fields; expected format: '_service._proto.name' or '_service._proto'", r.Name)
+		}
+		name := "@"
+		if len(parts) == 3 {
+			name = parts[2]
+		}
+		return libdns.SRV{
+			Service:   strings.TrimPrefix(parts[0], "_"),
+			Transport: strings.TrimPrefix(parts[1], "_"),
+			Name:      name,
+			TTL:       r.TTL,
+			Priority:  uint16(record.Priority),
+			Weight:    uint16(record.Weight),
+			Port:      uint16(record.Port),
+			Target:    record.Value,
+		}, nil
+	default:
+		return r, nil
+	}
+}
+
+func (zone bunnyZone) filterBunnyRecords(haystack []bunnyRecord, record libdns.Record) ([]bunnyRecord, error) {
+	needle, err := zone.bunnyRecord(record)
+	if err != nil {
+		return nil, err
+	}
+	records := []bunnyRecord{}
+	for _, r := range haystack {
+		if r.Name == needle.Name && r.Type == needle.Type {
+			records = append(records, r)
+		}
+	}
+	return records, nil
 }

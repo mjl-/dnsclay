@@ -18,15 +18,17 @@ const (
 
 // JSONClient represents a REST client using JSON format.
 type JSONClient struct {
-	client   *http.Client
-	username string
-	password string
+	client    *http.Client
+	userAgent string
+	username  string
+	password  string
 }
 
 // NewJSONClient initializes JSON client.
 func NewJSONClient(client *http.Client) *JSONClient {
 	return &JSONClient{
-		client: client,
+		client:    client,
+		userAgent: "luadns-go/" + version,
 	}
 }
 
@@ -44,14 +46,14 @@ func NewAuthJSONClient(username, password string) *JSONClient {
 }
 
 // Post executes a POST request using JSON body and returns JSON response.
-func (c *JSONClient) Post(ctx context.Context, url string, attrs interface{}, handlers ...HandlerFunc) ([]byte, error) {
+func (c *JSONClient) Post(ctx context.Context, url string, attrs any, handlers ...HandlerFunc) ([]byte, error) {
 	json, err := c.marshalJSON(attrs)
 	if err != nil {
 		return nil, err
 	}
 	payload := bytes.NewBuffer(json)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, payload)
+	req, err := c.newRequest(ctx, http.MethodPost, url, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +63,7 @@ func (c *JSONClient) Post(ctx context.Context, url string, attrs interface{}, ha
 
 // Get executes a GET request and returns JSON response.
 func (c *JSONClient) Get(ctx context.Context, url string, handlers ...HandlerFunc) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	req, err := c.newRequest(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -70,14 +72,30 @@ func (c *JSONClient) Get(ctx context.Context, url string, handlers ...HandlerFun
 }
 
 // Put executes a PUT request using JSON body and returns JSON response.
-func (c *JSONClient) Put(ctx context.Context, url string, data interface{}, handlers ...HandlerFunc) ([]byte, error) {
+func (c *JSONClient) Put(ctx context.Context, url string, data any, handlers ...HandlerFunc) ([]byte, error) {
 	json, err := c.marshalJSON(data)
 	if err != nil {
 		return nil, err
 	}
 	payload := bytes.NewBuffer(json)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, payload)
+	req, err := c.newRequest(ctx, http.MethodPut, url, payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.do(req, handlers...)
+}
+
+// Patch executes a PATCH request using JSON body and returns JSON response.
+func (c *JSONClient) Patch(ctx context.Context, url string, data any, handlers ...HandlerFunc) ([]byte, error) {
+	json, err := c.marshalJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	payload := bytes.NewBuffer(json)
+
+	req, err := c.newRequest(ctx, http.MethodPatch, url, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -87,11 +105,21 @@ func (c *JSONClient) Put(ctx context.Context, url string, data interface{}, hand
 
 // Delete executes a DELETE request and returns JSON response.
 func (c *JSONClient) Delete(ctx context.Context, url string, handlers ...HandlerFunc) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, http.NoBody)
+	req, err := c.newRequest(ctx, http.MethodDelete, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
 	return c.do(req, handlers...)
+}
+
+func (c *JSONClient) newRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", c.userAgent)
+	return req, nil
 }
 
 // do executes HTTP request, checks for proper response and returns the response body.
@@ -182,6 +210,6 @@ func (c *JSONClient) getRatelimitValue(resp *http.Response, key string) (int64, 
 	return n, nil
 }
 
-func (c *JSONClient) marshalJSON(payload interface{}) ([]byte, error) {
+func (c *JSONClient) marshalJSON(payload any) ([]byte, error) {
 	return json.Marshal(payload)
 }

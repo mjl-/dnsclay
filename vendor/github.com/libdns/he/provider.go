@@ -31,7 +31,12 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
-func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+// NOTE: This implementation is NOT atomic.
+func (p *Provider) AppendRecords(
+	ctx context.Context,
+	zone string,
+	records []libdns.Record,
+) ([]libdns.Record, error) {
 	var appendedRecords []libdns.Record
 
 	for _, rec := range records {
@@ -47,7 +52,12 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
 // It returns the updated records.
-func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+// NOTE: This implementation is NOT atomic.
+func (p *Provider) SetRecords(
+	ctx context.Context,
+	zone string,
+	records []libdns.Record,
+) ([]libdns.Record, error) {
 	var setRecords []libdns.Record
 
 	for _, rec := range records {
@@ -62,7 +72,12 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 }
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
-func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+// NOTE: This implementation is NOT atomic.
+func (p *Provider) DeleteRecords(
+	ctx context.Context,
+	zone string,
+	records []libdns.Record,
+) ([]libdns.Record, error) {
 	var deletedRecords []libdns.Record
 
 	for _, rec := range records {

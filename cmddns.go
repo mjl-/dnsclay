@@ -243,7 +243,8 @@ func cmdDNSUpdate(dnsargs dnsArgs, args []string) {
 	}
 
 	var om dns.Msg
-	om.SetUpdate(strings.TrimSuffix(zone, ".") + ".")
+	abszone := strings.TrimSuffix(zone, ".") + "."
+	om.SetUpdate(abszone)
 
 	absname := func(name string) string {
 		if strings.HasSuffix(name, ".") {
@@ -261,7 +262,7 @@ func cmdDNSUpdate(dnsargs dnsArgs, args []string) {
 				log.Println("add needs 4 arguments")
 				flg.Usage()
 			}
-			text := fmt.Sprintf("%s %s %s %s", absname(args[0]), args[1], args[2], args[3])
+			text := fmt.Sprintf("$ORIGIN %s\n%s %s %s %s", abszone, absname(args[0]), args[1], args[2], args[3])
 			rr, err := dns.NewRR(text)
 			xcheckf(err, "parsing record %q", text)
 
@@ -320,7 +321,7 @@ func cmdDNSUpdate(dnsargs dnsArgs, args []string) {
 				flg.Usage()
 			}
 
-			text := fmt.Sprintf("%s 0 %s %s", absname(args[0]), args[1], args[2])
+			text := fmt.Sprintf("$ORIGIN %s\n%s 0 %s %s", abszone, absname(args[0]), args[1], args[2])
 			rr, err := dns.NewRR(text)
 			xcheckf(err, "parsing record %q", text)
 			rr.Header().Class = dns.ClassNONE

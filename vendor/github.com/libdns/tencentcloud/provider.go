@@ -2,72 +2,59 @@ package tencentcloud
 
 import (
 	"context"
+	"errors"
 
 	"github.com/libdns/libdns"
 )
 
-// Provider is a libdns provider for Tencent Cloud DNS
-type Provider struct {
-	// SecretId is the secret ID for Tencent Cloud DNS
-	SecretId string
-	// SecretKey is the secret key for Tencent Cloud DNS
-	SecretKey string
-}
-
-// GetRecords gets the records for a zone
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	return p.describeRecordList(ctx, zone)
+	return p.listRecords(ctx, zone)
 }
 
-// AppendRecords appends records to a zone
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	for k, record := range records {
-		if id, err := p.createRecord(ctx, zone, record); err != nil {
-			return records, err
-		} else {
-			records[k].ID = id
-		}
-	}
-	return records, nil
-}
-
-// SetRecords sets the records for a zone
-func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	for i, record := range records {
-		// If record is is empty try to get the record id by name and type
-		if record.ID == "" {
-			id, err := p.getRecordIdByNameAndType(ctx, zone, record.Name, record.Type)
-			if err == nil {
-				record.ID = id
-			}
-		}
-		if record.ID == "" {
-			newRecord, err := p.AppendRecords(ctx, zone, []libdns.Record{record})
-			if err != nil {
-				return nil, err
-			}
-			records[i].ID = newRecord[0].ID
-		} else {
-			if err := p.modifyRecord(ctx, zone, record); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return records, nil
-}
-
-// DeleteRecords deletes the records for a zone
-func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	for _, record := range records {
-		if err := p.deleteRecord(ctx, zone, record); err != nil {
+		if err := p.createRecord(ctx, zone, record); err != nil {
 			return nil, err
 		}
 	}
+
+	return records, nil
+}
+
+func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	for _, record := range records {
+		id, err := p.findRecord(ctx, zone, record)
+		if err != nil {
+			if errors.Is(err, ErrRecordNotFound) {
+				if err = p.createRecord(ctx, zone, record); err != nil {
+					return nil, err
+				}
+				continue
+			}
+		}
+		if err = p.modifyRecord(ctx, id, zone, record); err != nil {
+			return nil, err
+		}
+	}
+
+	return records, nil
+}
+
+func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	for _, record := range records {
+		id, err := p.findRecord(ctx, zone, record)
+		if err != nil {
+			return nil, err
+		}
+		if err := p.deleteRecord(ctx, id, zone); err != nil {
+			return nil, err
+		}
+	}
+
 	return records, nil
 }
 
 // Interface guards
-
 var (
 	_ libdns.RecordGetter   = (*Provider)(nil)
 	_ libdns.RecordAppender = (*Provider)(nil)

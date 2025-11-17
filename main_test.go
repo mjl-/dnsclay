@@ -49,7 +49,6 @@ var fakeProviders = map[string]*fakeProvider{}
 // config, looking them up in the fakeProviders map.
 type fakeProvider struct {
 	ID          string
-	AbsNames    bool // If set, GetRecords returns absolute names.
 	FixedSerial bool // If set, serial is fixed, always 1.
 	NoSOA       bool // If set, GetRecords does not return a SOA record.
 
@@ -86,19 +85,21 @@ func (pp *fakeProvider) GetRecords(ctx context.Context, zone string) ([]libdns.R
 	defer p.Unlock()
 	l := make([]libdns.Record, 0, len(p.Records))
 	for _, r := range p.Records {
-		if p.NoSOA && r.Type == "SOA" {
+		rr := r.RR()
+		if p.NoSOA && rr.Type == "SOA" {
 			continue
 		}
-		if p.FixedSerial && r.Type == "SOA" {
+		if p.FixedSerial && rr.Type == "SOA" {
 			// Third field in SOA value is serial, we change it to 1.
-			t := strings.Split(r.Value, " ")
+			t := strings.Split(rr.Data, " ")
 			t[2] = "1"
-			r.Value = strings.Join(t, " ")
+			rr.Data = strings.Join(t, " ")
 		}
-		if p.AbsNames {
-			r.Name = libdns.AbsoluteName(r.Name, zone)
+		nr, err := rr.Parse()
+		if err == nil {
+			setProviderData(&nr, providerData(r))
 		}
-		l = append(l, r)
+		l = append(l, nr)
 	}
 	return l, nil
 }
@@ -113,44 +114,44 @@ func (p *fakeProvider) remove(r libdns.Record) bool {
 }
 
 func (p *fakeProvider) find(r libdns.Record) int {
+	rr := r.RR()
 	for i, or := range p.Records {
-		if strings.EqualFold(or.Name, r.Name) && or.Type == r.Type && or.TTL == r.TTL && or.Value == r.Value {
+		orr := or.RR()
+		if strings.EqualFold(orr.Name, rr.Name) && orr.Type == rr.Type && orr.TTL == rr.TTL && orr.Data == rr.Data {
 			return i
 		}
 	}
 	return -1
 }
 
-func (p *fakeProvider) findName(name string) (l []libdns.Record) {
-	for _, r := range p.Records {
-		if strings.EqualFold(r.Name, name) {
-			l = append(l, r)
-		}
-	}
-	return l
-}
-
 func (p *fakeProvider) SOA() (libdns.Record, bool) {
 	p.Lock()
 	defer p.Unlock()
 	for _, r := range p.Records {
-		if r.Name == "" && r.Type == "SOA" {
+		rr := r.RR()
+		if rr.Name == "@" && rr.Type == "SOA" {
 			return r, true
 		}
 	}
-	return libdns.Record{}, false
+	return nil, false
 }
 
 func (p *fakeProvider) changeSerial() {
 	for i, r := range p.Records {
-		if r.Name == "" && r.Type == "SOA" {
-			rr, err := dns.NewRR(". 300 IN SOA " + r.Value)
+		rr := r.RR()
+		if rr.Name == "@" && rr.Type == "SOA" {
+			xrr, err := dns.NewRR(". 300 IN SOA " + rr.Data)
 			if err != nil {
 				panic("parsing soa rr: " + err.Error())
 			}
-			soa := rr.(*dns.SOA)
+			soa := xrr.(*dns.SOA)
 			soa.Serial++
-			p.Records[i].Value = strings.TrimPrefix(soa.String(), soa.Header().String())
+			rr.Data = strings.TrimPrefix(soa.String(), soa.Header().String())
+			record, err := rr.Parse()
+			if err != nil {
+				panic("parsing modified soa record: " + err.Error())
+			}
+			p.Records[i] = record
 			return
 		}
 	}
@@ -198,26 +199,32 @@ func (pp *fakeProvider) SetRecords(ctx context.Context, zone string, l []libdns.
 	}
 	p.Lock()
 	defer p.Unlock()
-	var changed bool
+
+	// Group by record set.
+	type setKey struct {
+		Name string
+		Type string
+	}
+	sets := map[setKey][]libdns.Record{}
 	for _, r := range l {
-		if r.Type == "CNAME" {
-			nl := p.findName(r.Name)
-			if len(nl) > 1 || nl[0].Type != "CNAME" {
-				continue
-			} else if len(nl) == 1 {
-				// Replace current cname.
-				p.remove(nl[0])
-			}
-			p.Records = append(p.Records, r)
-			changed = true
-		} else if p.find(r) < 0 {
-			p.Records = append(p.Records, r)
-			changed = true
+		rr := r.RR()
+		k := setKey{rr.Name, rr.Type}
+		sets[k] = append(sets[k], r)
+	}
+
+	// Build up new final list of records, and keep track of whether we've seen a
+	// change. We don't look at whether the old and new records were identical.
+	var nrecords []libdns.Record
+	for _, r := range p.Records {
+		rr := r.RR()
+		k := setKey{rr.Name, rr.Type}
+		if _, ok := sets[k]; ok {
+			continue
 		}
+		nrecords = append(nrecords, r)
 	}
-	if changed {
-		p.changeSerial()
-	}
+	p.Records = append(nrecords, l...)
+	p.changeSerial()
 	return l, nil
 }
 
@@ -337,8 +344,14 @@ type testZone struct {
 	tlsConfig *tls.Config
 }
 
-func ldr(id, relname string, ttl int, typ, value string) libdns.Record {
-	return libdns.Record{ID: id, Name: relname, TTL: time.Duration(ttl) * time.Second, Type: typ, Value: value}
+func ldr(id any, relname string, ttl int, typ, data string) libdns.Record {
+	rr := libdns.RR{Name: relname, TTL: time.Duration(ttl) * time.Second, Type: typ, Data: data}
+	r, err := rr.Parse()
+	if err != nil {
+		panic(fmt.Sprintf("ldr %q %v %q %q: %v", relname, ttl, typ, data, err))
+	}
+	setProviderData(&r, id)
+	return r
 }
 
 // testDNS runs fn in a new testEnv. fn should make changes and verify they're
@@ -356,14 +369,14 @@ func testDNS(t *testing.T, fn func(te testEnv, z Zone)) {
 }
 
 func testDNSProvider0(t *testing.T, fn func(te testEnv, z Zone)) {
-	testDNSProvider(t, fn, false, false, false)
+	testDNSProvider(t, fn, false, false)
 }
 
 func testDNSProvider1(t *testing.T, fn func(te testEnv, z Zone)) {
-	testDNSProvider(t, fn, true, true, true)
+	testDNSProvider(t, fn, true, true)
 }
 
-func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), absNames, fixedSerial, noSOA bool) {
+func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), fixedSerial, noSOA bool) {
 	os.Remove("testdata/dnsclay.db")
 
 	dbopts := bstore.Options{
@@ -387,13 +400,17 @@ func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), absNames, fixedS
 	// With SOA.
 	z0p := &fakeProvider{
 		ID:          "z0",
-		AbsNames:    absNames,
 		FixedSerial: fixedSerial,
 		NoSOA:       noSOA,
 		Records: []libdns.Record{
-			ldr("", "", 300, "SOA", "ns0.example. z0.example. 2024010100 3600 300 1209600 300"),
+			ldr("", "@", 300, "SOA", "ns0.example. z0.example. 2024010100 3600 300 1209600 300"),
 			ldr("", "testhost", 300, "A", "10.0.0.1"),
 			ldr("", "testhost", 300, "A", "10.0.0.2"),
+			ldr("", "_imap._tcp", 300, "SRV", "0 0 143 other.example.com."),
+			ldr("", "bogussrv", 300, "SRV", "0 0 143 other.example.com."),
+			ldr("", "@", 300, "SVCB", "0 other.example.com."),
+			ldr("", "@", 300, "MX", "1 test.example."),
+			ldr("", "testtxt", 300, "TXT", `test test`), // note: value is in libdns-form, without quotes
 		},
 	}
 	// Without SOA, case-sensitive.
@@ -422,9 +439,9 @@ func testDNSProvider(t *testing.T, fn func(te testEnv, z Zone), absNames, fixedS
 	z0 = api.ZoneAdd(ctxbg, z0, []ZoneNotify{{0, time.Time{}, z0.Name, z0n.addr, "tcp"}})
 	z0n.wait()
 	z0, _, _, creds0, sets0 := api.Zone(ctxbg, z0.Name)
-	tcompare(t, len(sets0), 2)
+	tcompare(t, len(sets0), 7)
 	rl0 := api.ZoneRecords(ctxbg, z0.Name)
-	tcompare(t, len(rl0), 3)
+	tcompare(t, len(rl0), 8)
 
 	z1n.drain()
 	pc1 := ProviderConfig{Name: "z1.example", ProviderName: "fake", ProviderConfigJSON: `{"ID": "z1"}`}
@@ -574,24 +591,27 @@ func (tc testChange) checkRecordDelta(expDel, expAdd typecounts) {
 	tcompare(t, add, expAdd)
 }
 
-// get records in a map, except soa record, which is returned separately.
-func ldrmap(l []libdns.Record) (map[libdns.Record]libdns.Record, libdns.Record) {
+// Split records into SOA and the rest.
+func ldrsoa(l []libdns.Record) ([]libdns.Record, libdns.Record) {
 	var zsoa, soa libdns.Record
-	m := map[libdns.Record]libdns.Record{}
+	var out []libdns.Record
+	m := map[string]bool{}
 	for _, r := range l {
-		if r.Type == "SOA" {
+		rr := r.RR()
+		if rr.Type == "SOA" {
 			if soa != zsoa {
 				panic("duplicate soa")
 			}
 			soa = r
 			continue
 		}
-		if _, ok := m[r]; ok {
+		s := fmt.Sprintf("%s %d %s %s", rr.Name, rr.TTL/time.Second, rr.Type, rr.Data)
+		if m[s] {
 			panic(fmt.Sprintf("duplicate record %#v", r))
 		}
-		m[r] = r
+		out = append(out, r)
 	}
-	return m, soa
+	return out, soa
 }
 
 // db records to map, with a separate map for soa records. Includes deleted records.
@@ -608,15 +628,30 @@ func rmap(l []Record) (map[int64]Record, map[int64]Record) {
 	return msoa, m
 }
 
-// Compare 2 maps, return deletions and additions.
-func splitmap[T comparable, R any](o, n map[T]R) (del, add []R) {
-	for k, v := range n {
-		if _, ok := o[k]; !ok {
+// Compare 2 lists of records, return deletions and additions.
+func ldrsplit(o, n []libdns.Record) (del, add []libdns.Record) {
+	makemap := func(l []libdns.Record) map[string]libdns.Record {
+		m := map[string]libdns.Record{}
+		for _, r := range o {
+			rr := r.RR()
+			s := fmt.Sprintf("%s %d %s %s", rr.Name, rr.TTL/time.Second, rr.Type, rr.Data)
+			if _, ok := m[s]; ok {
+				panic("duplicate entry")
+			}
+			m[s] = r
+		}
+		return m
+	}
+
+	omap := makemap(o)
+	nmap := makemap(n)
+	for s, v := range nmap {
+		if _, ok := omap[s]; !ok {
 			add = append(add, v)
 		}
 	}
-	for k, v := range o {
-		if _, ok := n[k]; !ok {
+	for s, v := range omap {
+		if _, ok := nmap[s]; !ok {
 			del = append(del, v)
 		}
 	}
@@ -653,15 +688,15 @@ func (te testEnv) zoneChanged(fn func()) testChange {
 		te.api.ZoneRefresh(ctxbg, te.z0.z.Name)
 	})
 
-	oldrrl, ldrSOAOld := ldrmap(te.z0.p.Records)
+	oldrrl, ldrSOAOld := ldrsoa(te.z0.p.Records)
 	oldsoarl, oldrl := rmap(te.z0.records)
 
 	fn()
 
 	te.z0.n.wait()
 
-	newrrl, ldrSOANew := ldrmap(te.z0.p.Records)
-	ldrDel, ldrAdd := splitmap(oldrrl, newrrl)
+	newrrl, ldrSOANew := ldrsoa(te.z0.p.Records)
+	ldrDel, ldrAdd := ldrsplit(oldrrl, newrrl)
 
 	rl := te.api.ZoneRecords(ctxbg, te.z0.z.Name)
 	newsoarl, newrl := rmap(rl)
@@ -708,11 +743,15 @@ func TestMain(m *testing.M) {
 			return nil, err
 		}
 		r, ok := p.SOA()
-		value := r.Value
+		var ttl time.Duration
+		var value string
 		if !ok || p.FixedSerial {
 			value = fmt.Sprintf("ns0.%s %s 1 3600 300 1209600 300", zone, zone)
+		} else {
+			value = r.RR().Data
+			ttl = r.RR().TTL
 		}
-		text := fmt.Sprintf("%s %d IN SOA %s", zone, int(r.TTL/time.Second), value)
+		text := fmt.Sprintf("%s %d IN SOA %s", zone, int(ttl/time.Second), value)
 		rr, err := dns.NewRR(text)
 		if err != nil {
 			return nil, fmt.Errorf("new rr: %v", err)

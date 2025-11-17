@@ -4,6 +4,9 @@ package domainnameshop
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"sync"
 
 	"github.com/libdns/libdns"
 )
@@ -13,37 +16,69 @@ import (
 type Provider struct {
 	APIToken  string `json:"api_token"`
 	APISecret string `json:"api_secret"`
+
+	zones   map[string]dsZone
+	zonesMu sync.Mutex
+
+	knownRecords   map[string][]dsDNSRecord
+	knownRecordsMu sync.Mutex
 }
 
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	records, err := getAllDomainRecords(ctx, p.APIToken, p.APISecret, zone)
+	zoneinfo, err := p.getAllDomainRecords(ctx, p.APIToken, p.APISecret, zone)
 	if err != nil {
 		return nil, err
 	}
+	recs := make([]libdns.Record, 0, len(zoneinfo))
+	for _, rec := range zoneinfo {
+		libdnsRec, err := rec.libdnsRecord()
+		if err != nil {
+			return nil, fmt.Errorf("parsing Domainnameshop DNS record %+v: %v", rec, err)
+		}
+		recs = append(recs, libdnsRec)
+	}
+	log.Printf("GOT RECORDS: %#v", recs)
 
-	return records, nil
+	return recs, nil
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	var appendedRecords []libdns.Record
 
-	for _, record := range records {
-		newRecord, err := createDNSRecord(ctx, p.APIToken, p.APISecret, zone, record)
+	var created []libdns.Record
+	for _, rec := range records {
+		dsrr, err := libdnsRecordTodsDNSRecord(rec)
 		if err != nil {
 			return nil, err
 		}
-		appendedRecords = append(appendedRecords, newRecord)
+
+		result, err := p.createDNSRecord(ctx, p.APIToken, p.APISecret, zone, dsrr)
+		if err != nil {
+			return nil, err
+		}
+
+		libdnsRec, err := result.libdnsRecord()
+		if err != nil {
+			return nil, fmt.Errorf("parsing Domainnameshop DNS record %+v: %v", rec, err)
+		}
+
+		created = append(created, libdnsRec)
 	}
 
-	return appendedRecords, nil
+	return created, nil
 }
 
 // DeleteRecords deletes the records from the zone.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+
 	for _, record := range records {
-		err := deleteDNSRecord(ctx, p.APIToken, p.APISecret, record, zone)
+		dsrr, converr := libdnsRecordTodsDNSRecord(record)
+		if converr != nil {
+			return nil, converr
+		}
+
+		err := p.deleteDNSRecord(ctx, p.APIToken, p.APISecret, zone, dsrr)
 		if err != nil {
 			return nil, err
 		}
@@ -55,17 +90,31 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 // SetRecords sets the records in the zone, either by updating existing records
 // or creating new ones. It returns the updated records.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	var setRecords []libdns.Record
-
+	var appendedRecords []dsDNSRecord
 	for _, record := range records {
-		setRecord, err := createOrUpdateDNSRecord(ctx, p.APIToken, p.APISecret, zone, record)
-		if err != nil {
-			return setRecords, err
+		dsrr, converr := libdnsRecordTodsDNSRecord(record)
+		if converr != nil {
+			return nil, converr
 		}
-		setRecords = append(setRecords, setRecord)
+
+		newRecord, err := p.createOrUpdateDNSRecord(ctx, p.APIToken, p.APISecret, zone, dsrr)
+		if err != nil {
+			return nil, err
+		}
+		appendedRecords = append(appendedRecords, newRecord)
 	}
 
-	return setRecords, nil
+	recs := make([]libdns.Record, 0, len(appendedRecords))
+	for _, rec := range appendedRecords {
+		libdnsRec, err := rec.libdnsRecord()
+		if err != nil {
+			return nil, fmt.Errorf("parsing Domainnameshop DNS record %+v: %v", rec, err)
+		}
+		recs = append(recs, libdnsRec)
+	}
+	log.Printf("GOT RECORDS: %#v", recs)
+
+	return recs, nil
 }
 
 // Interface guards

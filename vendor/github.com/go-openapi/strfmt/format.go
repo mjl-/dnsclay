@@ -76,7 +76,6 @@ type defaultFormats struct {
 
 // NewFormats creates a new formats registry seeded with the values from the default
 func NewFormats() Registry {
-	//nolint:forcetypeassert
 	return NewSeededFormats(Default.(*defaultFormats).data, nil)
 }
 
@@ -94,84 +93,73 @@ func NewSeededFormats(seeds []knownFormat, normalizer NameNormalizer) Registry {
 }
 
 // MapStructureHookFunc is a decode hook function for mapstructure
-func (f *defaultFormats) MapStructureHookFunc() mapstructure.DecodeHookFunc { //nolint:gocyclo,cyclop
-	return func(from reflect.Type, to reflect.Type, obj interface{}) (interface{}, error) {
+func (f *defaultFormats) MapStructureHookFunc() mapstructure.DecodeHookFunc {
+	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		if from.Kind() != reflect.String {
-			return obj, nil
+			return data, nil
 		}
-		data, ok := obj.(string)
-		if !ok {
-			return nil, fmt.Errorf("failed to cast %+v to string", obj)
-		}
-
 		for _, v := range f.data {
 			tpe, _ := f.GetType(v.Name)
 			if to == tpe {
 				switch v.Name {
 				case "date":
-					d, err := time.Parse(RFC3339FullDate, data)
+					d, err := time.Parse(RFC3339FullDate, data.(string))
 					if err != nil {
 						return nil, err
 					}
 					return Date(d), nil
 				case "datetime":
-					input := data
+					input := data.(string)
 					if len(input) == 0 {
 						return nil, fmt.Errorf("empty string is an invalid datetime format")
 					}
 					return ParseDateTime(input)
 				case "duration":
-					dur, err := ParseDuration(data)
+					dur, err := ParseDuration(data.(string))
 					if err != nil {
 						return nil, err
 					}
 					return Duration(dur), nil
 				case "uri":
-					return URI(data), nil
+					return URI(data.(string)), nil
 				case "email":
-					return Email(data), nil
+					return Email(data.(string)), nil
 				case "uuid":
-					return UUID(data), nil
+					return UUID(data.(string)), nil
 				case "uuid3":
-					return UUID3(data), nil
+					return UUID3(data.(string)), nil
 				case "uuid4":
-					return UUID4(data), nil
+					return UUID4(data.(string)), nil
 				case "uuid5":
-					return UUID5(data), nil
+					return UUID5(data.(string)), nil
 				case "hostname":
-					return Hostname(data), nil
+					return Hostname(data.(string)), nil
 				case "ipv4":
-					return IPv4(data), nil
+					return IPv4(data.(string)), nil
 				case "ipv6":
-					return IPv6(data), nil
+					return IPv6(data.(string)), nil
 				case "cidr":
-					return CIDR(data), nil
+					return CIDR(data.(string)), nil
 				case "mac":
-					return MAC(data), nil
+					return MAC(data.(string)), nil
 				case "isbn":
-					return ISBN(data), nil
+					return ISBN(data.(string)), nil
 				case "isbn10":
-					return ISBN10(data), nil
+					return ISBN10(data.(string)), nil
 				case "isbn13":
-					return ISBN13(data), nil
+					return ISBN13(data.(string)), nil
 				case "creditcard":
-					return CreditCard(data), nil
+					return CreditCard(data.(string)), nil
 				case "ssn":
-					return SSN(data), nil
+					return SSN(data.(string)), nil
 				case "hexcolor":
-					return HexColor(data), nil
+					return HexColor(data.(string)), nil
 				case "rgbcolor":
-					return RGBColor(data), nil
+					return RGBColor(data.(string)), nil
 				case "byte":
-					return Base64(data), nil
+					return Base64(data.(string)), nil
 				case "password":
-					return Password(data), nil
-				case "ulid":
-					ulid, err := ParseULID(data)
-					if err != nil {
-						return nil, err
-					}
-					return ulid, nil
+					return Password(data.(string)), nil
 				default:
 					return nil, errors.InvalidTypeName(v.Name)
 				}

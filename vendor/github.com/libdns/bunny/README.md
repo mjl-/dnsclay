@@ -32,7 +32,7 @@ func main() {
 	}
 
 	zone := os.Getenv("BUNNY_ZONE")
-	if token == "" {
+	if zone == "" {
 		fmt.Printf("BUNNY_ZONE not set\n")
 		return
 	}
@@ -57,21 +57,21 @@ func main() {
 You can enable logging by configuring a custom logger or by setting `Debug` to true.
 
 ```go
-	...
+  ...
 
-	// Logging is always enabled when using a custom logger
-	provider := &bunny.Provider{
-		AccessKey: apiKey,
-		Logger: func(msg string, records []libdns.Record) {
-			fmt.Printf("[bunny]: %s\n", msg)
-		}
-	}
+  // Logging is always enabled when using a custom logger
+  provider := &bunny.Provider{
+    AccessKey: apiKey,
+    Logger: func(msg string, records []libdns.Record) {
+      fmt.Printf("[bunny]: %s\n", msg)
+    },
+  }
 
-	// Enable the default logger
-	provider := &bunny.Provider{
-		AccessKey: apiKey,
-		Debug: true
-	}
+  // Enable the default logger
+  provider := &bunny.Provider{
+    AccessKey: apiKey,
+    Debug: true,
+  }
 ```
 Example output using the default logger:
 

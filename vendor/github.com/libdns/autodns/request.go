@@ -33,7 +33,7 @@ func (p *Provider) buildRequest(ctx context.Context, method, url string, payload
 	}
 
 	req.Header.Set("X-Domainrobot-Context", p.getAutoDNSContext())
-	req.Header.Set("User-Agent", "libdns-autodns/x.y (+https://github.com/till/libdns-autodns)")
+	req.Header.Set("User-Agent", "libdns-autodns/x.y (+https://github.com/libdns/autodns)")
 	req.SetBasicAuth(p.Username, p.Password)
 	return
 }
@@ -60,19 +60,45 @@ func (p *Provider) getAutoDNSContext() string {
 func (p *Provider) makeRequest(req *http.Request) (*http.Response, error) {
 	var client *http.Client
 	if p.HttpClient == nil {
-		client = p.HttpClient
+		client = &http.Client{}
 	} else {
 		client = p.HttpClient
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to issue request: %s", err)
 	}
-	return resp, err
+	return resp, nil
 }
 
 // parseResponse parses the response into the struct.
 func (p *Provider) parseResponse(resp *http.Response, into any) error {
 	return json.NewDecoder(resp.Body).Decode(&into)
+}
+
+func check(statusResponse, statusExpected int, result any) error {
+	if statusResponse == statusExpected {
+		return nil
+	}
+
+	switch rt := result.(type) {
+	case ResponseSearch:
+		if rt.Status.Type != "ERROR" {
+			return nil
+		}
+		return NewError(rt.Messages)
+	case AutoDNSResponse:
+		if rt.Status.Type != "ERROR" {
+			return nil
+		}
+		return NewError(rt.Messages)
+	case ResponseZone:
+		if rt.Status.Type != "ERROR" {
+			return nil
+		}
+		return NewError(rt.Messages)
+	}
+
+	return fmt.Errorf("unknown response type, but there is an error")
 }

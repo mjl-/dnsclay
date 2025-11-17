@@ -58,28 +58,20 @@ been added.
 
 ## Supported providers
 
-- github.com/libdns/alidns
 - github.com/libdns/autodns
 - github.com/libdns/azure
 - github.com/libdns/bunny
-- github.com/libdns/civo
 - github.com/libdns/cloudflare
 - github.com/libdns/cloudns
-- github.com/libdns/ddnss
 - github.com/libdns/desec
 - github.com/libdns/digitalocean
 - github.com/libdns/directadmin
 - github.com/libdns/dnsimple
-- github.com/libdns/dnsmadeeasy
-- github.com/libdns/dnspod
-- github.com/libdns/dnsupdate
 - github.com/libdns/domainnameshop
-- github.com/libdns/dreamhost
 - github.com/libdns/duckdns
 - github.com/libdns/dynu
 - github.com/libdns/dynv6
 - github.com/libdns/easydns
-- github.com/libdns/exoscale
 - github.com/libdns/gandi
 - github.com/libdns/gcore
 - github.com/libdns/glesys
@@ -87,41 +79,26 @@ been added.
 - github.com/libdns/googleclouddns
 - github.com/libdns/he
 - github.com/libdns/hetzner
-- github.com/libdns/hexonet
-- github.com/libdns/hosttech
 - github.com/libdns/huaweicloud
 - github.com/libdns/infomaniak
 - github.com/libdns/inwx
 - github.com/libdns/ionos
-- github.com/libdns/katapult
-- github.com/libdns/leaseweb
 - github.com/libdns/linode
 - github.com/libdns/loopia
 - github.com/libdns/luadns
 - github.com/libdns/mailinabox
-- github.com/libdns/metaname
-- github.com/libdns/mijnhost
 - github.com/libdns/mythicbeasts
-- github.com/libdns/namecheap
-- github.com/libdns/namedotcom
 - github.com/libdns/namesilo
 - github.com/libdns/nanelo
 - github.com/libdns/netcup
 - github.com/libdns/netlify
-- github.com/libdns/nfsn
 - github.com/libdns/njalla
-- github.com/libdns/openstack-designate
 - github.com/libdns/ovh
-- github.com/libdns/porkbun
 - github.com/libdns/powerdns
-- github.com/mjl-/libdns-rfc2136
+- github.com/libdns/rfc2136
 - github.com/libdns/route53
 - github.com/libdns/scaleway
-- github.com/libdns/selectel
 - github.com/libdns/tencentcloud
-- github.com/libdns/timeweb
-- github.com/libdns/totaluptime
-- github.com/libdns/vultr
 - github.com/libdns/westcn
 
 ## Unsupported providers
@@ -136,6 +113,10 @@ been added.
 - github.com/libdns/regfish, does not compile against latest libdns
 - github.com/libdns/transip, requires a key in a file on disk
 - github.com/libdns/vercel, cannot set TTL
+- github.com/libdns/nfsn, only supports limited set of record types
+- github.com/libdns/metaname, only supports limited set of record types, dropping all others
+- github.com/libdns/porkbun, only supports limited set of record types
+
 
 ## Adding a new provider
 
@@ -143,6 +124,13 @@ Adding a provider should be a matter of adding it to providers.txt (keep it
 sorted!) and running "make build". It regenerates providers.go and syncs the Go
 module dependencies. The config fields in the package's Provider should be
 automatically processed, into both backend and frontend.
+
+## Modified github.com/libdns/libdns
+
+dnsclay uses a modified libdns, github.com/mjl-/libdns. The modified version
+won't fail on parsing SRV, SVCB, HTTPS records if their DNS names don't have
+the expected format (e.g. `_<service>._<transport>.[...]`). The modified
+version only cares about the libdns.RR values.
 
 
 # About

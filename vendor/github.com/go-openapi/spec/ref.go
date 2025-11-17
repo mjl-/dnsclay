@@ -48,7 +48,7 @@ type Ref struct {
 // RemoteURI gets the remote uri part of the ref
 func (r *Ref) RemoteURI() string {
 	if r.String() == "" {
-		return ""
+		return r.String()
 	}
 
 	u := *r.GetURL()

@@ -16,6 +16,9 @@ import (
 // swagger:model site
 type Site struct {
 
+	// account id
+	AccountID string `json:"account_id,omitempty"`
+
 	// account name
 	AccountName string `json:"account_name,omitempty"`
 
@@ -24,6 +27,9 @@ type Site struct {
 
 	// admin url
 	AdminURL string `json:"admin_url,omitempty"`
+
+	// branch deploy custom domain
+	BranchDeployCustomDomain string `json:"branch_deploy_custom_domain,omitempty"`
 
 	// build image
 	BuildImage string `json:"build_image,omitempty"`
@@ -46,6 +52,9 @@ type Site struct {
 	// deploy hook
 	DeployHook string `json:"deploy_hook,omitempty"`
 
+	// deploy preview custom domain
+	DeployPreviewCustomDomain string `json:"deploy_preview_custom_domain,omitempty"`
+
 	// deploy url
 	DeployURL string `json:"deploy_url,omitempty"`
 
@@ -54,6 +63,9 @@ type Site struct {
 
 	// force ssl
 	ForceSsl bool `json:"force_ssl,omitempty"`
+
+	// functions region
+	FunctionsRegion string `json:"functions_region,omitempty"`
 
 	// git provider
 	GitProvider string `json:"git_provider,omitempty"`

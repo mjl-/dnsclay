@@ -5,7 +5,6 @@ package luadns
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -20,6 +19,19 @@ type Provider struct {
 	mutex  sync.Mutex
 }
 
+// ListZones list available DNS zones.
+func (p *Provider) ListZones(ctx context.Context) ([]libdns.Zone, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	zones, err := p.client().ListZones(ctx, &luadns.ListParams{})
+	if err != nil {
+		return nil, libdns.AtomicErr(err)
+	}
+
+	return toLibdnsZone(zones)
+}
+
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
 	p.mutex.Lock()
@@ -32,19 +44,14 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 	records, err := p.client().ListRecords(ctx, z, &luadns.ListParams{})
 	if err != nil {
-		return nil, err
+		return nil, libdns.AtomicErr(err)
 	}
 
-	result := []libdns.Record{}
-	for _, r := range records {
-		result = append(result, newLibRecord(r, zone))
-	}
-
-	return result, nil
+	return toLibdnsRecord(records, zone)
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
-func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+func (p *Provider) AppendRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -53,26 +60,17 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		return nil, err
 	}
 
-	result := []libdns.Record{}
-	for _, i := range records {
-		f, err := newLuaRecord(i, zone)
-		if err != nil {
-			return nil, err
-		}
-
-		r, err := p.client().CreateRecord(ctx, z, f)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, newLibRecord(r, zone))
+	records, err := p.client().CreateManyRecords(ctx, z, toLuaRR(recs, zone))
+	if err != nil {
+		return nil, libdns.AtomicErr(err)
 	}
 
-	return result, nil
+	return toLibdnsRecord(records, zone)
 }
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
 // It returns the updated records.
-func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+func (p *Provider) SetRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -81,30 +79,17 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 		return nil, err
 	}
 
-	z.Records = []*luadns.Record{}
-	for _, i := range records {
-		f, err := newLuaRecord(i, zone)
-		if err != nil {
-			return nil, err
-		}
-		z.Records = append(z.Records, f)
-	}
-
-	updatedZone, err := p.client().UpdateZone(ctx, z.ID, z)
+	records, err := p.client().UpdateManyRecords(ctx, z, toLuaRR(recs, zone))
 	if err != nil {
-		return nil, err
+		return nil, libdns.AtomicErr(err)
+
 	}
 
-	result := []libdns.Record{}
-	for _, r := range updatedZone.Records {
-		result = append(result, newLibRecord(r, zone))
-	}
-
-	return result, nil
+	return toLibdnsRecord(records, zone)
 }
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
-func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+func (p *Provider) DeleteRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -113,22 +98,12 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		return nil, err
 	}
 
-	result := []libdns.Record{}
-	for _, i := range records {
-		recordID, err := strconv.ParseInt(i.ID, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-
-		r, err := p.client().DeleteRecord(ctx, z, recordID)
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, newLibRecord(r, zone))
+	records, err := p.client().DeleteManyRecords(ctx, z, toLuaRR(recs, zone))
+	if err != nil {
+		return nil, libdns.AtomicErr(err)
 	}
 
-	return result, nil
+	return toLibdnsRecord(records, zone)
 }
 
 // getZone issues a search request to find zone by name.
@@ -159,4 +134,5 @@ var (
 	_ libdns.RecordAppender = (*Provider)(nil)
 	_ libdns.RecordSetter   = (*Provider)(nil)
 	_ libdns.RecordDeleter  = (*Provider)(nil)
+	_ libdns.ZoneLister     = (*Provider)(nil)
 )

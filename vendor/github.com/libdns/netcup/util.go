@@ -14,33 +14,72 @@ func unFQDN(fqdn string) string {
 	return strings.TrimSuffix(fqdn, ".")
 }
 
+// Convert single netcup record to libdns record.
+func toLibdnsRecord(netcupRecord dnsRecord, ttl int64) (libdns.Record, error) {
+	switch netcupRecord.RecType {
+	case "MX":
+		// MX is the only one where the preference/priority is set dedicated on netcup api side
+		return libdns.MX{
+			Name:       netcupRecord.HostName,
+			Target:     netcupRecord.Destination,
+			Preference: uint16(netcupRecord.Priority),
+			TTL:        time.Duration(ttl * int64(time.Second)),
+		}, nil
+	default:
+		{
+			rr := libdns.RR{
+				Name: netcupRecord.HostName,
+				Type: netcupRecord.RecType,
+				Data: netcupRecord.Destination,
+				TTL:  time.Duration(ttl * int64(time.Second)),
+			}
+
+			// Make sure we return a native entry type instead of RR type
+			return rr.Parse()
+		}
+	}
+}
+
 // Converts netcup records to libdns records. Since the netcup records don't have individual TTLs, the given TTL is used for all libdns records.
-func toLibdnsRecords(netcupRecords []dnsRecord, ttl int64) []libdns.Record {
+func toLibdnsRecords(netcupRecords []dnsRecord, ttl int64) ([]libdns.Record, error) {
 	var libdnsRecords []libdns.Record
 	for _, record := range netcupRecords {
-		libdnsRecord := libdns.Record{
-			ID:       record.ID,
-			Type:     record.RecType,
-			Name:     record.HostName,
-			Value:    record.Destination,
-			TTL:      time.Duration(ttl * int64(time.Second)),
-			Priority: uint(record.Priority),
+		libdnsRecord, err := toLibdnsRecord(record, ttl)
+		// NOTE: Aborting here on a single invalid record is the best option.
+		// Additionally, netcup already validates DNS entries upon saving, so this is very unlikely.
+		if err != nil {
+			return []libdns.Record{}, err
 		}
 		libdnsRecords = append(libdnsRecords, libdnsRecord)
 	}
-	return libdnsRecords
+	return libdnsRecords, nil
 }
 
 // Converts libdns records to netcup records.
 func toNetcupRecords(libnsRecords []libdns.Record) []dnsRecord {
 	var netcupRecords []dnsRecord
 	for _, record := range libnsRecords {
+		// Make sure we have an RR record at hand
+		rr := record.RR()
+
+		// Parse the priority out of the RR record, when required
+		// NOTE: This is not the cleanest solution, but it works reliably
+		priority := 0
+		if rr.Type == "MX" {
+			libdnsRecord, _ := rr.Parse()
+			mxRecord, ok := libdnsRecord.(libdns.MX)
+			if ok {
+				priority = int(mxRecord.Preference)
+			}
+		}
+
+		// NOTE: We loose the ID during conversion
 		netcupRecord := dnsRecord{
-			ID:          record.ID,
-			HostName:    record.Name,
-			RecType:     record.Type,
-			Destination: record.Value,
-			Priority:    int(record.Priority),
+			ID:          "",
+			HostName:    rr.Name,
+			RecType:     rr.Type,
+			Destination: rr.Data,
+			Priority:    priority,
 		}
 		netcupRecords = append(netcupRecords, netcupRecord)
 	}
@@ -156,4 +195,14 @@ func getRecordsToDelete(deleteRecords []dnsRecord, existingRecords []dnsRecord) 
 		}
 	}
 	return recordsToDelete
+}
+
+// Do a full comparison of two records.
+func rrEqualsRR(a, b libdns.RR) bool {
+	return a.Name == b.Name && a.Type == b.Type && a.TTL.String() == b.TTL.String() && a.Data == b.Data
+}
+
+// Compare two records by their ID (Name and Type).
+func rrMatchID(a, b libdns.RR) bool {
+	return a.Name == b.Name && a.Type == b.Type
 }

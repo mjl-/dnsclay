@@ -51,13 +51,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/libdns/libdns"
-	"golang.org/x/exp/slices"
 )
 
 // writeToken is used to synchronize all writes to deSEC to make sure the API here adheres to the
@@ -120,6 +120,11 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 // AppendRecords adds records to the zone. It returns the records that were added.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	rrs := make([]libdns.RR, 0, len(records))
+	for _, r := range records {
+		rrs = append(rrs, r.RR())
+	}
+
 	err := acquireWriteToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("waiting for inflight requests to finish: %v", err)
@@ -129,8 +134,8 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	rrsets := make(map[rrKey]*rrSet)
 
 	// Fetch or create base rrsets to append to
-	for _, r := range records {
-		key := rrKey{rrSetSubname(r), r.Type}
+	for _, rr := range rrs {
+		key := rrKey{rrSetSubname(rr), rr.Type}
 		if _, ok := rrsets[key]; ok {
 			continue
 		}
@@ -143,7 +148,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 				Subname: key.Subname,
 				Type:    key.Type,
 				Records: nil,
-				TTL:     rrSetTTL(r),
+				TTL:     rrSetTTL(rr),
 			}
 		case err != nil:
 			return nil, fmt.Errorf("retrieving RRSet: %v", err)
@@ -154,11 +159,11 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	// Merge records into base
 	dirty := make(map[rrKey]struct{})
 	var ret []libdns.Record
-	for _, r := range records {
-		key := rrKey{rrSetSubname(r), r.Type}
+	for _, rr := range rrs {
+		key := rrKey{rrSetSubname(rr), rr.Type}
 		rrset := rrsets[key]
 
-		v := rrSetRecord(r)
+		v := rrSetRecord(rr)
 		if slices.Contains(rrset.Records, v) {
 			// Don't modify existing records, if all records in a record set already exist, the
 			// record set will not be marked dirty and excluded from the update request.
@@ -166,14 +171,17 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		}
 
 		rrset.Records = append(rrset.Records, v)
-		ret = append(ret, libdns.Record{
-			Name:     r.Name,
-			Type:     r.Type,
-			Value:    r.Value,
-			TTL:      libdnsTTL(*rrset),
-			Priority: r.Priority,
-			Weight:   r.Weight,
-		})
+
+		r, err := libdns.RR{
+			Name: rr.Name,
+			Type: rr.Type,
+			TTL:  libdnsTTL(*rrset),
+			Data: rr.Data,
+		}.Parse()
+		if err != nil {
+			return nil, fmt.Errorf("parsing RR: %v", err)
+		}
+		ret = append(ret, r)
 
 		// Mark this key as dirty, only dirty keys will result in an update.
 		dirty[key] = struct{}{}
@@ -191,9 +199,6 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
 // It returns the updated records.
-//
-// Caveat: This method will fail if there are more than 500 RRsets in the zone. See package
-// documentation for more detail.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	err := acquireWriteToken(ctx)
 	if err != nil {
@@ -201,53 +206,30 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	}
 	defer releaseWriteToken()
 
-	// Build the desired state
-	rrsets := make(map[rrKey]*rrSet)
+	// Group records by rrKey (name, type)
+	rrsetMap := make(map[rrKey]*rrSet)
 	for _, r := range records {
-		key := rrKey{rrSetSubname(r), r.Type}
-		rrset := rrsets[key]
+		rr := r.RR()
+		key := rrKey{rrSetSubname(rr), rr.Type}
+		rrset := rrsetMap[key]
 		if rrset == nil {
 			rrset = &rrSet{
 				Subname: key.Subname,
 				Type:    key.Type,
 				Records: nil,
-				TTL:     rrSetTTL(r),
+				TTL:     rrSetTTL(rr),
 			}
-			rrsets[key] = rrset
+			rrsetMap[key] = rrset
 		}
-		rrset.Records = append(rrset.Records, rrSetRecord(r))
+		rrset.Records = append(rrset.Records, rrSetRecord(rr))
 	}
 
-	// Fetch existing rrSets and compare to desired state
-	existing, err := p.listRRSets(ctx, zone)
-	if err != nil {
-		return nil, fmt.Errorf("listing RRSets: %v", err)
-	}
-	for _, g := range existing {
-		key := rrKey{g.Subname, g.Type}
-		w := rrsets[key]
-		switch {
-		case w == nil:
-			// rrset exists, but not in the input, delete it by adding it to rrsets and set
-			// records to an empty slice to represent the deletion.
-			// See https://desec.readthedocs.io/en/latest/dns/rrsets.html#deleting-an-rrset
-			w0 := g
-			w0.Records = []string{}
-			rrsets[key] = &w0
-		case g.equal(w):
-			// rrset exists and is equal to the one we want; skip it in the update.
-			delete(rrsets, key)
-		}
-	}
-
-	// Generate updates to arrive at desired state.
-	update := make([]rrSet, 0, len(rrsets))
-	var ret []libdns.Record
-	for _, rrset := range rrsets {
-		update = append(update, *rrset)
-
-		// Add all records being set here. This ignores records that are being deleted, because
-		// those are represented as an rrset without any records.
+	// Build list of RRSets to pass to the API and list of libdns records
+	// to return from the function
+	rrsetList := make([]rrSet, 0, len(rrsetMap))
+	ret := make([]libdns.Record, 0, len(records))
+	for _, rrset := range rrsetMap {
+		rrsetList = append(rrsetList, *rrset)
 		records0, err := libdnsRecords(*rrset)
 		if err != nil {
 			return nil, fmt.Errorf("parsing RRSet: %v", err)
@@ -255,7 +237,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 		ret = append(ret, records0...)
 	}
 
-	if err := p.putRRSets(ctx, zone, update); err != nil {
+	if err := p.putRRSets(ctx, zone, rrsetList); err != nil {
 		return nil, fmt.Errorf("writing RRSets: %v", err)
 	}
 	return ret, nil
@@ -275,7 +257,8 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 
 	// Fetch rrsets with records requested for deletion.
 	for _, r := range records {
-		key := rrKey{rrSetSubname(r), r.Type}
+		rr := r.RR()
+		key := rrKey{rrSetSubname(rr), rr.Type}
 		rrset := rrsets[key]
 		if rrset == nil {
 			rrset0, err := p.getRRSet(ctx, zone, key)
@@ -291,7 +274,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 
 		// Delete the record if it exists and mark the rrset as dirty, only dirty rrsets will be
 		// updated.
-		v := rrSetRecord(r)
+		v := rrSetRecord(rr)
 		if i := slices.Index(rrset.Records, v); i >= 0 {
 			rrset.Records = slices.Delete(rrset.Records, i, i+1)
 			dirty[key] = struct{}{}
@@ -352,13 +335,13 @@ func libdnsName(rrs rrSet) string {
 //
 // deSEC represents the zone itself using an empty (or missing) subname, libdns
 // uses "@"
-func rrSetSubname(r libdns.Record) string {
+func rrSetSubname(rr libdns.RR) string {
 	// deSEC represents the zone itself using an empty (or missing) subname, libdns
 	// uses "@"
-	if r.Name == "@" {
+	if rr.Name == "@" {
 		return ""
 	}
-	return r.Name
+	return rr.Name
 }
 
 // libdnsTTL returns a valid libdns.Record.TTL value.
@@ -370,101 +353,22 @@ func libdnsTTL(rrs rrSet) time.Duration {
 //
 // deSEC has a minimum TTL of 3600 seconds, if the record TTL
 // is shorter than 3600 seconds, 3600 seconds is returned.
-func rrSetTTL(r libdns.Record) int {
-	ttl := int(r.TTL / time.Second)
+func rrSetTTL(rr libdns.RR) int {
+	ttl := int(rr.TTL / time.Second)
 	if ttl < 3600 {
 		return 3600
 	}
 	return ttl
 }
 
-// libdnsValue returns the value of the i-th record in libdns conventions
-//
-// libdns provides priority and weight for DNS entries that support it, the list is
-// documented in the libdns.Record documentation.
-func libdnsValue(rrs rrSet, i int) (prio, weight uint, value string, err error) {
-	v := rrs.Records[i]
-	var uints []uint
-	switch rrs.Type {
-	default:
-		value = v
-	case "HTTPS", "MX":
-		uints, value, err = splitUints(v, 1)
-		if err != nil {
-			err = fmt.Errorf("desec: parsing %v record value %q: %v", rrs.Type, v, err)
-			return
-		}
-		prio = uints[0]
-	case "SRV", "URI":
-		uints, value, err = splitUints(v, 2)
-		if err != nil {
-			err = fmt.Errorf("desec: parsing %v record value %q: %v", rrs.Type, v, err)
-			return
-		}
-		prio = uints[0]
-		weight = uints[1]
-	case "TXT":
-		if len(v) < 2 || v[0] != '"' || v[len(v)-1] != '"' {
-			err = fmt.Errorf("parsing %v record value %q: not in quotes", rrs.Type, v)
-			return
-		}
-		// deSEC requires custom quoting for TXT records
-		var sb strings.Builder
-		for i := 1; i < len(v)-1; {
-			t, sz := utf8.DecodeRuneInString(v[i:])
-			switch t {
-			case '\\':
-				i += sz
-				t, sz = utf8.DecodeRuneInString(v[i:])
-				if t != '\\' && t != '"' {
-					err = fmt.Errorf("parsing %v record value %q: invalid escape sequence", rrs.Type, v)
-					return
-				}
-				sb.WriteRune(t)
-			default:
-				sb.WriteRune(t)
-			}
-			i += sz
-		}
-		value = sb.String()
-	}
-	return
-}
-
-func splitUints(s string, n int) ([]uint, string, error) {
-	parts := strings.SplitN(s, " ", n+1)
-	if len(parts) != n+1 {
-		return nil, "", fmt.Errorf("expected %d space separated values, got %d", n+1, len(parts))
-	}
-	uints := make([]uint, n)
-	for i := range uints {
-		v, err := strconv.ParseUint(parts[i], 10, strconv.IntSize)
-		if err != nil {
-			return nil, "", err
-		}
-		uints[i] = uint(v)
-	}
-	return uints, parts[n], nil
-}
-
 // rrSetRecord returns the libdns record value in deSEC conventions.
-//
-// libdns provides priority and weight for DNS entries that support it, the list is
-// documented in the libdns.Record documentation.
-func rrSetRecord(r libdns.Record) string {
-	var v string
-	switch r.Type {
-	default:
-		v = r.Value
-	case "HTTPS", "MX":
-		v = fmt.Sprintf("%d %s", r.Priority, r.Value)
-	case "SRV", "URI":
-		v = fmt.Sprintf("%d %d %s", r.Priority, r.Weight, r.Value)
+func rrSetRecord(rr libdns.RR) string {
+	switch rr.Type {
 	case "TXT":
 		// deSEC requires custom quoting for TXT records
 		var sb strings.Builder
 		sb.WriteRune('"')
-		for _, t := range r.Value {
+		for _, t := range rr.Data {
 			switch t {
 			case '\\':
 				sb.WriteString("\\\\")
@@ -475,9 +379,10 @@ func rrSetRecord(r libdns.Record) string {
 			}
 		}
 		sb.WriteRune('"')
-		v = sb.String()
+		return sb.String()
+	default:
+		return rr.Data
 	}
-	return v
 }
 
 // libdnsRecords returns the libdns.Records corresponding to a given rrSet.
@@ -485,20 +390,42 @@ func libdnsRecords(rrs rrSet) ([]libdns.Record, error) {
 	records := make([]libdns.Record, 0, len(rrs.Records))
 	name := libdnsName(rrs)
 	ttl := libdnsTTL(rrs)
-	for i := range rrs.Records {
-		prio, weight, value, err := libdnsValue(rrs, i)
-		if err != nil {
-			return nil, err
+	for _, data := range rrs.Records {
+		switch rrs.Type {
+		case "TXT":
+			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
+				return nil, fmt.Errorf("parsing %v record value %q: not in quotes", rrs.Type, data)
+			}
+			// deSEC requires custom quoting for TXT records
+			var sb strings.Builder
+			for i := 1; i < len(data)-1; {
+				t, sz := utf8.DecodeRuneInString(data[i:])
+				switch t {
+				case '\\':
+					i += sz
+					t, sz = utf8.DecodeRuneInString(data[i:])
+					if t != '\\' && t != '"' {
+						return nil, fmt.Errorf("parsing %v record value %q: invalid escape sequence", rrs.Type, data)
+					}
+					sb.WriteRune(t)
+				default:
+					sb.WriteRune(t)
+				}
+				i += sz
+			}
+			data = sb.String()
 		}
-
-		records = append(records, libdns.Record{
-			Type:     rrs.Type,
-			Name:     name,
-			Value:    value,
-			TTL:      ttl,
-			Priority: prio,
-			Weight:   weight,
-		})
+		record, err := libdns.RR{
+			Name: name,
+			Type: rrs.Type,
+			TTL:  ttl,
+			Data: data,
+		}.Parse()
+		if err != nil {
+			fmt.Println(name)
+			return nil, fmt.Errorf("parsing %v record value %q: %v", rrs.Type, data, err)
+		}
+		records = append(records, record)
 	}
 	return records, nil
 }

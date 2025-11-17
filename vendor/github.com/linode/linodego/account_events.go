@@ -3,10 +3,8 @@ package linodego
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/linode/linodego/internal/duration"
 	"github.com/linode/linodego/internal/parseabletime"
 )
@@ -48,6 +46,31 @@ type Event struct {
 
 	// When this Event was created.
 	Created *time.Time `json:"-"`
+
+	// Provides additional information about the event.
+	Message string `json:"message"`
+
+	// The total duration in seconds that it takes for the Event to complete.
+	Duration float64 `json:"duration"`
+
+	// The maintenance policy configured by the user for the event.
+	// NOTE: MaintenancePolicySet can only be used with v4beta.
+	MaintenancePolicySet string `json:"maintenance_policy_set"`
+
+	// Describes the nature of the event (e.g., whether it is scheduled or emergency).
+	Description string `json:"description"`
+
+	// The origin of the event (e.g., platform, user).
+	Source string `json:"source"`
+
+	// Scheduled start time for the event.
+	NotBefore *time.Time `json:"-"`
+
+	// The actual start time of the event.
+	StartTime *time.Time `json:"-"`
+
+	// The actual completion time of the event.
+	CompleteTime *time.Time `json:"-"`
 }
 
 // EventAction constants start with Action and include all known Linode API Event Actions.
@@ -62,12 +85,13 @@ const (
 	ActionBackupsRestore                          EventAction = "backups_restore"
 	ActionCommunityQuestionReply                  EventAction = "community_question_reply"
 	ActionCommunityLike                           EventAction = "community_like"
-	ActionCreateCardUpdated                       EventAction = "credit_card_updated"
+	ActionCreditCardUpdated                       EventAction = "credit_card_updated"
 	ActionDatabaseCreate                          EventAction = "database_create"
 	ActionDatabaseDegraded                        EventAction = "database_degraded"
 	ActionDatabaseDelete                          EventAction = "database_delete"
 	ActionDatabaseFailed                          EventAction = "database_failed"
 	ActionDatabaseUpdate                          EventAction = "database_update"
+	ActionDatabaseResize                          EventAction = "database_resize"
 	ActionDatabaseCreateFailed                    EventAction = "database_create_failed"
 	ActionDatabaseUpdateFailed                    EventAction = "database_update_failed"
 	ActionDatabaseBackupCreate                    EventAction = "database_backup_create"
@@ -116,6 +140,7 @@ const (
 	ActionLinodeMigrateDatacenterCreate           EventAction = "linode_migrate_datacenter_create"
 	ActionLinodeMutate                            EventAction = "linode_mutate"
 	ActionLinodeMutateCreate                      EventAction = "linode_mutate_create"
+	ActionLinodePowerOffOn                        EventAction = "linode_poweroff_on"
 	ActionLinodeReboot                            EventAction = "linode_reboot"
 	ActionLinodeRebuild                           EventAction = "linode_rebuild"
 	ActionLinodeResize                            EventAction = "linode_resize"
@@ -127,6 +152,9 @@ const (
 	ActionLinodeConfigUpdate                      EventAction = "linode_config_update"
 	ActionLishBoot                                EventAction = "lish_boot"
 	ActionLKENodeCreate                           EventAction = "lke_node_create"
+	ActionLKEControlPlaneACLCreate                EventAction = "lke_control_plane_acl_create"
+	ActionLKEControlPlaneACLUpdate                EventAction = "lke_control_plane_acl_update"
+	ActionLKEControlPlaneACLDelete                EventAction = "lke_control_plane_acl_delete"
 	ActionLongviewClientCreate                    EventAction = "longviewclient_create"
 	ActionLongviewClientDelete                    EventAction = "longviewclient_delete"
 	ActionLongviewClientUpdate                    EventAction = "longviewclient_update"
@@ -149,15 +177,26 @@ const (
 	ActionOAuthClientDelete                       EventAction = "oauth_client_delete"
 	ActionOAuthClientSecretReset                  EventAction = "oauth_client_secret_reset" //#nosec G101
 	ActionOAuthClientUpdate                       EventAction = "oauth_client_update"
+	ActionOBJAccessKeyCreate                      EventAction = "obj_access_key_create"
+	ActionOBJAccessKeyDelete                      EventAction = "obj_access_key_delete"
+	ActionOBJAccessKeyUpdate                      EventAction = "obj_access_key_update"
 	ActionPaymentMethodAdd                        EventAction = "payment_method_add"
 	ActionPaymentSubmitted                        EventAction = "payment_submitted"
 	ActionPasswordReset                           EventAction = "password_reset"
+	ActionPlacementGroupCreate                    EventAction = "placement_group_create"
+	ActionPlacementGroupUpdate                    EventAction = "placement_group_update"
+	ActionPlacementGroupDelete                    EventAction = "placement_group_delete"
+	ActionPlacementGroupAssign                    EventAction = "placement_group_assign"
+	ActionPlacementGroupUnassign                  EventAction = "placement_group_unassign"
+	ActionPlacementGroupBecameNonCompliant        EventAction = "placement_group_became_non_compliant"
+	ActionPlacementGroupBecameCompliant           EventAction = "placement_group_became_compliant"
 	ActionProfileUpdate                           EventAction = "profile_update"
 	ActionStackScriptCreate                       EventAction = "stackscript_create"
 	ActionStackScriptDelete                       EventAction = "stackscript_delete"
 	ActionStackScriptUpdate                       EventAction = "stackscript_update"
 	ActionStackScriptPublicize                    EventAction = "stackscript_publicize"
 	ActionStackScriptRevise                       EventAction = "stackscript_revise"
+	ActionTaxIDInvalid                            EventAction = "tax_id_invalid"
 	ActionTagCreate                               EventAction = "tag_create"
 	ActionTagDelete                               EventAction = "tag_delete"
 	ActionTFADisabled                             EventAction = "tfa_disabled"
@@ -183,23 +222,53 @@ const (
 	ActionVolumeUpdate                            EventAction = "volume_update"
 	ActionVolumeDetach                            EventAction = "volume_detach"
 	ActionVolumeResize                            EventAction = "volume_resize"
+	ActionVPCCreate                               EventAction = "vpc_create"
+	ActionVPCDelete                               EventAction = "vpc_delete"
+	ActionVPCUpdate                               EventAction = "vpc_update"
+	ActionVPCSubnetCreate                         EventAction = "subnet_create"
+	ActionVPCSubnetDelete                         EventAction = "subnet_delete"
+	ActionVPCSubnetUpdate                         EventAction = "subnet_update"
 
-	// deprecated due to incorrect spelling,
+	// Deprecated: incorrect spelling,
 	// to be removed in the next major version release.
 	ActionVolumeDelte EventAction = "volume_delete"
+
+	// Deprecated: incorrect spelling,
+	// to be removed in the next major version
+	ActionCreateCardUpdated = ActionCreditCardUpdated
 )
 
 // EntityType constants start with Entity and include Linode API Event Entity Types
 type EntityType string
 
-// EntityType contants are the entities an Event can be related to.
+// EntityType constants are the entities an Event can be related to.
 const (
-	EntityLinode       EntityType = "linode"
-	EntityDisk         EntityType = "disk"
-	EntityDatabase     EntityType = "database"
-	EntityDomain       EntityType = "domain"
-	EntityFirewall     EntityType = "firewall"
-	EntityNodebalancer EntityType = "nodebalancer"
+	EntityAccount        EntityType = "account"
+	EntityBackups        EntityType = "backups"
+	EntityCommunity      EntityType = "community"
+	EntityDatabase       EntityType = "database"
+	EntityDisk           EntityType = "disk"
+	EntityDomain         EntityType = "domain"
+	EntityTransfer       EntityType = "entity_transfer"
+	EntityFirewall       EntityType = "firewall"
+	EntityImage          EntityType = "image"
+	EntityIPAddress      EntityType = "ipaddress"
+	EntityLinode         EntityType = "linode"
+	EntityLongview       EntityType = "longview"
+	EntityManagedService EntityType = "managed_service"
+	EntityNodebalancer   EntityType = "nodebalancer"
+	EntityOAuthClient    EntityType = "oauth_client"
+	EntityPlacementGroup EntityType = "placement_group"
+	EntityProfile        EntityType = "profile"
+	EntityStackscript    EntityType = "stackscript"
+	EntityTag            EntityType = "tag"
+	EntityTicket         EntityType = "ticket"
+	EntityToken          EntityType = "token"
+	EntityUser           EntityType = "user"
+	EntityUserSSHKey     EntityType = "user_ssh_key"
+	EntityVolume         EntityType = "volume"
+	EntityVPC            EntityType = "vpc"
+	EntityVPCSubnet      EntityType = "subnet"
 )
 
 // EventStatus constants start with Event and include Linode API Event Status values
@@ -212,6 +281,7 @@ const (
 	EventNotification EventStatus = "notification"
 	EventScheduled    EventStatus = "scheduled"
 	EventStarted      EventStatus = "started"
+	EventCanceled     EventStatus = "canceled"
 )
 
 // EventEntity provides detailed information about the Event's
@@ -226,25 +296,18 @@ type EventEntity struct {
 	URL    string     `json:"url"`
 }
 
-// EventsPagedResponse represents a paginated Events API response
-type EventsPagedResponse struct {
-	*PageOptions
-	Data []Event `json:"data"`
-}
-
-// endpoint gets the endpoint URL for Event
-func (EventsPagedResponse) endpoint(_ ...any) string {
-	return "account/events"
-}
-
 // UnmarshalJSON implements the json.Unmarshaler interface
 func (i *Event) UnmarshalJSON(b []byte) error {
 	type Mask Event
 
 	p := struct {
 		*Mask
+
 		Created       *parseabletime.ParseableTime `json:"created"`
 		TimeRemaining json.RawMessage              `json:"time_remaining"`
+		NotBefore     *parseabletime.ParseableTime `json:"not_before"`
+		StartTime     *parseabletime.ParseableTime `json:"start_time"`
+		CompleteTime  *parseabletime.ParseableTime `json:"complete_time"`
 	}{
 		Mask: (*Mask)(i),
 	}
@@ -255,55 +318,37 @@ func (i *Event) UnmarshalJSON(b []byte) error {
 
 	i.Created = (*time.Time)(p.Created)
 	i.TimeRemaining = duration.UnmarshalTimeRemaining(p.TimeRemaining)
+	i.NotBefore = (*time.Time)(p.NotBefore)
+	i.StartTime = (*time.Time)(p.StartTime)
+	i.CompleteTime = (*time.Time)(p.CompleteTime)
 
 	return nil
-}
-
-func (resp *EventsPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
-	res, err := coupleAPIErrors(r.SetResult(EventsPagedResponse{}).Get(e))
-	if err != nil {
-		return 0, 0, err
-	}
-	castedRes := res.Result().(*EventsPagedResponse)
-	resp.Data = append(resp.Data, castedRes.Data...)
-	return castedRes.Pages, castedRes.Results, nil
 }
 
 // ListEvents gets a collection of Event objects representing actions taken
 // on the Account. The Events returned depend on the token grants and the grants
 // of the associated user.
 func (c *Client) ListEvents(ctx context.Context, opts *ListOptions) ([]Event, error) {
-	response := EventsPagedResponse{}
-	err := c.listHelper(ctx, &response, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return response.Data, nil
+	return getPaginatedResults[Event](ctx, c, "account/events", opts)
 }
 
 // GetEvent gets the Event with the Event ID
 func (c *Client) GetEvent(ctx context.Context, eventID int) (*Event, error) {
-	req := c.R(ctx).SetResult(&Event{})
-	e := fmt.Sprintf("account/events/%d", eventID)
-	r, err := coupleAPIErrors(req.Get(e))
-	if err != nil {
-		return nil, err
-	}
-
-	return r.Result().(*Event), nil
+	e := formatAPIPath("account/events/%d", eventID)
+	return doGETRequest[Event](ctx, c, e)
 }
 
 // MarkEventRead marks a single Event as read.
+// Deprecated: `MarkEventRead` is a deprecated API, please consider using `MarkEventsSeen` instead.
+// Please note that the `MarkEventsSeen` API functions differently and will mark all events up to and
+// including the referenced event-id as "seen" rather than individual events.
 func (c *Client) MarkEventRead(ctx context.Context, event *Event) error {
-	e := fmt.Sprintf("account/events/%d/read", event.ID)
-	_, err := coupleAPIErrors(c.R(ctx).Post(e))
-	return err
+	e := formatAPIPath("account/events/%d/read", event.ID)
+	return doPOSTRequestNoRequestResponseBody(ctx, c, e)
 }
 
 // MarkEventsSeen marks all Events up to and including this Event by ID as seen.
 func (c *Client) MarkEventsSeen(ctx context.Context, event *Event) error {
-	e := fmt.Sprintf("account/events/%d/seen", event.ID)
-	_, err := coupleAPIErrors(c.R(ctx).Post(e))
-	return err
+	e := formatAPIPath("account/events/%d/seen", event.ID)
+	return doPOSTRequestNoRequestResponseBody(ctx, c, e)
 }

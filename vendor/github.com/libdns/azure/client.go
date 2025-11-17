@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,7 +111,8 @@ func (p *Provider) deleteRecord(ctx context.Context, zone string, record libdns.
 		return record, err
 	}
 
-	recordType, err := convertStringToRecordType(record.Type)
+	rr := record.RR()
+	recordType, err := convertStringToRecordType(rr.Type)
 	if err != nil {
 		return record, err
 	}
@@ -119,7 +121,7 @@ func (p *Provider) deleteRecord(ctx context.Context, zone string, record libdns.
 		ctx,
 		p.ResourceGroupName,
 		strings.TrimSuffix(zone, "."),
-		generateRecordSetName(record.Name, zone),
+		generateRecordSetName(rr.Name, zone),
 		recordType,
 		&armdns.RecordSetsClientDeleteOptions{
 			IfMatch: nil,
@@ -142,7 +144,8 @@ func (p *Provider) createOrUpdateRecord(ctx context.Context, zone string, record
 		return record, err
 	}
 
-	recordType, err := convertStringToRecordType(record.Type)
+	rr := record.RR()
+	recordType, err := convertStringToRecordType(rr.Type)
 	if err != nil {
 		return record, err
 	}
@@ -156,7 +159,7 @@ func (p *Provider) createOrUpdateRecord(ctx context.Context, zone string, record
 		ctx,
 		p.ResourceGroupName,
 		strings.TrimSuffix(zone, "."),
-		generateRecordSetName(record.Name, zone),
+		generateRecordSetName(rr.Name, zone),
 		recordType,
 		recordSet,
 		&armdns.RecordSetsClientCreateOrUpdateOptions{
@@ -195,14 +198,14 @@ func convertStringToRecordType(typeName string) (armdns.RecordType, error) {
 		return armdns.RecordTypeMX, nil
 	case "NS":
 		return armdns.RecordTypeNS, nil
-	case "PTR":
-		return armdns.RecordTypePTR, nil
-	case "SOA":
-		return armdns.RecordTypeSOA, nil
 	case "SRV":
 		return armdns.RecordTypeSRV, nil
 	case "TXT":
 		return armdns.RecordTypeTXT, nil
+	case "PTR":
+		return armdns.RecordTypePTR, nil
+	case "SOA":
+		return armdns.RecordTypeSOA, nil
 	default:
 		return armdns.RecordTypeA, fmt.Errorf("the type %v cannot be interpreted", typeName)
 	}
@@ -216,120 +219,127 @@ func convertAzureRecordSetsToLibdnsRecords(recordSets []*armdns.RecordSet) ([]li
 		switch typeName := strings.TrimPrefix(*recordSet.Type, "Microsoft.Network/dnszones/"); typeName {
 		case "A":
 			for _, v := range recordSet.Properties.ARecords {
-				record := libdns.Record{
-					ID:    *recordSet.Etag,
-					Type:  typeName,
-					Name:  *recordSet.Name,
-					Value: *v.IPv4Address,
-					TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
+				ip, err := netip.ParseAddr(*v.IPv4Address)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse IP address: %w", err)
+				}
+				record := libdns.Address{
+					Name: *recordSet.Name,
+					TTL:  time.Duration(*recordSet.Properties.TTL) * time.Second,
+					IP:   ip,
 				}
 				records = append(records, record)
 			}
 		case "AAAA":
 			for _, v := range recordSet.Properties.AaaaRecords {
-				record := libdns.Record{
-					ID:    *recordSet.Etag,
-					Type:  typeName,
-					Name:  *recordSet.Name,
-					Value: *v.IPv6Address,
-					TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
+				ip, err := netip.ParseAddr(*v.IPv6Address)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse IP address: %w", err)
+				}
+				record := libdns.Address{
+					Name: *recordSet.Name,
+					TTL:  time.Duration(*recordSet.Properties.TTL) * time.Second,
+					IP:   ip,
 				}
 				records = append(records, record)
 			}
 		case "CAA":
 			for _, v := range recordSet.Properties.CaaRecords {
-				record := libdns.Record{
-					ID:    *recordSet.Etag,
-					Type:  typeName,
+				record := libdns.CAA{
 					Name:  *recordSet.Name,
-					Value: strings.Join([]string{fmt.Sprint(*v.Flags), *v.Tag, *v.Value}, " "),
 					TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
+					Flags: uint8(*v.Flags),
+					Tag:   *v.Tag,
+					Value: *v.Value,
 				}
 				records = append(records, record)
 			}
 		case "CNAME":
-			record := libdns.Record{
-				ID:    *recordSet.Etag,
-				Type:  typeName,
-				Name:  *recordSet.Name,
-				Value: *recordSet.Properties.CnameRecord.Cname,
-				TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
+			record := libdns.CNAME{
+				Name:   *recordSet.Name,
+				TTL:    time.Duration(*recordSet.Properties.TTL) * time.Second,
+				Target: *recordSet.Properties.CnameRecord.Cname,
 			}
 			records = append(records, record)
 		case "MX":
 			for _, v := range recordSet.Properties.MxRecords {
-				record := libdns.Record{
-					ID:    *recordSet.Etag,
-					Type:  typeName,
-					Name:  *recordSet.Name,
-					Value: strings.Join([]string{fmt.Sprint(*v.Preference), *v.Exchange}, " "),
-					TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
+				record := libdns.MX{
+					Name:       *recordSet.Name,
+					TTL:        time.Duration(*recordSet.Properties.TTL) * time.Second,
+					Preference: uint16(*v.Preference),
+					Target:     *v.Exchange,
 				}
 				records = append(records, record)
 			}
 		case "NS":
 			for _, v := range recordSet.Properties.NsRecords {
-				record := libdns.Record{
-					ID:    *recordSet.Etag,
-					Type:  typeName,
-					Name:  *recordSet.Name,
-					Value: *v.Nsdname,
-					TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
+				record := libdns.NS{
+					Name:   *recordSet.Name,
+					TTL:    time.Duration(*recordSet.Properties.TTL) * time.Second,
+					Target: *v.Nsdname,
 				}
 				records = append(records, record)
 			}
-		case "PTR":
-			for _, v := range recordSet.Properties.PtrRecords {
-				record := libdns.Record{
-					ID:    *recordSet.Etag,
-					Type:  typeName,
-					Name:  *recordSet.Name,
-					Value: *v.Ptrdname,
-					TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
-				}
-				records = append(records, record)
-			}
-		case "SOA":
-			record := libdns.Record{
-				ID:   *recordSet.Etag,
-				Type: typeName,
-				Name: *recordSet.Name,
-				Value: strings.Join([]string{
-					*recordSet.Properties.SoaRecord.Host,
-					*recordSet.Properties.SoaRecord.Email,
-					fmt.Sprint(*recordSet.Properties.SoaRecord.SerialNumber),
-					fmt.Sprint(*recordSet.Properties.SoaRecord.RefreshTime),
-					fmt.Sprint(*recordSet.Properties.SoaRecord.RetryTime),
-					fmt.Sprint(*recordSet.Properties.SoaRecord.ExpireTime),
-					fmt.Sprint(*recordSet.Properties.SoaRecord.MinimumTTL)},
-					" "),
-				TTL: time.Duration(*recordSet.Properties.TTL) * time.Second,
-			}
-			records = append(records, record)
 		case "SRV":
 			for _, v := range recordSet.Properties.SrvRecords {
-				record := libdns.Record{
-					ID:    *recordSet.Etag,
-					Type:  typeName,
-					Name:  *recordSet.Name,
-					Value: strings.Join([]string{fmt.Sprint(*v.Priority), fmt.Sprint(*v.Weight), fmt.Sprint(*v.Port), *v.Target}, " "),
-					TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
+				parts := strings.SplitN(*recordSet.Name, ".", 3)
+				if len(parts) < 2 {
+					return nil, fmt.Errorf("name %v does not contain enough fields; expected format: '_service._proto.name' or '_service._proto'", *recordSet.Name)
+				}
+				name := "@"
+				if len(parts) == 3 {
+					name = parts[2]
+				}
+				record := libdns.SRV{
+					Service:   strings.TrimPrefix(parts[0], "_"),
+					Transport: strings.TrimPrefix(parts[1], "_"),
+					Name:      name,
+					TTL:       time.Duration(*recordSet.Properties.TTL) * time.Second,
+					Priority:  uint16(*v.Priority),
+					Weight:    uint16(*v.Weight),
+					Port:      uint16(*v.Port),
+					Target:    *v.Target,
 				}
 				records = append(records, record)
 			}
 		case "TXT":
 			for _, v := range recordSet.Properties.TxtRecords {
 				for _, txt := range v.Value {
-					record := libdns.Record{
-						ID:    *recordSet.Etag,
-						Type:  typeName,
-						Name:  *recordSet.Name,
-						Value: *txt,
-						TTL:   time.Duration(*recordSet.Properties.TTL) * time.Second,
+					record := libdns.TXT{
+						Name: *recordSet.Name,
+						TTL:  time.Duration(*recordSet.Properties.TTL) * time.Second,
+						Text: *txt,
 					}
 					records = append(records, record)
 				}
 			}
+		case "PTR":
+			for _, v := range recordSet.Properties.PtrRecords {
+				record := libdns.RR{
+					Name: *recordSet.Name,
+					Type: "PTR",
+					TTL:  time.Duration(*recordSet.Properties.TTL) * time.Second,
+					Data: *v.Ptrdname,
+				}
+				records = append(records, record)
+			}
+		case "SOA":
+			soaData := strings.Join([]string{
+				*recordSet.Properties.SoaRecord.Host,
+				*recordSet.Properties.SoaRecord.Email,
+				fmt.Sprint(*recordSet.Properties.SoaRecord.SerialNumber),
+				fmt.Sprint(*recordSet.Properties.SoaRecord.RefreshTime),
+				fmt.Sprint(*recordSet.Properties.SoaRecord.RetryTime),
+				fmt.Sprint(*recordSet.Properties.SoaRecord.ExpireTime),
+				fmt.Sprint(*recordSet.Properties.SoaRecord.MinimumTTL)},
+				" ")
+			record := libdns.RR{
+				Name: *recordSet.Name,
+				Type: "SOA",
+				TTL:  time.Duration(*recordSet.Properties.TTL) * time.Second,
+				Data: soaData,
+			}
+			records = append(records, record)
 		default:
 			return []libdns.Record{}, fmt.Errorf("the type %v cannot be interpreted", typeName)
 		}
@@ -340,134 +350,138 @@ func convertAzureRecordSetsToLibdnsRecords(recordSets []*armdns.RecordSet) ([]li
 
 // convertLibdnsRecordToAzureRecordSet converts a libdns record to an Azure-styled record.
 func convertLibdnsRecordToAzureRecordSet(record libdns.Record) (armdns.RecordSet, error) {
-	switch record.Type {
-	case "A":
+	fmt.Println("record:", record)
+	rr, err := record.RR().Parse()
+	if err != nil {
+		return armdns.RecordSet{}, fmt.Errorf("unable to parse libdns.RR: %w", err)
+	}
+
+	switch rec := rr.(type) {
+	case libdns.Address:
 		recordSet := armdns.RecordSet{
 			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
-				ARecords: []*armdns.ARecord{{
-					IPv4Address: to.Ptr(record.Value),
-				}},
+				TTL: to.Ptr(int64(rec.TTL / time.Second)),
 			},
 		}
-		return recordSet, nil
-	case "AAAA":
-		recordSet := armdns.RecordSet{
-			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
-				AaaaRecords: []*armdns.AaaaRecord{{
-					IPv6Address: to.Ptr(record.Value),
-				}},
-			},
+		if rec.IP.Is6() {
+			recordSet.Properties.AaaaRecords = []*armdns.AaaaRecord{{
+				IPv6Address: to.Ptr(rec.IP.String()),
+			}}
+		} else {
+			recordSet.Properties.ARecords = []*armdns.ARecord{{
+				IPv4Address: to.Ptr(rec.IP.String()),
+			}}
 		}
 		return recordSet, nil
-	case "CAA":
-		values := strings.Split(record.Value, " ")
-		flags, _ := strconv.ParseInt(values[0], 10, 32)
+	case libdns.CAA:
 		recordSet := armdns.RecordSet{
 			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
+				TTL: to.Ptr(int64(rec.TTL / time.Second)),
 				CaaRecords: []*armdns.CaaRecord{{
-					Flags: to.Ptr[int32](int32(flags)),
-					Tag:   to.Ptr(values[1]),
-					Value: to.Ptr(values[2]),
+					Flags: to.Ptr(int32(rec.Flags)),
+					Tag:   to.Ptr(rec.Tag),
+					Value: to.Ptr(rec.Value),
 				}},
 			},
 		}
 		return recordSet, nil
-	case "CNAME":
+	case libdns.CNAME:
 		recordSet := armdns.RecordSet{
 			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
+				TTL: to.Ptr(int64(rec.TTL / time.Second)),
 				CnameRecord: &armdns.CnameRecord{
-					Cname: to.Ptr(record.Value),
+					Cname: to.Ptr(rec.Target),
 				},
 			},
 		}
 		return recordSet, nil
-	case "MX":
-		values := strings.Split(record.Value, " ")
-		preference, _ := strconv.ParseInt(values[0], 10, 32)
+	case libdns.MX:
 		recordSet := armdns.RecordSet{
 			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
+				TTL: to.Ptr(int64(rec.TTL / time.Second)),
 				MxRecords: []*armdns.MxRecord{{
-					Preference: to.Ptr[int32](int32(preference)),
-					Exchange:   to.Ptr(values[1]),
+					Preference: to.Ptr(int32(rec.Preference)),
+					Exchange:   to.Ptr(rec.Target),
 				}},
 			},
 		}
 		return recordSet, nil
-	case "NS":
+	case libdns.NS:
 		recordSet := armdns.RecordSet{
 			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
+				TTL: to.Ptr(int64(rec.TTL / time.Second)),
 				NsRecords: []*armdns.NsRecord{{
-					Nsdname: to.Ptr(record.Value),
+					Nsdname: to.Ptr(rec.Target),
 				}},
 			},
 		}
 		return recordSet, nil
-	case "PTR":
+	case libdns.SRV:
 		recordSet := armdns.RecordSet{
 			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
-				PtrRecords: []*armdns.PtrRecord{{
-					Ptrdname: to.Ptr(record.Value),
-				}},
-			},
-		}
-		return recordSet, nil
-	case "SOA":
-		values := strings.Split(record.Value, " ")
-		serialNumber, _ := strconv.ParseInt(values[2], 10, 64)
-		refreshTime, _ := strconv.ParseInt(values[3], 10, 64)
-		retryTime, _ := strconv.ParseInt(values[4], 10, 64)
-		expireTime, _ := strconv.ParseInt(values[5], 10, 64)
-		minimumTTL, _ := strconv.ParseInt(values[6], 10, 64)
-		recordSet := armdns.RecordSet{
-			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
-				SoaRecord: &armdns.SoaRecord{
-					Host:         to.Ptr(values[0]),
-					Email:        to.Ptr(values[1]),
-					SerialNumber: to.Ptr[int64](serialNumber),
-					RefreshTime:  to.Ptr[int64](refreshTime),
-					RetryTime:    to.Ptr[int64](retryTime),
-					ExpireTime:   to.Ptr[int64](expireTime),
-					MinimumTTL:   to.Ptr[int64](minimumTTL),
-				},
-			},
-		}
-		return recordSet, nil
-	case "SRV":
-		values := strings.Split(record.Value, " ")
-		priority, _ := strconv.ParseInt(values[0], 10, 32)
-		weight, _ := strconv.ParseInt(values[1], 10, 32)
-		port, _ := strconv.ParseInt(values[2], 10, 32)
-		recordSet := armdns.RecordSet{
-			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
+				TTL: to.Ptr(int64(rec.TTL / time.Second)),
 				SrvRecords: []*armdns.SrvRecord{{
-					Priority: to.Ptr[int32](int32(priority)),
-					Weight:   to.Ptr[int32](int32(weight)),
-					Port:     to.Ptr[int32](int32(port)),
-					Target:   to.Ptr(values[3]),
+					Priority: to.Ptr(int32(rec.Priority)),
+					Weight:   to.Ptr(int32(rec.Weight)),
+					Port:     to.Ptr(int32(rec.Port)),
+					Target:   to.Ptr(rec.Target),
 				}},
 			},
 		}
 		return recordSet, nil
-	case "TXT":
+	case libdns.TXT:
 		recordSet := armdns.RecordSet{
 			Properties: &armdns.RecordSetProperties{
-				TTL: to.Ptr[int64](int64(record.TTL / time.Second)),
+				TTL: to.Ptr(int64(rec.TTL / time.Second)),
 				TxtRecords: []*armdns.TxtRecord{{
-					Value: []*string{&record.Value},
+					Value: []*string{&rec.Text},
 				}},
 			},
 		}
 		return recordSet, nil
+	case libdns.RR:
+		switch strings.ToUpper(rec.Type) {
+		case "PTR":
+			recordSet := armdns.RecordSet{
+				Properties: &armdns.RecordSetProperties{
+					TTL: to.Ptr(int64(rec.TTL / time.Second)),
+					PtrRecords: []*armdns.PtrRecord{{
+						Ptrdname: to.Ptr(rec.Data),
+					}},
+				},
+			}
+			return recordSet, nil
+		case "SOA":
+			values := strings.Split(rec.Data, " ")
+			if len(values) < 7 {
+				return armdns.RecordSet{}, fmt.Errorf("invalid SOA record data: %s", rec.Data)
+			}
+
+			serialNumber, _ := strconv.ParseInt(values[2], 10, 64)
+			refreshTime, _ := strconv.ParseInt(values[3], 10, 64)
+			retryTime, _ := strconv.ParseInt(values[4], 10, 64)
+			expireTime, _ := strconv.ParseInt(values[5], 10, 64)
+			minimumTTL, _ := strconv.ParseInt(values[6], 10, 64)
+
+			recordSet := armdns.RecordSet{
+				Properties: &armdns.RecordSetProperties{
+					TTL: to.Ptr(int64(rec.TTL / time.Second)),
+					SoaRecord: &armdns.SoaRecord{
+						Host:         to.Ptr(values[0]),
+						Email:        to.Ptr(values[1]),
+						SerialNumber: to.Ptr(serialNumber),
+						RefreshTime:  to.Ptr(refreshTime),
+						RetryTime:    to.Ptr(retryTime),
+						ExpireTime:   to.Ptr(expireTime),
+						MinimumTTL:   to.Ptr(minimumTTL),
+					},
+				},
+			}
+			return recordSet, nil
+		default:
+			return armdns.RecordSet{}, fmt.Errorf("the type %v cannot be interpreted", rec.Type)
+		}
 	default:
-		return armdns.RecordSet{}, fmt.Errorf("the type %v cannot be interpreted", record.Type)
+		return armdns.RecordSet{}, fmt.Errorf("the type %v cannot be interpreted", rec.RR().Type)
 	}
 }

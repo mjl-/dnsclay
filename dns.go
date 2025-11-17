@@ -16,8 +16,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/libdns/libdns"
-
 	"github.com/miekg/dns"
 
 	"github.com/mjl-/bstore"
@@ -706,12 +704,13 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 		return c.respondErrorf("ensuring records are fresh: %v", err)
 	}
 
-	// For checking as a group (cannot be check individually).
+	// For checking as a group (cannot be checked individually).
 	rrsetsCheck := map[rrsetKey][]Record{}
 
+	// Check prerequisites.
 	// rfc/2136:324 Description
 	// rfc/2136:623 Pseudocode
-	// Check prerequisites.
+	// rfc/2136:594 Summary/table
 	for _, r := range c.im.Answer {
 		h := r.Header()
 		if h.Ttl != 0 {
@@ -735,7 +734,9 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 				// rfc/2136:568
 				return c.respondCodeErrorf(dns.RcodeFormatError, "prereq with class any must have rr with rdlength 0 != %d", h.Rdlength)
 			}
-			// Exists/in use.
+
+			// For ANY, we must check that name (regardless of type) exists/is in use.
+			// Otherwise, we must check that a record with the name and type exists.
 			ok = false
 			rcode = dns.RcodeNXRrset // rfc/2136:573
 			if h.Rrtype == dns.TypeANY {
@@ -752,7 +753,9 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 				// rfc/2136:577
 				return c.respondCodeErrorf(dns.RcodeFormatError, "prereq with class any must have rr with rdlength 0 != %d", h.Rdlength)
 			}
-			// Rrset does not exist/name not in use.
+
+			// For ANY, we must check that name (regardless of type) does not exist. Otherwise,
+			// we must check that a record with name and type does not exist.
 			ok = true
 			rcode = dns.RcodeYXRrset // rfc/2136:582
 			if h.Rrtype == dns.TypeANY {
@@ -775,6 +778,8 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 				return c.respondErrorf("parsing record for prerequisite comparison: %v", err)
 			}
 
+			// Full rrset must exist. We gather the record into an rrset now, and we check it
+			// later/below once we have gone through all prerequisite records.
 			r := Record{0, z.Name, 0, 0, time.Time{}, nil, name, Type(h.Rrtype), Class(dns.ClassINET), TTL(0), hex, value, ""}
 			k := r.rrsetKey()
 			rrsetsCheck[k] = append(rrsetsCheck[k], r)
@@ -855,6 +860,8 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 		}
 
 		if h.Class == dns.ClassANY {
+			// We must delete all rrsets for a name, or only for a specific type.
+
 			if h.Ttl != 0 {
 				return c.respondCodeErrorf(dns.RcodeFormatError, "ttl must be zero for class any")
 			}
@@ -886,6 +893,8 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 
 		switch h.Class {
 		case dns.ClassNONE:
+			// Delete an RR from an rrset.
+
 			// rfc/2136:793 Deleting SOA for zone is ignored.
 			if r.AbsName == z.Name && r.Type == Type(dns.TypeSOA) {
 				c.log.Debug("removing soa for zone is ignored", "delrecord", r)
@@ -907,6 +916,8 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 			}
 
 		case dns.ClassINET:
+			// We must add a record to an rrset.
+
 			// If a record already exists exactly as is, we don't make any changes.
 			if _, ok := known[r.recordKey()]; ok {
 				continue
@@ -934,7 +945,6 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 			// rfc/2136:769 For a CNAME update, if a non-CNAME exists, we ignore the update.
 			rrset := rrsets[rrsetKey{r.AbsName, r.Type, r.Class}]
 			if len(rrset) > 0 {
-				r.ProviderID = rrset[0].ProviderID
 				set = append(set, r)
 				for _, d := range rrset {
 					adjustDel(d)
@@ -963,21 +973,30 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 
 	c.log.Debug("adding/setting/removing records", "add", add, "set", set, "remove", remove)
 
-	var added, xset, removed []libdns.Record
+	var added, xset, removed []libdnsRR
 	if len(add) > 0 {
-		added, err = appendRecords(ctx, c.log, provider, z.Name, libdnsRecords(add))
+		l, err := libdnsRRs(add)
+		if err == nil {
+			added, err = appendRecords(ctx, c.log, provider, z.Name, l)
+		}
 		if err != nil {
 			return c.respondErrorf("adding records: %v", err)
 		}
 	}
 	if len(set) > 0 {
-		xset, err = setRecords(ctx, c.log, provider, z.Name, libdnsRecords(set))
+		l, err := libdnsRRs(set)
+		if err == nil {
+			xset, err = setRecords(ctx, c.log, provider, z.Name, l)
+		}
 		if err != nil {
 			return c.respondErrorf("setting records: %v", err)
 		}
 	}
 	if len(remove) > 0 {
-		removed, err = deleteRecords(ctx, c.log, provider, z.Name, libdnsRecords(remove))
+		l, err := libdnsRRs(remove)
+		if err == nil {
+			removed, err = deleteRecords(ctx, c.log, provider, z.Name, l)
+		}
 		if err != nil {
 			return c.respondErrorf("removing records: %v", err)
 		}
@@ -1240,19 +1259,19 @@ func responseError(m *dns.Msg) error {
 	return err
 }
 
-func deleteRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdns.Record) ([]libdns.Record, error) {
+func deleteRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdnsRR) ([]libdnsRR, error) {
 	l, err := provider.DeleteRecords(ctx, zone, records)
 	log.Debug("deleting records at provider", "err", err, "zone", zone, "records", records, "deleted", l)
 	return l, err
 }
 
-func appendRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdns.Record) ([]libdns.Record, error) {
+func appendRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdnsRR) ([]libdnsRR, error) {
 	l, err := provider.AppendRecords(ctx, zone, records)
 	log.Debug("appending records at provider", "err", err, "zone", zone, "records", records, "appended", l)
 	return l, err
 }
 
-func setRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdns.Record) ([]libdns.Record, error) {
+func setRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdnsRR) ([]libdnsRR, error) {
 	l, err := provider.SetRecords(ctx, zone, records)
 	log.Debug("setting records at provider", "err", err, "zone", zone, "records", records, "set", l)
 	return l, err

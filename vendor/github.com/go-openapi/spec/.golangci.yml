@@ -37,6 +37,3 @@ linters:
     - godot
     - gofumpt
     - paralleltest
-    - tparallel
-    - thelper
-    - ifshort

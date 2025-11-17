@@ -1,5 +1,2 @@
-/libdns-godaddy.iml
-/.env
-/.idea/
-**unused**
-**secret**
+.idea
+.DS_Store

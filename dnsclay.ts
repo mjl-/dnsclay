@@ -646,6 +646,9 @@ const popupEdit = (zone: api.Zone, records: api.Record[], isNew: boolean) => {
 						TTL: parseInt(ttl.value),
 						Values: values,
 					}
+					if (n.RelName == '@') {
+						n.RelName = ''
+					}
 					if (isNew) {
 						await check(fieldset, () => client.RecordSetAdd(zone.Name, n))
 					} else {
@@ -1089,7 +1092,7 @@ const pageZone = async (zonestr: string) => {
 							dom.div(
 								dom.label(
 									dom.div('Zone file'),
-									zonefile=dom.textarea('$TTL 300 ; default 5m\n$ORIGIN '+zone.Name+'\n\n; record syntax: name ttl type value\n; example:\n;relativename 300 A 1.2.3.4\n\n', style({width: '60em'}), attr.rows('10')),
+									zonefile=dom.textarea('$TTL 300 ; default 5m\n$ORIGIN '+zone.Name+'\n\n; record syntax: name ttl type value\n; examples:\n;relativename 300 A 1.2.3.4\n;'+zone.Name+' 300 MX 10 mx.example.\n;@ 300 TXT "v=spf1 -all"\n\n', style({width: '60em'}), attr.rows('10')),
 								),
 							),
 							dom.div(
@@ -1243,7 +1246,7 @@ const pageZone = async (zonestr: string) => {
 					),
 					dom.td(
 						dnsTypeNames[r0.Type] || (''+r0.Type),
-						attr.title('Type '+r0.Type + (r0.ProviderID ? '\nID at provider: '+r0.ProviderID : '')),
+						attr.title('Type '+r0.Type + (r0.ProviderDataJSON ? '\nID at provider: '+r0.ProviderDataJSON : '')),
 						style({textAlign: 'left'}),
 					),
 					dom.td(

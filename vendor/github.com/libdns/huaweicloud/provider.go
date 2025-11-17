@@ -2,12 +2,10 @@ package huaweicloud
 
 import (
 	"context"
-	"slices"
-	"time"
+	"fmt"
+	"sync"
 
 	"github.com/libdns/libdns"
-
-	"github.com/libdns/huaweicloud/sdk/services/dns/v2/model"
 )
 
 // Provider facilitates DNS record manipulation with Huawei Cloud
@@ -18,165 +16,141 @@ type Provider struct {
 	SecretAccessKey string `json:"secret_access_key,omitempty"`
 	// RegionId is optional and defaults to "cn-south-1".
 	RegionId string `json:"region_id,omitempty"`
+	// once is used to ensure the client is initialized only once.
+	once sync.Once
+	//  client is the Huawei Cloud DNS client.
+	client *Client
 }
 
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	zoneId, err := p.getZoneIdByName(zone)
+	client := p.getClient()
+
+	records, err := client.GetRecords(ctx, zone)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := p.getClient()
-	if err != nil {
-		return nil, err
-	}
-
-	request := &model.ListRecordSetsByZoneRequest{
-		ZoneId: zoneId,
-	}
-	response, err := client.ListRecordSetsByZone(request)
-	if err != nil {
-		return nil, err
-	}
-
-	var list []libdns.Record
-	for record := range slices.Values(*response.Recordsets) {
-		for value := range slices.Values(*record.Records) {
-			list = append(list, libdns.Record{
-				ID:    *record.Id,
-				Type:  *record.Type,
-				Name:  libdns.RelativeName(*record.Name, zone),
-				Value: value,
-				TTL:   time.Duration(*record.Ttl) * time.Second,
-			})
+	var results []libdns.Record
+	for _, record := range records {
+		rec, err := record.libdnsRecord(zone)
+		if err != nil {
+			return nil, fmt.Errorf("parsing Huawei Cloud DNS record %+v: %v", record, err)
 		}
+		results = append(results, rec...)
 	}
 
-	return list, nil
+	return results, nil
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
+// NOTE: This implementation is NOT atomic.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	zoneId, err := p.getZoneIdByName(zone)
-	if err != nil {
-		return nil, err
-	}
-	client, err := p.getClient()
-	if err != nil {
-		return nil, err
-	}
+	client := p.getClient()
 
-	for i, record := range records {
-		// Fill the TTL with the default value if it is empty
-		if record.TTL <= 0 {
-			record.TTL = 10 * time.Minute
+	var results []libdns.Record
+	for _, rec := range records {
+		hwRec, err := hwRecord(zone, rec)
+		if err != nil {
+			return nil, fmt.Errorf("parsing libdns record %+v: %v", rec, err)
 		}
-		ttl := int32(record.TTL.Seconds())
-		request := &model.CreateRecordSetRequest{
-			ZoneId: zoneId,
-			Body: &model.CreateRecordSetRequestBody{
-				Name:    libdns.AbsoluteName(record.Name, zone),
-				Type:    record.Type,
-				Ttl:     &ttl,
-				Records: prepareRecordValue(record.Type, record.Value),
-			},
-		}
-		response, err := client.CreateRecordSet(request)
+		resp, err := client.AppendRecord(ctx, zone, hwRec)
 		if err != nil {
 			return nil, err
 		}
-		records[i].ID = *response.Id
+		libdnsRecs, err := resp.libdnsRecord(zone)
+		if err != nil {
+			return nil, fmt.Errorf("parsing Huawei Cloud DNS record %+v: %v", resp, err)
+		}
+		results = append(results, libdnsRecs...)
 	}
 
-	return records, nil
+	return results, nil
 }
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
 // It returns the updated records.
+// NOTE: This implementation is NOT atomic.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	zoneId, err := p.getZoneIdByName(zone)
-	if err != nil {
-		return nil, err
-	}
-	client, err := p.getClient()
-	if err != nil {
-		return nil, err
-	}
+	client := p.getClient()
 
-	for i, record := range records {
-		// Fill the TTL with the default value if it is empty
-		if record.TTL <= 0 {
-			record.TTL = 10 * time.Minute
-		}
-		// If the record id is empty try to get it by name and type
-		if record.ID == "" {
-			id, err := p.getRecordId(ctx, zone, record.Name, record.Type, record.Value)
-			if err == nil {
-				record.ID = id
+	var results []libdns.Record
+	for _, record := range records {
+		rr := record.RR()
+		id, err := client.GetRecordId(ctx, zone, rr.Name, rr.Type, rr.Data)
+		if err != nil {
+			// No existing record found, create a new one
+			hwRec, err := hwRecord(zone, record)
+			if err != nil {
+				return nil, fmt.Errorf("parsing libdns record %+v: %v", record, err)
 			}
-		}
-		// If the record id is still empty, it means it is a new record
-		if record.ID == "" {
-			newRecord, err := p.AppendRecords(ctx, zone, []libdns.Record{record})
+			resp, err := client.AppendRecord(ctx, zone, hwRec)
 			if err != nil {
 				return nil, err
 			}
-			records[i].ID = newRecord[0].ID
+			libdnsRecs, err := resp.libdnsRecord(zone)
+			if err != nil {
+				return nil, fmt.Errorf("parsing Huawei Cloud DNS record %+v: %v", resp, err)
+			}
+			results = append(results, libdnsRecs...)
 		} else {
-			name := libdns.AbsoluteName(record.Name, zone)
-			ttl := int32(record.TTL.Seconds())
-			value := prepareRecordValue(record.Type, record.Value)
-			request := &model.UpdateRecordSetRequest{
-				ZoneId:      zoneId,
-				RecordsetId: record.ID,
-				Body: &model.UpdateRecordSetReq{
-					Name:    &name,
-					Type:    &record.Type,
-					Ttl:     &ttl,
-					Records: &value,
-				},
+			// Existing record found, update it
+			hwRec, err := hwRecord(zone, record)
+			if err != nil {
+				return nil, fmt.Errorf("parsing libdns record %+v: %v", record, err)
 			}
-			response, err := client.UpdateRecordSet(request)
+			hwRec.Id = id
+			hwRec.Ttl = int32(rr.TTL.Seconds())
+			resp, err := client.UpdateRecord(ctx, zone, hwRec)
 			if err != nil {
 				return nil, err
 			}
-			records[i].ID = *response.Id
+			libdnsRecs, err := resp.libdnsRecord(zone)
+			if err != nil {
+				return nil, fmt.Errorf("parsing Huawei Cloud DNS record %+v: %v", resp, err)
+			}
+			results = append(results, libdnsRecs...)
 		}
 	}
 
-	return records, nil
+	return results, nil
 }
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
+// NOTE: This implementation is NOT atomic.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	zoneId, err := p.getZoneIdByName(zone)
-	if err != nil {
-		return nil, err
-	}
-	client, err := p.getClient()
-	if err != nil {
-		return nil, err
+	client := p.getClient()
+
+	var results []libdns.Record
+	for _, record := range records {
+		rr := record.RR()
+		id, err := client.GetRecordId(ctx, zone, rr.Name, rr.Type, rr.Data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get record ID for %s: %v", rr.Name, err)
+		}
+		resp, err := client.DeleteRecord(ctx, zone, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete record %s: %v", rr.Name, err)
+		}
+		libdnsRecs, err := resp.libdnsRecord(zone)
+		if err != nil {
+			return nil, fmt.Errorf("parsing Huawei Cloud DNS record %+v: %v", resp, err)
+		}
+		results = append(results, libdnsRecs...)
 	}
 
-	for record := range slices.Values(records) {
-		if record.ID == "" {
-			id, err := p.getRecordId(ctx, zone, record.Name, record.Type, record.Value)
-			if err != nil {
-				return nil, err
-			}
-			record.ID = id
-		}
-		request := &model.DeleteRecordSetRequest{
-			ZoneId:      zoneId,
-			RecordsetId: record.ID,
-		}
-		if _, err = client.DeleteRecordSet(request); err != nil {
-			return nil, err
-		}
-	}
+	return results, nil
+}
 
-	return records, nil
+// getClient initializes the client for the provider.
+func (p *Provider) getClient() *Client {
+	p.once.Do(func() {
+		if p.AccessKeyId == "" || p.SecretAccessKey == "" {
+			panic("huaweicloud: credentials missing")
+		}
+		p.client = NewClient(p.AccessKeyId, p.SecretAccessKey, p.RegionId)
+	})
+	return p.client
 }
 
 // Interface guards

@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const version = "8.1.0"
+const version = "8.4.0"
 
 type httpClientInterface interface {
 	Do(*http.Request) (*http.Response, error)
@@ -50,6 +50,7 @@ func NewClient(project, apiKey, userAgent string) *Client {
 	}
 
 	c.DNSDomains = &DNSDomainService{client: c}
+
 	return c
 }
 

@@ -12,7 +12,7 @@ This package implements the [libdns interfaces](https://github.com/libdns/libdns
 
 ## Usage
 ```golang
-include (
+import (
     loopia "github.com/libdns/loopia"
 )
 p := &loopia.Provider{

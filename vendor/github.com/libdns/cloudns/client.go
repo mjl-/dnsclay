@@ -3,14 +3,17 @@ package cloudns
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"github.com/libdns/libdns"
+	"io"
+	"maps"
 	"net/http"
 	"net/url"
-	"strconv"
-	"time"
+	"slices"
+
+	"github.com/libdns/libdns"
 )
+
+const success = "Success"
 
 type Client struct {
 	AuthId       string `json:"auth_id"`
@@ -29,221 +32,297 @@ func UseClient(authId, subAuthId, authPassword string) *Client {
 	}
 }
 
-// GetRecords retrieves DNS records for the specified zone.
-// It returns a slice of libdns.Record or an error if the request fails.
-func (c *Client) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
+// GetClouDNSRecords returns the raw upstream results from ClouDNS.
+// For use when the IDs of the individual records needs to be preserved, which
+// cannot be done with the generic libdns.Record interface.
+//
+// Parameters:
+//   - ctx: Context for timeout and cancellation
+//   - zone: The DNS zone (domain) to retrieve records from
+//
+// Returns:
+//   - []ApiDnsRecord: Slice of all DNS records in the zone
+//   - error: Any error that occurred during the operation
+func (c *Client) GetClouDNSRecords(ctx context.Context, zone string) ([]ApiDnsRecord, error) {
 	recordsEndpoint := apiBaseUrl.JoinPath("records.json")
-	resp, err := c.performGetRequest(ctx, recordsEndpoint, map[string]string{
+	params := map[string]string{
 		"domain-name": zone,
-	})
+	}
+
+	// Perform the API request
+	resp, err := c.performGetRequest(ctx, recordsEndpoint, params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Check HTTP status code
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned non-OK status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
+	// Parse the API response
 	var apiResult map[string]ApiDnsRecord
 	if err := json.NewDecoder(resp.Body).Decode(&apiResult); err != nil {
-		return nil, errors.New("failed to decode response")
+		return nil, fmt.Errorf("failed to decode API response: %w", err)
+	}
+
+	return slices.Collect(maps.Values(apiResult)), nil
+}
+
+// GetRecords retrieves DNS records for the specified zone.
+// It returns a slice of libdns.Record or an error if the request fails.
+func (c *Client) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
+	apiResult, err := c.GetClouDNSRecords(ctx, zone)
+	if err != nil {
+		return nil, err
 	}
 
 	records := make([]libdns.Record, 0, len(apiResult))
 	for _, recordData := range apiResult {
-		records = append(records, libdns.Record{
-			ID:    recordData.Id,
-			Type:  recordData.Type,
-			Name:  recordData.Host,
-			TTL:   parseDuration(recordData.Ttl + "s"),
-			Value: recordData.Record,
-		})
+		record, err := recordData.toLibdnsRecord()
+		if err != nil {
+			return nil, err
+		}
+
+		records = append(records, record)
 	}
+
+	// Log the number of records found
+	fmt.Printf("Found %d records in zone %s\n", len(records), zone)
+
 	return records, nil
 }
 
-// GetRecord retrieves a specific DNS record by its ID from the specified zone.
-// It returns a pointer to the matching libdns.Record or an error if the record is not found or the retrieval fails.
-func (c *Client) GetRecord(ctx context.Context, zone, recordID string) (*libdns.Record, error) {
-	records, err := c.GetRecords(ctx, zone)
-	if err != nil {
-		return nil, err
-	}
-	for _, record := range records {
-		if record.ID == recordID {
-			return &record, nil
-		}
-	}
-	return nil, errors.New("record not found")
-}
-
 // AddRecord creates a new DNS record in the specified zone with the given properties and returns the created record or an error.
-func (c *Client) AddRecord(ctx context.Context, zone string, recordType string, recordHost string, recordValue string, ttl time.Duration) (*libdns.Record, error) {
+// It handles API communication, response parsing, and error handling.
+//
+// Parameters:
+//   - ctx: Context for timeout and cancellation
+//   - zone: The DNS zone (domain) to add the record to
+//   - record: The DNS record to add
+//
+// Returns:
+//   - libdns.Record: The created record
+//   - error: Any error that occurred during the operation
+func (c *Client) AddRecord(ctx context.Context, zone string, record ApiDnsRecord) (libdns.Record, error) {
 	endpoint := apiBaseUrl.JoinPath("add-record.json")
 
-	roundedTTL := ttlRounder(ttl)
-	roundedTTLStr := strconv.Itoa(roundedTTL)
-
-	resp, err := c.performPostRequest(ctx, endpoint, map[string]string{
-		"domain-name": zone,
-		"record-type": recordType,
-		"host":        recordHost,
-		"record":      recordValue,
-		"ttl":         roundedTTLStr,
-	})
+	params := record.toParameters()
+	params["domain-name"] = zone
+	resp, err := c.performPostRequest(ctx, endpoint, params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Check HTTP status code
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned non-OK status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
+	// Parse the API response
 	var resultModel ApiResponse
 	if err := json.NewDecoder(resp.Body).Decode(&resultModel); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
-	if resultModel.Status != "Success" {
-		return nil, errors.New(resultModel.StatusDescription)
+	// Check if the operation was successful
+	if resultModel.Status != success {
+		return nil, fmt.Errorf("API operation failed: %s", resultModel.StatusDescription)
 	}
 
-	parsedTTL := parseDuration(roundedTTLStr + "s")
-
-	return &libdns.Record{
-		ID:    strconv.Itoa(resultModel.Data.Id),
-		Type:  recordType,
-		Name:  recordHost,
-		TTL:   parsedTTL,
-		Value: recordValue,
-	}, nil
+	return record.toLibdnsRecord()
 }
 
 // UpdateRecord updates an existing DNS record in the specified zone with the provided values and returns the updated record.
-func (c *Client) UpdateRecord(ctx context.Context, zone string, recordID string, host string, recordValue string, ttl time.Duration) (*libdns.Record, error) {
+// It handles API communication, response parsing, and error handling.
+//
+// Parameters:
+//   - ctx: Context for timeout and cancellation
+//   - zone: The DNS zone (domain) containing the record
+//   - record: The record to update
+//
+// Returns:
+//   - libdns.Record: The updated record
+//   - error: Any error that occurred during the operation
+func (c *Client) UpdateRecord(ctx context.Context, zone string, record ApiDnsRecord) (libdns.Record, error) {
 	updateEndpoint := apiBaseUrl.JoinPath("mod-record.json")
 
-	ttlSec := ttlRounder(ttl)
-	resp, err := c.performPostRequest(ctx, updateEndpoint, map[string]string{
-		"domain-name": zone,
-		"record-id":   recordID,
-		"host":        host,
-		"record":      recordValue,
-		"ttl":         strconv.Itoa(ttlSec),
-	})
-
+	params := record.toParameters()
+	params["domain-name"] = zone
+	resp, err := c.performPostRequest(ctx, updateEndpoint, params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Check HTTP status code
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned non-OK status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
+	// Parse the API response
 	var resultModel ApiResponse
-	if err := json.NewDecoder(resp.Body).Decode(&resultModel); err != nil {
-		return nil, err
+	if err = json.NewDecoder(resp.Body).Decode(&resultModel); err != nil {
+		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
-	if resultModel.Status != "Success" {
-		return nil, errors.New(resultModel.StatusDescription)
+	// Check if the operation was successful
+	if resultModel.Status != success {
+		return nil, fmt.Errorf("API operation failed: %s", resultModel.StatusDescription)
 	}
 
-	existingRecord, err := c.GetRecord(ctx, zone, recordID)
+	ret, err := record.toLibdnsRecord()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get existing record details: %w", err)
 	}
 
-	return &libdns.Record{
-		ID:    recordID,
-		Type:  existingRecord.Type,
-		Name:  host,
-		TTL:   parseDuration(strconv.Itoa(ttlSec) + "s"),
-		Value: recordValue,
-	}, nil
+	return ret, nil
 }
 
 // DeleteRecord deletes a DNS record identified by its ID in the specified zone.
-// It returns the deleted libdns.Record or nil if the record was not found, and an error if the operation fails.
-func (c *Client) DeleteRecord(ctx context.Context, zone string, recordId string) (*libdns.Record, error) {
-	rInfo, err := c.GetRecord(ctx, zone, recordId)
-	if err != nil {
-		if err.Error() == "record not found" {
-			return nil, nil
-		}
-		return nil, err
-	}
-
+//
+// Parameters:
+//   - ctx: Context for timeout and cancellation
+//   - zone: The DNS zone (domain) containing the record
+//   - recordId: ID of the record to delete
+//
+// Returns:
+//   - libdns.Record: The deleted record, or nil if the record was not found
+//   - error: Any error that occurred during the operation
+func (c *Client) DeleteRecord(ctx context.Context, zone string, recordId string) error {
 	endpoint := apiBaseUrl.JoinPath("delete-record.json")
-	resp, err := c.performPostRequest(ctx, endpoint, map[string]string{
+	params := map[string]string{
 		"domain-name": zone,
 		"record-id":   recordId,
-	})
+	}
+
+	// Perform the API request
+	resp, err := c.performPostRequest(ctx, endpoint, params)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Check HTTP status code
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API returned non-OK status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
+	// Parse the API response
 	var resultModel ApiResponse
 	if err := json.NewDecoder(resp.Body).Decode(&resultModel); err != nil {
-		return nil, err
+		return fmt.Errorf("failed to decode API response: %w", err)
 	}
 
-	if resultModel.Status != "Success" {
-		return nil, errors.New(resultModel.StatusDescription)
+	// Check if the operation was successful
+	if resultModel.Status != success {
+		return fmt.Errorf("API operation failed: %s", resultModel.StatusDescription)
 	}
 
-	return rInfo, nil
+	return nil
 }
 
 // performPostRequest sends a POST request to the specified URL with query parameters and returns the HTTP response or an error.
+// It adds authentication parameters and builds the request with the provided context.
+//
+// Parameters:
+//   - ctx: Context for timeout and cancellation
+//   - targetURL: The API endpoint URL
+//   - params: Map of query parameters to include in the request
+//
+// Returns:
+//   - *http.Response: The HTTP response from the API
+//   - error: Any error that occurred during the request
 func (c *Client) performPostRequest(ctx context.Context, targetURL *url.URL, params map[string]string) (*http.Response, error) {
-	queries := targetURL.Query()
+	// Create a copy of the URL to avoid modifying the original
+	requestURL := *targetURL
+
+	// Get query parameters and add authentication
+	queries := requestURL.Query()
 	c.addAuthParams(queries)
 
+	// Add all provided parameters to the query
 	for k, v := range params {
 		queries.Set(k, v)
 	}
 
-	targetURL.RawQuery = queries.Encode()
-	req, requestErr := http.NewRequestWithContext(ctx, http.MethodPost, targetURL.String(), nil)
-	if requestErr != nil {
-		return nil, requestErr
+	// Encode the query parameters and set them on the URL
+	requestURL.RawQuery = queries.Encode()
+
+	// Create a new HTTP request with the provided context
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
+	// Set appropriate headers
+	req.Header.Set("User-Agent", "cloudns-go-client/1.0")
+	req.Header.Set("Accept", "application/json")
+
+	// Execute the request
 	return http.DefaultClient.Do(req)
 }
 
 // addAuthParams adds authentication parameters to the provided query values based on the client's credentials.
+// It selects between auth-id and sub-auth-id based on which is provided.
+//
+// Parameters:
+//   - queries: The url.Values to add authentication parameters to
 func (c *Client) addAuthParams(queries url.Values) {
+	// CloudNS API requires either auth-id or sub-auth-id, but not both
 	if c.SubAuthId != "" {
 		queries.Set("sub-auth-id", c.SubAuthId)
 	} else {
 		queries.Set("auth-id", c.AuthId)
 	}
+
+	// Always include the auth password
 	queries.Set("auth-password", c.AuthPassword)
 }
 
 // performGetRequest sends a GET request to the specified URL with query parameters and returns the HTTP response or an error.
+// It adds authentication parameters and builds the request with the provided context.
+//
+// Parameters:
+//   - ctx: Context for timeout and cancellation
+//   - targetURL: The API endpoint URL
+//   - params: Map of query parameters to include in the request
+//
+// Returns:
+//   - *http.Response: The HTTP response from the API
+//   - error: Any error that occurred during the request
 func (c *Client) performGetRequest(ctx context.Context, targetURL *url.URL, params map[string]string) (*http.Response, error) {
-	queries := targetURL.Query()
-	c.addAuthParams(queries) // Use extracted function instead of duplicating auth logic
+	// Create a copy of the URL to avoid modifying the original
+	requestURL := *targetURL
 
+	// Get query parameters and add authentication
+	queries := requestURL.Query()
+	c.addAuthParams(queries)
+
+	// Add all provided parameters to the query
 	for k, v := range params {
 		queries.Set(k, v)
 	}
 
-	targetURL.RawQuery = queries.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL.String(), nil)
+	// Encode the query parameters and set them on the URL
+	requestURL.RawQuery = queries.Encode()
+
+	// Create a new HTTP request with the provided context
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
+
+	// Set appropriate headers
+	req.Header.Set("User-Agent", "cloudns-go-client/1.0")
+	req.Header.Set("Accept", "application/json")
+
+	// Execute the request
 	return http.DefaultClient.Do(req)
 }

@@ -2,9 +2,8 @@ package loopia
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,19 +21,41 @@ type client struct {
 	mutex sync.Mutex
 }
 
-type loopiaRecord struct {
-	ID       int64  `xmlrpc:"record_id"`
-	TTL      int    `xmlrpc:"ttl"`
-	Type     string `xmlrpc:"type"`
-	Value    string `xmlrpc:"rdata"`
-	Priority int    `xmlrpc:"priority"`
+type libdnsKey string
+
+var libdnsKeyTrace libdnsKey = "libdns.loopia.trace"
+
+func writeTrace(ctx context.Context, trace string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, libdnsKeyTrace, trace)
 }
 
-func cleanZone(zone string) string {
-	if strings.HasSuffix(zone, ".") {
-		zone = zone[:len(zone)-1]
+func getTrace(ctx context.Context) string {
+	if ctx == nil {
+		return ""
 	}
-	return zone
+	if trace, ok := ctx.Value(libdnsKeyTrace).(string); ok {
+		return trace
+	}
+	return ""
+}
+
+// addTrace concats a trace to the existing trace in context. If the context is nil, it creates a new
+func addTrace(ctx context.Context, trace string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if t := getTrace(ctx); t != "" {
+		trace = fmt.Sprintf("%s -> %s", t, trace)
+	}
+	return writeTrace(ctx, trace)
+}
+
+// cleanZone removes the trailing dot from the zone name if it exists.
+func cleanZone(zone string) string {
+	return strings.TrimSuffix(zone, ".")
 }
 
 func validZone(zone string) bool {
@@ -45,47 +66,29 @@ func validZone(zone string) bool {
 }
 
 func validRecord(r libdns.Record) bool {
-	if r.Name == "" {
+	rr := r.RR()
+
+	if rr.Name == "" {
 		return false
 	}
-	if r.Type == "" {
+	if rr.Type == "" {
 		return false
 	}
-	if r.Value == "" {
+	if rr.Data == "" {
 		return false
 	}
-	if r.TTL < 0 || r.TTL > (time.Hour*8*24) {
+	if rr.TTL < 0 || rr.TTL > (time.Hour*8*24) {
 		return false
 	}
-	if r.ID != "" {
-		_, err := strconv.ParseInt(r.ID, 10, 64)
-		if err != nil {
-			return false
-		}
-	}
+
 	return true
 }
 
-func toLoopiaRecord(r libdns.Record) loopiaRecord {
-	out := loopiaRecord{Type: r.Type, TTL: int(r.TTL / time.Second), Value: r.Value, ID: idToInt(r.ID)}
-	return out
-}
-
-func idToInt(id string) int64 {
-	idInt, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return idInt
-}
-
-func (p *Provider) getRpc() *xmlrpc.Client {
+func (p *Provider) getRPC() *xmlrpc.Client {
 	if p.rpc == nil {
 		rpc, err := xmlrpc.NewClient(apiurl, nil)
 		if err != nil {
-			Log().Errorw("error", err)
-			os.Exit(1)
-
+			panic(err)
 		}
 		p.rpc = rpc
 	}
@@ -101,74 +104,119 @@ func (p *Provider) call(serviceMethod string, args []interface{}, reply interfac
 		params = append(params, p.Customer)
 	}
 	params = append(params, args...)
-	return p.getRpc().Call(
+	err := p.getRPC().Call(
 		serviceMethod,
 		params,
 		reply,
 	)
+	if p.logging {
+		Log().Debugw("called rpc", "method", serviceMethod, "params", args, "error", err)
+	}
+	return err
+}
+
+func (p *Provider) getLoopiaRecords(ctx context.Context, zone, name string, records *[]loopiaRecord) error {
+	if !validZone(zone) {
+		return fmt.Errorf("invalid zone '%s'", zone)
+	}
+	if name == "" {
+		return fmt.Errorf("invalide name '%s'", name)
+	}
+	if p.logging {
+		Log().Debugw("getLoopiaRecords", "zone", zone, "name", name, "trace", getTrace(ctx))
+	}
+	names := []string{}
+	err := p.call("getSubdomains", params(cleanZone(zone)), &names)
+	if err != nil {
+		return fmt.Errorf("unexpected error getting subdomains: %w", err)
+	}
+	if len(names) == 0 {
+		if p.logging {
+			Log().Debugw("no subdomains found", "zone", zone, "name", name, "trace", getTrace(ctx))
+		}
+		return nil
+	}
+
+	// records := []loopiaRecord{}
+	if p.logging {
+		Log().Debugw("getLoopiaRecords", "zone", zone, "name", name, "trace", getTrace(ctx))
+	}
+	err = p.call("getZoneRecords", params(zone, name), records)
+	if err != nil {
+		if p.logging {
+			Log().Errorw("error calling getZoneRecords", "err", err, "zone", zone, "name", name, "trace", getTrace(ctx))
+		}
+		return fmt.Errorf("error calling getZoneRecords: %w", err)
+	}
+	return nil
 }
 
 func (p *Provider) getRecords(ctx context.Context, zone, name string) ([]libdns.Record, error) {
-	if !validZone(zone) {
-		return nil, fmt.Errorf("invalid zone '%s'", zone)
-	}
-	if name == "" {
-		return nil, fmt.Errorf("invalide name '%s'", name)
+	if p.logging {
+		Log().Debugw("getRecords", "zone", zone, "name", name)
+		ctx = addTrace(ctx, "getRecords")
 	}
 	records := []loopiaRecord{}
-	Log().Debugw("getRecords", "zone", zone, "name", name)
-	err := p.call("getZoneRecords", params(zone, name), &records)
-	if err != nil {
-		return nil, fmt.Errorf("unexpected error getting zone records: %w", err)
+	if err := p.getLoopiaRecords(ctx, zone, name, &records); err != nil {
+		return nil, err
 	}
+
 	result := []libdns.Record{}
 	for _, r := range records {
-		result = append(result, libdns.Record{
-			ID:    strconv.FormatInt(r.ID, 10),
-			Type:  r.Type,
-			Name:  name,
-			Value: r.Value,
-			TTL:   time.Duration(r.TTL * int(time.Second)),
-		})
+		rr, err := r.libdnsRecord(name)
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error converting record: %w", err)
+		}
+		result = append(result, rr)
 	}
-	Log().Debugw("end-getRecords", "zone", zone, "name", name, "count", len(result), "err", err)
 	return result, nil
 }
 
-func (p *Provider) addRecord(ctx context.Context, zone string, record libdns.Record, withSubdomain bool) (*libdns.Record, error) {
-	Log().Debugw("addRecord",
-		"zone", zone,
-		"record", record,
-		"withSubdomain", withSubdomain,
-	)
+func (p *Provider) addRecord(ctx context.Context, zone string, record libdns.Record, withSubdomain bool) (out libdns.Record, id int64, err error) {
+	if p.logging {
+		Log().Debugw("addRecord",
+			"zone", zone,
+			"record", record,
+			"withSubdomain", withSubdomain,
+		)
+		ctx = addTrace(ctx, "addRecord")
+	}
+	name := record.RR().Name
+	loopiaToAdd, err := toLoopiaRecord(record, 0)
+	if err != nil {
+		return nil, 0, fmt.Errorf("unexpected error converting record: %w", err)
+	}
 	if withSubdomain {
 		var response string
-		err := p.call("addSubdomain", params(zone, record.Name), &response)
+		err := p.call("addSubdomain", params(zone, name), &response)
 		if err != nil {
-			return nil, fmt.Errorf("unexpected error adding subdomain: %w", err)
+			return nil, 0, fmt.Errorf("unexpected error adding subdomain: %w", err)
 		}
 	}
-	new := &loopiaRecord{Type: record.Type, TTL: int(record.TTL / time.Second), Value: record.Value}
+
 	var result string
-	if err := p.call("addZoneRecord", params(zone, record.Name, new), &result); err != nil || result != "OK" {
-		return nil, fmt.Errorf("unexpected error adding zone record: %w", err)
+	if err := p.call("addZoneRecord", params(zone, name, loopiaToAdd), &result); err != nil || result != "OK" {
+		return nil, 0, fmt.Errorf("unexpected error adding zone record: %w", err)
 	}
-	Log().Debugw("getting records to fetch ID", "zone", zone, "name", record.Name)
-	records, err := p.getRecords(ctx, zone, record.Name)
-	if err != nil {
-		return nil, err
+	if p.logging {
+		Log().Debugw("getting records to fetch ID", "zone", zone, "name", name)
 	}
+	records := []loopiaRecord{}
+	if err := p.getLoopiaRecords(ctx, zone, name, &records); err != nil {
+		return nil, 0, fmt.Errorf("unexpected error getting zone records after add: %w", err)
+	}
+
 	for _, r := range records {
-		id := r.ID
-		r.ID = record.ID
-		Log().Debugw("comparing", "a", r, "b", record)
-		if r == record {
-			// match
-			r.ID = id
-			return &r, nil
+		out, err = r.libdnsRecord(name)
+		if err != nil {
+			return nil, 0, fmt.Errorf("unexpected error converting record: %w", err)
 		}
+		if libdnsRecordEqual(record, out) {
+			return out, r.ID, nil
+		}
+
 	}
-	return nil, fmt.Errorf("unable to retreive new record to get it's ID")
+	return nil, 0, fmt.Errorf("unable to retreive new record to get it's ID")
 }
 
 func params(args ...interface{}) []interface{} {
@@ -176,6 +224,9 @@ func params(args ...interface{}) []interface{} {
 }
 
 func (p *Provider) getZoneRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
+	if p.logging {
+		Log().Debugw("getZoneRecords", "zone", zone)
+	}
 	if !validZone(zone) {
 		return nil, fmt.Errorf("invalide zone '%s'", zone)
 	}
@@ -203,10 +254,13 @@ myloop:
 }
 
 func (p *Provider) addDNSEntries(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	Log().Debugw("addDNSEntries",
-		"zone", zone,
-		"records", records,
-	)
+	if p.logging {
+		Log().Debugw("addDNSEntries",
+			"zone", zone,
+			"records", len(records),
+		)
+		ctx = addTrace(ctx, "addDNSEntries")
+	}
 	if !validZone(zone) {
 		return nil, fmt.Errorf("invalide zone '%s'", zone)
 	}
@@ -220,145 +274,214 @@ func (p *Provider) addDNSEntries(ctx context.Context, zone string, records []lib
 	}
 	zone = cleanZone(zone)
 	result := []libdns.Record{}
-	cache := make(map[string][]libdns.Record)
+	cache := make(map[string][]loopiaRecord)
 	subsCreated := make(map[string]bool)
 OUTER:
 	for _, new := range records {
+		rrNew := new.RR()
 		select {
 		case <-ctx.Done():
 			break OUTER
 		default:
-			if cache[new.Name] == nil {
-				existingRecords, err := p.getRecords(ctx, zone, new.Name)
+			if cache[rrNew.Name] == nil {
+				existingRecords := []loopiaRecord{}
+				err := p.getLoopiaRecords(ctx, zone, rrNew.Name, &existingRecords)
 				if err != nil {
 					return result, err
 				}
-				cache[new.Name] = existingRecords
+				cache[rrNew.Name] = existingRecords
+				if p.logging {
+					Log().Debugw("cached record", "zone", zone, "name", rrNew.Name, "count", len(existingRecords))
+				}
 			}
 			withSubdomain := false
-			if len(cache[new.Name]) == 0 && !subsCreated[new.Name] {
+			if len(cache[rrNew.Name]) == 0 && !subsCreated[rrNew.Name] {
 				withSubdomain = true
 			}
-			for _, existing := range cache[new.Name] {
-				id := existing.ID
-				existing.ID = ""
-				if existing == new {
-					Log().Debugw("identical record exists, skipping",
-						"record", new,
-						"id", id)
-					existing.ID = id
-					result = append(result, existing)
+			for _, existing := range cache[rrNew.Name] {
+				if libdnsEqualLoopia(new, existing) {
+					if p.logging {
+						Log().Debugw("identical record exists, skipping",
+							"record", new,
+							"id", existing.ID)
+					}
+					result = append(result, existing.mustLibdnsRecord(rrNew.Name))
 					continue OUTER
 				}
-				existing.ID = id
 			}
 			if withSubdomain {
-				subsCreated[new.Name] = true
+				subsCreated[rrNew.Name] = true
 			}
-			cn, err := p.addRecord(ctx, zone, new, withSubdomain)
+
+			cn, _, err := p.addRecord(ctx, zone, new, withSubdomain)
 			if err != nil {
 				return result, err
 			}
-			Log().Debugw("added record returned", "record", cn)
-			result = append(result, *cn)
+			result = append(result, cn)
 		}
 	}
-	Log().Debug("done with addDNSEntries")
 	return result, nil
 }
 
-func (p *Provider) setDNSEntries(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+// setRecords ensures that for any (name, type) pair in the input is the only
+// records in the output zone with that (name, type) pair are those that were
+// provided in the input.
+func (p *Provider) setRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	ctx = addTrace(ctx, "setRecords")
+	for _, r := range records {
+		n, z := loopify(r.RR().Name, zone)
+		existing := []loopiaRecord{}
+		err := p.getLoopiaRecords(ctx, z, n, &existing)
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error getting zone records: %w", err)
+		}
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (p *Provider) updateZoneRecord(ctx context.Context, zone string, record libdns.Record, id int64) (*loopiaRecord, error) {
+	if !validZone(zone) {
+		return nil, fmt.Errorf("invalide zone '%s'", zone)
+	}
+	if id == 0 {
+		return nil, fmt.Errorf("invalid ID")
+	}
+
+	zone = cleanZone(zone)
+	updated := mustToLoopiaRecord(record, id)
+
+	var response string
+	n, z := loopify(record.RR().Name, zone)
+	err := p.call("updateZoneRecord", params(z, n, updated), &response)
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error updating zone record: %w", err)
+	}
+	if response != "OK" {
+		return nil, fmt.Errorf("unexpected error updating zone record: %s", response)
+	}
+
+	return &updated, nil
+}
+
+func (p *Provider) deleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	if p.logging {
+		Log().Debugw("deleteRecords", "zone", zone, "records", len(records), "trace", getTrace(ctx))
+	}
 	if !validZone(zone) {
 		return nil, fmt.Errorf("invalide zone '%s'", zone)
 	}
 	if len(records) == 0 {
 		return nil, fmt.Errorf("records is nil or empty")
 	}
-	for i, r := range records {
-		if !validRecord(r) {
-			return nil, fmt.Errorf("record %d is invalid", i)
-		}
-		if idToInt(r.ID) < 1 {
-			return nil, fmt.Errorf("record %d has invalid ID", i)
-		}
-	}
 	zone = cleanZone(zone)
-	result := []libdns.Record{}
-myloop:
-	for _, r := range records {
-		select {
-		case <-ctx.Done():
-			break myloop
-		default:
-			updated := toLoopiaRecord(r)
-			var response string
-			err := p.call("updateZoneRecord", params(zone, r.Name, updated), &response)
-			if err != nil {
-				return result, fmt.Errorf("unexpected error updating zone record: %w", err)
-			}
-			result = append(result, r)
-		}
+	ctx = addTrace(ctx, "deleteRecords")
+	type args struct {
+		zone   string
+		name   string
+		record loopiaRecord
 	}
-
-	return result, nil
-}
-
-func (p *Provider) removeDNSEntries(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	if !validZone(zone) {
-		return nil, fmt.Errorf("invalide zone '%s'", zone)
-	}
-	if len(records) == 0 {
-		return nil, fmt.Errorf("records is nil or empty")
-	}
+	toDelete := []args{}
 	for i, r := range records {
-		if idToInt(r.ID) < 1 {
-			return nil, fmt.Errorf("record %d has invalid ID", i)
-		}
-		if r.Name == "" {
-			return nil, fmt.Errorf("record %d has invalid name", i)
-		}
-	}
-	zone = cleanZone(zone)
-	result := []libdns.Record{}
-firstloop:
-	for _, r := range records {
-		select {
-		case <-ctx.Done():
-			break firstloop
-		default:
-			// logger.Debug().Object("record", myRecord{&r}).Msg("Removing")
-			var response string
-			err := p.call("removeZoneRecord", params(zone, r.Name, idToInt(r.ID)), &response)
-			if err != nil {
-				return result, fmt.Errorf("unexpected error removing zone record: %w", err)
+		n, z := loopify(r.RR().Name, zone)
+		ctx2 := addTrace(ctx, fmt.Sprintf("toDelete[%d]", i))
+		existing, err := p.getMatchingRecordsByName(ctx2, z, n)
+		if err != nil {
+			if p.logging {
+				Log().Warnw("unexpected error getting remaining records", "err", err, "zone", z, "name", n, "trace", getTrace(ctx2))
 			}
-			result = append(result, r)
+			return nil, fmt.Errorf("unexpected error deleting records: %w", err)
 		}
-	}
-	names := make(map[string]bool)
-secondloop:
-	for _, r := range result {
-		select {
-		case <-ctx.Done():
-			break secondloop
-		default:
-			if !names[r.Name] {
-				names[r.Name] = true
-				res, err := p.getRecords(ctx, zone, r.Name)
-				if err != nil {
-					Log().Warnw("unexpected error getting zone records", "err", err)
+		rr := r.RR()
+		if len(existing) > 0 {
+			for _, er := range existing {
+				erl := er.mustLibdnsRecord(rr.Name).RR()
+
+				if rr.Type != "" && rr.Type != erl.Type {
 					continue
 				}
-				if len(res) == 0 {
-					var response string
-					err := p.call("removeSubdomain", params(zone, r.Name), &response)
-					if err != nil {
-						Log().Warnw("unexpected error deleting subdomain", "err", err, "response", response)
-					}
+				if rr.Data != "" && rr.Data != erl.Data {
+					continue
 				}
+				if rr.TTL != 0 && rr.TTL != erl.TTL {
+					continue
+				}
+
+				toDelete = append(toDelete, args{
+					zone:   z,
+					name:   n,
+					record: er,
+				})
 			}
 		}
 	}
-	p.getZoneRecords(ctx, zone)
+	result := []libdns.Record{}
+	for _, arg := range toDelete {
+		err := p.removeDNSEntry(ctx, arg.zone, arg.name, arg.record.ID)
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error removing zone record: %w", err)
+		}
+		result = append(result, arg.record.mustLibdnsRecord(arg.name))
+	}
+
 	return result, nil
+}
+
+// getMatchingRecordsByName will NOT loopify the name
+func (p *Provider) getMatchingRecordsByName(ctx context.Context, zone, name string) ([]loopiaRecord, error) {
+	if !validZone(zone) {
+		return nil, fmt.Errorf("invalide zone '%s'", zone)
+	}
+	if name == "" {
+		return nil, fmt.Errorf("invalid name '%s'", name)
+	}
+	ctx = addTrace(ctx, "getMatchingRecordsByName")
+	records := []loopiaRecord{}
+	err := p.getLoopiaRecords(ctx, zone, name, &records)
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error getting zone records: %w", err)
+	}
+	return records, nil
+}
+
+func (p *Provider) removeDNSEntry(ctx context.Context, zone, name string, id int64) error {
+	if p.logging {
+		Log().Debugw("removeDNSEntry", "zone", zone, "name", name, "id", id)
+	}
+	if !validZone(zone) {
+		return fmt.Errorf("invalide zone '%s'", zone)
+	}
+	if id == 0 {
+		return fmt.Errorf("invalid ID")
+	}
+	ctx = addTrace(ctx, "removeDNSEntry")
+	zone = cleanZone(zone)
+	var response string
+	err := p.call("removeZoneRecord", params(zone, name, id), &response)
+	if err != nil {
+		return fmt.Errorf("unexpected error removing zone record: %w", err)
+	}
+	if response != "OK" {
+		return fmt.Errorf("unexpected error removing zone record: %s", response)
+	}
+	records, err := p.getMatchingRecordsByName(ctx, zone, name)
+	if err != nil {
+		if p.logging {
+			Log().Warnw("unexpected error removing zone record", "err", err, "zone", zone, "name", name, "trace", getTrace(ctx))
+		}
+		return fmt.Errorf("unexpected error removing zone record: %w", err)
+	}
+	if len(records) == 0 {
+		// remove the subdomain if no records left
+		var response string
+		if p.logging {
+			Log().Debugw("removing subdomain", "zone", zone, "name", name, "trace", getTrace(ctx))
+		}
+		err := p.call("removeSubdomain", params(zone, name), &response)
+		if err != nil {
+			if p.logging {
+				Log().Warnw("unexpected error deleting subdomain", "err", err, "response", response, "trace", getTrace(ctx))
+			}
+		}
+	}
+	return nil
 }

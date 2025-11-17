@@ -50,7 +50,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		return nil, err
 	}
 
-	return toLibdnsRecords(recordSet.DnsRecords, dnsZone.TTL), nil
+	return toLibdnsRecords(recordSet.DnsRecords, dnsZone.TTL)
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
@@ -99,7 +99,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	// the netcup API always returns all records, so the ones before the update have to be compared to the ones after to return only the appended records
 	appendedRecords := difference(updatedRecordSet.DnsRecords, existingRecordSet.DnsRecords)
 
-	return toLibdnsRecords(appendedRecords, dnsZone.TTL), nil
+	return toLibdnsRecords(appendedRecords, dnsZone.TTL)
 }
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
@@ -150,7 +150,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	// the netcup API always returns all records, so the ones before the update have to be compared to the ones after to return only the updated records
 	updatedRecords := difference(updatedRecordSet.DnsRecords, existingRecordSet.DnsRecords)
 
-	return toLibdnsRecords(updatedRecords, dnsZone.TTL), nil
+	return toLibdnsRecords(updatedRecords, dnsZone.TTL)
 }
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
@@ -198,7 +198,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	// the netcup API always returns all records, so the ones before the deletion have to be compared to the ones after to return only the deleted records
 	deletedRecords := difference(existingRecordSet.DnsRecords, updatedRecordSet.DnsRecords)
 
-	return toLibdnsRecords(deletedRecords, dnsZone.TTL), nil
+	return toLibdnsRecords(deletedRecords, dnsZone.TTL)
 }
 
 // Interface guards

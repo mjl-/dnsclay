@@ -13,31 +13,43 @@ provider := luadns.Provider{
 	APIKey: key,
 }
 
+// List account zones.
+zones, err := provider.ListZones(ctx)
+
+
 // List zone records.
 records, err := provider.GetRecords(ctx, zone)
-if err != nil {
-	log.Fatalln(err)
-}
 
-// Set zone records.
-records, err = provider.SetRecords(ctx, zone, records)
-if err != nil {
-	log.Fatalln(err)
-}
 
-// Append new records.
-records, err = provider.AppendRecords(ctx, zone, []libdns.Record{
-	libdns.Record{Name: "_acme-challenge", Type: "TXT", Value: "Hello, world!", TTL: 3600 * time.Second},
+// Create new records.
+records, err := provider.AppendRecords(ctx, zone, []libdns.Record{
+	libdns.RR{
+		Name: "foo",
+		Type: "TXT",
+		Data: "foo",
+		TTL:  3600 * time.Second,
+	},
 })
-if err != nil {
-	log.Fatalln(err)
-}
 
-// Delete a list of records.
-_, err = provider.DeleteRecords(ctx, zone, records)
-if err != nil {
-	log.Fatalln(err)
-}
+
+// Set zone records for input (name, type) pairs with supplied records.
+records, err := provider.SetRecords(ctx, zone, []libdns.Record{
+	libdns.RR{
+		Name: "foo",
+		Type: "TXT",
+		Data: "bar",
+		TTL:  3600 * time.Second,
+	},
+})
+
+
+// Delete records when matching supplied name, type, data and TTL.
+records, err := provider.DeleteRecords(ctx, zone, []libdns.Record{
+	libdns.RR{
+		Name: "foo",
+		Type: "TXT",
+	},
+})
 ```
 
 For a complete example see [_examples/main.go](_examples/main.go).

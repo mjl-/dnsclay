@@ -2,171 +2,219 @@ package ovh
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/libdns/libdns"
 	"github.com/ovh/go-ovh/ovh"
 )
 
-// Client is an abstraction of OvhClient
 type Client struct {
-	ovhClient *ovh.Client
-	mutex     sync.Mutex
+	ovh   *ovh.Client
+	mutex sync.Mutex
 }
 
-// Ovh zone record implementation
-type OvhDomainZoneRecord struct {
-	ID        int64  `json:"id,omitempty"`
-	Zone      string `json:"zone,omitempty"`
-	SubDomain string `json:"subDomain"`
-	FieldType string `json:"fieldType,omitempty"`
-	Target    string `json:"target"`
-	TTL       int64  `json:"ttl"`
-}
-
-// Ovh zone soa implementation
-type OvhDomainZoneSOA struct {
-	Server      string `json:"server"`
-	Email       string `json:"email"`
-	Serial      int64  `json:"serial"`
-	Refresh     int64  `json:"refresh"`
-	NxDomainTTL int64  `json:"nxDomainTtl"`
-	Expire      int64  `json:"expire"`
-	TTL         int64  `json:"ttl"`
-}
-
-// setupClient invokes authentication and store client to the provider instance.
 func (p *Provider) setupClient() error {
-	if p.client.ovhClient == nil {
+	if p.client.ovh == nil {
 		client, err := ovh.NewClient(p.Endpoint, p.ApplicationKey, p.ApplicationSecret, p.ConsumerKey)
-
 		if err != nil {
 			return err
 		}
 
-		p.client.ovhClient = client
+		p.client.ovh = client
 	}
 
 	return nil
 }
 
-// getRecords gets all records in specified zone on Ovh DNS.
-// TTL as 0 for any record correspond to the default TTL for the zone
 func (p *Provider) getRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	p.client.mutex.Lock()
-	defer p.client.mutex.Unlock()
-
-	if err := p.setupClient(); err != nil {
-		return nil, err
-	}
-
-	var dzSOA OvhDomainZoneSOA
-	if err := p.client.ovhClient.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/soa", zone), &dzSOA); err != nil {
-		return nil, err
-	}
-
-	var idRecords []int64
-	if err := p.client.ovhClient.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record", zone), &idRecords); err != nil {
+	ids, err := p.getAllRecordsIDs(ctx, zone)
+	if err != nil {
 		return nil, err
 	}
 
 	var records []libdns.Record
-	for _, idr := range idRecords {
-		var dzr OvhDomainZoneRecord
-		if err := p.client.ovhClient.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%d", zone, idr), &dzr); err != nil {
+	for _, id := range ids {
+		rec, err := p.getRecordByID(ctx, zone, id)
+		if err != nil {
 			return nil, err
 		}
 
-		if dzr.TTL == 0 {
-			dzr.TTL = dzSOA.TTL
-		}
-
-		record := libdns.Record{
-			ID:    strconv.FormatInt(dzr.ID, 10),
-			Type:  dzr.FieldType,
-			Name:  dzr.SubDomain,
-			Value: strings.TrimRight(strings.TrimLeft(dzr.Target, "\""), "\""),
-			TTL:   time.Duration(dzr.TTL) * time.Second,
-		}
-		records = append(records, record)
+		records = append(records, rec)
 	}
 
 	return records, nil
 }
 
-// createRecord creates a new record in the specified zone.
-func (p *Provider) createRecord(ctx context.Context, zone string, record libdns.Record) (libdns.Record, error) {
+func (p *Provider) getAllRecordsIDs(ctx context.Context, zone string) ([]int64, error) {
 	p.client.mutex.Lock()
 	defer p.client.mutex.Unlock()
 
 	if err := p.setupClient(); err != nil {
-		return libdns.Record{}, err
+		return nil, err
 	}
 
-	var nzr OvhDomainZoneRecord
-	if err := p.client.ovhClient.PostWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record", zone), &OvhDomainZoneRecord{FieldType: record.Type, SubDomain: normalizeRecordName(record.Name, zone), Target: record.Value, TTL: int64(record.TTL.Seconds())}, &nzr); err != nil {
-		return libdns.Record{}, err
+	var ids []int64
+	if err := p.client.ovh.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record", zone), &ids); err != nil {
+		return nil, err
 	}
 
-	createdRecord := libdns.Record{
-		ID:    strconv.FormatInt(nzr.ID, 10),
-		Type:  nzr.FieldType,
-		Name:  nzr.SubDomain,
-		Value: strings.TrimRight(strings.TrimLeft(nzr.Target, "\""), "\""),
-		TTL:   time.Duration(nzr.TTL) * time.Second,
-	}
-
-	return createdRecord, nil
+	return ids, nil
 }
 
-// createOrUpdateRecord creates or updates a record, either by updating existing record or creating new one.
-func (p *Provider) createOrUpdateRecord(ctx context.Context, zone string, record libdns.Record) (libdns.Record, error) {
-	if len(record.ID) == 0 {
-		// lookup for existing records
-		// if we find one, update it
-		// if we find multiple, delete them and recreate the final one
-		existingIDs, err := p.lookupRecordIDs(ctx, zone, record.Type, normalizeRecordName(record.Name, zone))
-		if err != nil {
-			return libdns.Record{}, err
-		}
-		if len(existingIDs) == 1 {
-			record.ID = strconv.FormatInt(existingIDs[0], 10)
-			return p.updateRecord(ctx, zone, record)
-		} else if len(existingIDs) > 1 {
-			for _, eid := range existingIDs {
-				if err := p.deleteRecordID(ctx, zone, strconv.FormatInt(eid, 10)); err != nil {
-					return libdns.Record{}, err
+func (p *Provider) getRecordByID(ctx context.Context, zone string, id int64) (libdns.Record, error) {
+	p.client.mutex.Lock()
+	defer p.client.mutex.Unlock()
+
+	if err := p.setupClient(); err != nil {
+		return nil, err
+	}
+
+	var ovhRec ovhRecord
+	if err := p.client.ovh.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%d", zone, id), &ovhRec); err != nil {
+		return nil, err
+	}
+
+	return ovhRec.libdnsRecord()
+}
+
+func (p *Provider) addRecord(ctx context.Context, zone string, record libdns.Record) (libdns.Record, int64, error) {
+	p.client.mutex.Lock()
+	defer p.client.mutex.Unlock()
+
+	if err := p.setupClient(); err != nil {
+		return nil, 0, err
+	}
+
+	ovhRec, err := toOvhRecord(record)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if ovhRec.FieldType == "" {
+		return nil, 0, fmt.Errorf("type of record not specified")
+	}
+
+	var ovhRecAdded ovhRecord
+	if err := p.client.ovh.PostWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record", zone), ovhRec, &ovhRecAdded); err != nil {
+		return nil, 0, err
+	}
+
+	lrec, err := ovhRecAdded.libdnsRecord()
+	return lrec, ovhRecAdded.ID, err
+}
+
+func (p *Provider) setRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	added := []libdns.Record{}
+	recList := map[string][]libdns.Record{}
+
+	var addedIds []int64
+	var addErr error
+	var toDeleteIds []int64
+
+	for _, rec := range records {
+		mRec := rec.RR()
+		pair := fmt.Sprintf("%s/%s", mRec.Name, mRec.Type)
+
+		if _, ok := recList[pair]; !ok {
+			mRec.Data = ""
+			founded, err := p.findRecords(ctx, zone, mRec)
+			if err != nil {
+				return nil, err
+			}
+
+			recList[pair] = []libdns.Record{}
+
+			for idf, recf := range founded {
+				exists := false
+				for _, recs := range records {
+					if libdnsRecordEqual(recf, recs) {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					toDeleteIds = append(toDeleteIds, idf)
+				} else {
+					recList[pair] = append(recList[pair], recf)
 				}
 			}
 		}
 
-		return p.createRecord(ctx, zone, record)
+		exists := false
+		for _, recs := range recList[pair] {
+			if libdnsRecordEqual(rec, recs) {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			reca, idr, err := p.addRecord(ctx, zone, rec)
+			if err != nil {
+				addErr = err
+				break
+			}
+			addedIds = append(addedIds, idr)
+			added = append(added, reca)
+		}
+
 	}
 
-	return p.updateRecord(ctx, zone, record)
+	if addErr != nil {
+		var rollbackErrs []error
+		for _, ida := range addedIds {
+			if err := p.deleteRecordByID(ctx, zone, ida); err != nil {
+				rollbackErrs = append(rollbackErrs, err)
+			}
+		}
+
+		if len(rollbackErrs) > 0 {
+			return nil, fmt.Errorf(
+				"set records failed: %v; rollback failed with %d errors (possible inconsistent state on the zone): %w",
+				addErr, len(rollbackErrs), errors.Join(rollbackErrs...),
+			)
+		}
+
+		return nil, libdns.AtomicErr(fmt.Errorf("atomic error: %w", addErr))
+	}
+
+	var deleteErrs []error
+	for _, did := range toDeleteIds {
+		if err := p.deleteRecordByID(ctx, zone, did); err != nil {
+			deleteErrs = append(deleteErrs, err)
+		}
+	}
+
+	if len(deleteErrs) > 0 {
+		return nil, fmt.Errorf(
+			"set records failed during cleanup with %d errors (possible inconsistent state on the zone): %w",
+			len(deleteErrs), errors.Join(deleteErrs...),
+		)
+	}
+
+	return added, nil
 }
 
-func (p *Provider) lookupRecordIDs(ctx context.Context, zone string, recordType string, recordName string) ([]int64, error) {
-	p.client.mutex.Lock()
-	defer p.client.mutex.Unlock()
-
-	if err := p.setupClient(); err != nil {
+func (p *Provider) deleteRecords(ctx context.Context, zone string, record libdns.Record) ([]libdns.Record, error) {
+	founded, err := p.findRecords(ctx, zone, record)
+	if err != nil {
 		return nil, err
 	}
 
-	var res []int64
-	if err := p.client.ovhClient.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record?fieldType=%s&subDomain=%s", zone, recordType, recordName), &res); err != nil {
-		return nil, err
+	deleted := []libdns.Record{}
+	for id, rec := range founded {
+		if err := p.deleteRecordByID(ctx, zone, id); err != nil {
+			return nil, err
+		}
+		deleted = append(deleted, rec)
 	}
 
-	return res, nil
+	return deleted, nil
 }
 
-func (p *Provider) deleteRecordID(ctx context.Context, zone string, recordID string) error {
+func (p *Provider) deleteRecordByID(ctx context.Context, zone string, id int64) error {
 	p.client.mutex.Lock()
 	defer p.client.mutex.Unlock()
 
@@ -174,59 +222,49 @@ func (p *Provider) deleteRecordID(ctx context.Context, zone string, recordID str
 		return err
 	}
 
-	return p.client.ovhClient.DeleteWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%s", zone, recordID), nil)
+	return p.client.ovh.DeleteWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%d", zone, id), nil)
 }
 
-// updateRecord updates a record
-func (p *Provider) updateRecord(ctx context.Context, zone string, record libdns.Record) (libdns.Record, error) {
+func (p *Provider) findRecords(ctx context.Context, zone string, record libdns.Record) (map[int64]libdns.Record, error) {
 	p.client.mutex.Lock()
 	defer p.client.mutex.Unlock()
 
 	if err := p.setupClient(); err != nil {
-		return libdns.Record{}, err
+		return nil, err
 	}
 
-	var nzr OvhDomainZoneRecord
-	if err := p.client.ovhClient.PutWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%s", zone, record.ID), &OvhDomainZoneRecord{SubDomain: record.Name, Target: record.Value, TTL: int64(record.TTL.Seconds())}, &nzr); err != nil {
-		return libdns.Record{}, err
+	ovhMatchRec, err := toOvhRecord(record)
+	if err != nil {
+		return nil, err
 	}
 
-	var uzr OvhDomainZoneRecord
-	if err := p.client.ovhClient.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%s", zone, record.ID), &uzr); err != nil {
-		return libdns.Record{}, err
+	founded := map[int64]libdns.Record{}
+
+	var ids []int64
+	if err := p.client.ovh.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record?fieldType=%s&subDomain=%s", zone, ovhMatchRec.FieldType, ovhMatchRec.SubDomain), &ids); err != nil {
+		return nil, err
 	}
 
-	updatedRecord := libdns.Record{
-		ID:    strconv.FormatInt(uzr.ID, 10),
-		Type:  uzr.FieldType,
-		Name:  uzr.SubDomain,
-		Value: strings.TrimRight(strings.TrimLeft(uzr.Target, "\""), "\""),
-		TTL:   time.Duration(uzr.TTL) * time.Second,
+	for _, id := range ids {
+		var ovhCurrentRec ovhRecord
+		if err := p.client.ovh.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%d", zone, id), &ovhCurrentRec); err != nil {
+			return nil, err
+		}
+
+		currentRec, err := ovhCurrentRec.libdnsRecord()
+		if err != nil {
+			return nil, err
+		}
+
+		if libdnsRecordMatch(record, currentRec) {
+			founded[ovhCurrentRec.ID] = currentRec
+		}
 	}
 
-	return updatedRecord, nil
+	return founded, nil
 }
 
-// deleteRecord deletes an existing record.
-// Regardless of the value of the record, if the name and type match, the record will be deleted.
-func (p *Provider) deleteRecord(ctx context.Context, zone string, record libdns.Record) (libdns.Record, error) {
-	p.client.mutex.Lock()
-	defer p.client.mutex.Unlock()
-
-	if err := p.setupClient(); err != nil {
-		return libdns.Record{}, err
-	}
-
-	if err := p.client.ovhClient.DeleteWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%s", zone, record.ID), nil); err != nil {
-		return libdns.Record{}, err
-	}
-
-	return record, nil
-}
-
-// refresh trigger a reload of the DNS zone.
-// It must be called after appending, setting or deleting any record
-func (p *Provider) refresh(ctx context.Context, zone string) error {
+func (p *Provider) refreshZone(ctx context.Context, zone string) error {
 	p.client.mutex.Lock()
 	defer p.client.mutex.Unlock()
 
@@ -234,21 +272,13 @@ func (p *Provider) refresh(ctx context.Context, zone string) error {
 		return err
 	}
 
-	if err := p.client.ovhClient.PostWithContext(ctx, fmt.Sprintf("/domain/zone/%s/refresh", zone), nil, nil); err != nil {
+	if err := p.client.ovh.PostWithContext(ctx, fmt.Sprintf("/domain/zone/%s/refresh", zone), nil, nil); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// unFQDN trims any trailing "." from fqdn. OVH's API does not use FQDNs.
 func unFQDN(fqdn string) string {
 	return strings.TrimSuffix(fqdn, ".")
-}
-
-// normalizeRecordName remove absolute record name
-func normalizeRecordName(recordName string, zone string) string {
-	normalized := unFQDN(recordName)
-	normalized = strings.TrimSuffix(normalized, unFQDN(zone))
-	return unFQDN(normalized)
 }

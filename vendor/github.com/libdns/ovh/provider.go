@@ -6,7 +6,7 @@ import (
 	"github.com/libdns/libdns"
 )
 
-// Provider facilitates DNS record manipulation with OVH.
+// Provider implements the libdns interfaces for OVH.
 type Provider struct {
 	Endpoint          string `json:"endpoint,omitempty"`
 	ApplicationKey    string `json:"application_key,omitempty"`
@@ -27,66 +27,80 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 // AppendRecords adds records to the zone. It returns the records that were added.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	var createdRecords []libdns.Record
+	var appended []libdns.Record
 
+	zone = unFQDN(zone)
 	for _, record := range records {
-		createdRecord, err := p.createRecord(ctx, unFQDN(zone), record)
+		rec, _, err := p.addRecord(ctx, zone, record)
 		if err != nil {
 			return nil, err
 		}
-		createdRecords = append(createdRecords, createdRecord)
+		appended = append(appended, rec)
 	}
 
-	if len(createdRecords) > 0 {
-		if err := p.refresh(ctx, unFQDN(zone)); err != nil {
+	if len(appended) > 0 {
+		if err := p.refreshZone(ctx, zone); err != nil {
 			return nil, err
 		}
 	}
 
-	return createdRecords, nil
+	return appended, nil
 }
 
-// SetRecords sets the records in the zone, either by updating existing records or creating new ones.
-// It returns the updated records.
+// SetRecords sets the records in the zone by updating existing records or creating new ones.
+// It returns the records that were added during the operation.
+//
+// Since OVH does not support batch operations, this implementation attempts to simulate atomic behavior.
+// If any record creation fails, the function attempts to roll back by deleting all records
+// that were successfully added during the operation.
+//
+// If the rollback succeeds, an [AtomicErr] is returned to indicate that the zone remains in a consistent state.
+// If the rollback itself fails (e.g., some added records could not be deleted), a non-atomic error is returned,
+// and the zone may be left in an inconsistent state.
+//
+// Similarly, after all record creations have succeeded, any obsolete records are deleted to match the desired state.
+// If these deletions fail, a non-atomic error is returned to indicate partial success,
+// and the caller should assume the zone may be inconsistent.
+//
+// This implementation ensures that a nil error is returned **only if** all intended changes
+// (additions and deletions) were successfully applied.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	var updatedRecords []libdns.Record
+	zone = unFQDN(zone)
 
-	for _, record := range records {
-		updatedRecord, err := p.createOrUpdateRecord(ctx, unFQDN(zone), record)
-		if err != nil {
-			return nil, err
-		}
-		updatedRecords = append(updatedRecords, updatedRecord)
+	added, err := p.setRecords(ctx, zone, records)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(updatedRecords) > 0 {
-		if err := p.refresh(ctx, unFQDN(zone)); err != nil {
+	if len(added) > 0 {
+		if err := p.refreshZone(ctx, zone); err != nil {
 			return nil, err
 		}
 	}
 
-	return updatedRecords, nil
+	return added, nil
 }
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	var deletedRecords []libdns.Record
+	var deleted []libdns.Record
 
+	zone = unFQDN(zone)
 	for _, record := range records {
-		deletedRecord, err := p.deleteRecord(ctx, unFQDN(zone), record)
+		recs, err := p.deleteRecords(ctx, zone, record)
 		if err != nil {
 			return nil, err
 		}
-		deletedRecords = append(deletedRecords, deletedRecord)
+		deleted = append(deleted, recs...)
 	}
 
-	if len(deletedRecords) > 0 {
-		if err := p.refresh(ctx, unFQDN(zone)); err != nil {
+	if len(deleted) > 0 {
+		if err := p.refreshZone(ctx, zone); err != nil {
 			return nil, err
 		}
 	}
 
-	return deletedRecords, nil
+	return deleted, nil
 }
 
 // Interface guards

@@ -1,6 +1,8 @@
 package dynu
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type APIException struct {
 	StatusCode int32  `json:"statusCode,omitempty"`
@@ -27,7 +29,20 @@ type DNSRecord struct {
 	TextData    string `json:"textData,omitempty"`
 	TTL         int    `json:"ttl,omitempty"`
 	Priority    int    `json:"priority,omitempty"`
+	Flags       int    `json:"flags,omitempty"`
+	Tag         string `json:"tag,omitempty"`
+	Value       string `json:"value,omitempty"`
+	Weight      int    `json:"weight,omitempty"`
+	Port        int    `json:"port,omitempty"`
 	StatusCode  int32  `json:"statusCode,omitempty"`
+}
+
+// if ProviderData is available, set the ID and DomainID for efficiency
+func (record *DNSRecord) populateIDsFromProviderData(providerData any) {
+	if dynuProviderData, ok := providerData.(DynuProviderData); ok {
+		record.ID = dynuProviderData.ID
+		record.DomainID = dynuProviderData.DomainID
+	}
 }
 
 type DNSHostname struct {
@@ -50,4 +65,9 @@ type UpdateResponse struct {
 
 type DeleteResponse struct {
 	StatusCode int32 `json:"statusCode,omitempty"`
+}
+
+type DynuProviderData struct {
+	ID       int64 `json:"id,omitempty"`
+	DomainID int64 `json:"domainId,omitempty"`
 }

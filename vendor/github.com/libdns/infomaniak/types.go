@@ -8,26 +8,56 @@ import (
 // IkRecord infomaniak API record return type
 type IkRecord struct {
 	// ID of this record on infomaniak's side
-	ID string `json:"id,omitempty"`
+	ID int `json:"id,omitempty"`
 
 	// Type of this record
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// Absolute Source / Name
 	Source string `json:"source,omitempty"`
 
-	// Source / Name relative to domain name
-	SourceIdn string `json:"source_idn,omitempty"`
-
 	// Value of this record
-	Target string `json:"target"`
+	Target string `json:"target,omitempty"`
 
 	// TTL in seconds
-	TtlInSec uint `json:"ttl"`
+	TtlInSec int `json:"ttl,omitempty"`
 
-	// Priority of this record - default value on infomaniak's side
-	// for records that do not have a priority is 10
-	Priority uint `json:"priority,omitempty"`
+	// Record Description
+	Description IkRecordDescription `json:"description,omitempty"`
+}
+
+type IkRecordDescription struct {
+	// Only available for SRV and MX records
+	Priority IkIntValueAttribute `json:"priority,omitempty"`
+
+	// Only available for SRV records
+	Port IkIntValueAttribute `json:"port,omitempty"`
+
+	// Only available for SRV records
+	Weight IkIntValueAttribute `json:"weight,omitempty"`
+
+	// Only available for SRV and DNSKEY records
+	Protocol IkStringValueAttribute `json:"protocol,omitempty"`
+
+	// Only available for CAA and DNSKEY records
+	Flags IkIntValueAttribute `json:"flags,omitempty"`
+
+	// Only available for CAA records
+	Tag IkStringValueAttribute `json:"tag,omitempty"`
+}
+
+type IkIntValueAttribute struct {
+	// Attribute value
+	Value int `json:"value,omitempty"`
+	// Human readable value of attribute
+	Label string `json:"label,omitempty"`
+}
+
+type IkStringValueAttribute struct {
+	// Attribute value
+	Value string `json:"value,omitempty"`
+	// Human readable value of attribute
+	Label string `json:"label,omitempty"`
 }
 
 // IkResponse infomaniak API response
@@ -42,13 +72,20 @@ type IkResponse struct {
 	Error json.RawMessage `json:"error,omitempty"`
 }
 
-// IkDomain infomaniak API domain return type
-type IkDomain struct {
-	// Domain's ID on infomaniak's side
-	ID int `json:"id"`
+// IkZone infomaniak API zone return type
+type IkZone struct {
+	// Zone's FQDN on infomaniak's side
+	Fqdn string `json:"fqdn"`
+}
 
-	// Domain name
-	Name string `json:"customer_name"`
+// ZoneMapping represents input zone coming from the caller and the zone
+// that is actually managed by infomaniak
+type ZoneMapping struct {
+	// Zone that is mangaged by infomaniak
+	InfomaniakManagedZone string `json:"fqdn"`
+
+	// Zone that is provided by libdns
+	LibDnsZone string
 }
 
 // IkClient interface to abstract infomaniak client
@@ -61,4 +98,7 @@ type IkClient interface {
 
 	// GetDnsRecordsForZone returns all records of the given zone
 	GetDnsRecordsForZone(ctx context.Context, zone string) ([]IkRecord, error)
+
+	// GetFqdnOfZoneForDomain returns the FQDN of the zone managed by infomaniak
+	GetFqdnOfZoneForDomain(ctx context.Context, domain string) (string, error)
 }

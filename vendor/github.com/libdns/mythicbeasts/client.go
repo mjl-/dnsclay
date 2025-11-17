@@ -93,8 +93,9 @@ func (p *Provider) addRecord(ctx context.Context, zone string, record libdns.Rec
 
 	var addedRecords []libdns.Record
 
+	rr := record.RR()
 	data := mythicRecords{}
-	data.Records = append(data.Records, mythicRecord{Type: record.Type, Name: record.Name, Value: record.Value, TTL: int(record.TTL.Seconds())})
+	data.Records = append(data.Records, mythicRecord{Type: rr.Type, Name: rr.Name, Value: rr.Data, TTL: int(rr.TTL.Seconds())})
 
 	payload, err := json.Marshal(data)
 	if err != nil {
@@ -156,8 +157,9 @@ func (p *Provider) updateRecord(ctx context.Context, zone string, record libdns.
 
 	var updatedRecords []libdns.Record
 
+	rr := record.RR()
 	data := mythicRecords{}
-	data.Records = append(data.Records, mythicRecord{Type: record.Type, Name: record.Name, Value: record.Value, TTL: int(record.TTL.Seconds())})
+	data.Records = append(data.Records, mythicRecord{Type: rr.Type, Name: rr.Name, Value: rr.Data, TTL: int(rr.TTL.Seconds())})
 
 	payload, err := json.Marshal(data)
 
@@ -171,8 +173,8 @@ func (p *Provider) updateRecord(ctx context.Context, zone string, record libdns.
 		"/zones/"+
 		zone+
 		"/records/"+
-		record.Name+"/"+
-		record.Type+
+		rr.Name+"/"+
+		rr.Type+
 		"?exclude-template&exclude-generated", body)
 	if err != nil {
 		return nil, fmt.Errorf("addRecord: Error in NewRequestWithContext: %s", err.Error())
@@ -228,8 +230,9 @@ func (p *Provider) removeRecord(ctx context.Context, zone string, record libdns.
 
 	var removedRecords []libdns.Record
 
+	rr := record.RR()
 	data := mythicRecords{}
-	data.Records = append(data.Records, mythicRecord{Type: record.Type, Name: record.Name, Value: record.Value, TTL: int(record.TTL.Seconds())})
+	data.Records = append(data.Records, mythicRecord{Type: rr.Type, Name: rr.Name, Value: rr.Data, TTL: int(rr.TTL.Seconds())})
 
 	payload, err := json.Marshal(data)
 	if err != nil {
@@ -241,8 +244,8 @@ func (p *Provider) removeRecord(ctx context.Context, zone string, record libdns.
 		"/zones/"+
 		zone+
 		"/records/"+
-		record.Name+"/"+
-		record.Type+
+		rr.Name+"/"+
+		rr.Type+
 		"?exclude-template&exclude-generated", body)
 	if err != nil {
 		return nil, fmt.Errorf("addRecord: Error in NewRequestWithContext: %s", err.Error())

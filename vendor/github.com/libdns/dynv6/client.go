@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	urlutil "net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -151,52 +150,13 @@ func (p *Provider) getZones(ctx context.Context) ([]zone, error) {
 	return zones, nil
 }
 
-type record struct {
-	ExpandedData string `json:"expandedData,omitempty"`
-	ID           int64  `json:"id,omitempty"`
-	ZoneID       int64  `json:"zoneID,omitempty"`
-	Type         string `json:"type,omitempty"`
-	Name         string `json:"name,omitempty"`
-	Data         string `json:"data,omitempty"`
-	Priority     int64  `json:"priority,omitempty"`
-	Flags        int64  `json:"flags,omitempty"`
-	Tag          string `json:"tag,omitempty"`
-	Weight       int64  `json:"weight,omitempty"`
-	Port         int64  `json:"port,omitempty"`
-}
-
-func (r *record) toLibdnsRecord() libdns.Record {
-	return libdns.Record{
-		ID:    fmt.Sprint(r.ID),
-		Type:  r.Type,
-		Name:  r.Name,
-		Value: r.Data,
-		TTL:   60 * time.Second, //dynv6 does not allow for custom TTL values
-	}
-}
-
-func fromLibdnsRecord(zone string, rec *libdns.Record) (*record, error) {
-	var (
-		id  int64
-		err error
-	)
-	if rec.ID != "" {
-		id, err = strconv.ParseInt(rec.ID, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &record{
-		ID:   id,
-		Type: rec.Type,
-		Name: strings.TrimSuffix(rec.Name, "."+strings.TrimSuffix(zone, ".")),
-		Data: rec.Value,
-	}, nil
-}
-
 func findRecord(recs []record, r *libdns.Record) *record {
+	rr, ok := (*r).(libdns.RR)
+	if !ok {
+		return nil // oder Fehlerbehandlung
+	}
 	for _, v := range recs {
-		if v.Type == r.Type && v.Name == r.Name {
+		if v.Type == rr.Type && v.Name == rr.Name {
 			return &v
 		}
 	}
@@ -204,8 +164,12 @@ func findRecord(recs []record, r *libdns.Record) *record {
 }
 
 func findRecordWithValue(recs []record, r *libdns.Record) *record {
+	rr, ok := (*r).(libdns.RR)
+	if !ok {
+		return nil // oder Fehlerbehandlung
+	}
 	for _, v := range recs {
-		if v.Type == r.Type && v.Name == r.Name && v.Data == r.Value {
+		if v.Type == rr.Type && v.Name == rr.Name && v.Data == rr.Data {
 			return &v
 		}
 	}
@@ -238,7 +202,7 @@ func (p *Provider) getRecords(ctx context.Context, zoneID int64) ([]record, erro
 	return records, nil
 }
 
-func (p *Provider) deleteRecord(ctx context.Context, zoneID, recordID int64) error {
+func (p *Provider) deleteRecord(ctx context.Context, zoneID int64, recordID int64) error {
 	url := fmt.Sprintf("https://dynv6.com/api/v2/zones/%d/records/%d", zoneID, recordID)
 	req, err := p.newRequest(ctx, "DELETE", url, nil)
 	if err != nil {

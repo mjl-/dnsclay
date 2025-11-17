@@ -3,8 +3,6 @@ package loopia
 import (
 	"fmt"
 	"strings"
-
-	"github.com/libdns/libdns"
 )
 
 // loopia does not have support for propper subdomains so
@@ -23,19 +21,9 @@ func loopify(name, zone string) (string, string) {
 	return name, zone
 }
 
-// modifies records in place
-func loopifyRecords(zone string, records []libdns.Record) (hostSuffix string, domain string) {
-	hostSuffix, domain = loopify("", zone)
-	if hostSuffix != "" && len(records) > 0 {
-		for i, r := range records {
-			records[i].Name = r.Name + hostSuffix
-		}
-	}
-	return hostSuffix, domain
-}
-
 // unLoopify modifies name and zone so that name should only contain hostname and
 // everything else should end up in zone.
+// returns [name, zone]
 func unLoopify(name, zone string) (string, string) {
 	components := strings.Split(name, ".")
 	l := len(components)
@@ -44,18 +32,4 @@ func unLoopify(name, zone string) (string, string) {
 		zone = fmt.Sprintf("%s.%s", strings.Join(components[1:], "."), zone)
 	}
 	return name, zone
-}
-
-func unLoopifyName(hostSuffix string, record *libdns.Record) {
-	if hostSuffix != "" {
-		record.Name = strings.TrimSuffix(record.Name, hostSuffix)
-	}
-}
-
-func unLoopifyRecords(hostSuffix string, records []libdns.Record) {
-	if len(records) > 0 {
-		for i, _ := range records {
-			unLoopifyName(hostSuffix, &records[i])
-		}
-	}
 }

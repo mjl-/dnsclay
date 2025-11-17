@@ -9,8 +9,8 @@ import (
 const domainsBasePath = "v2/domains"
 
 // DomainsService is an interface for managing DNS with the DigitalOcean API.
-// See: https://developers.digitalocean.com/documentation/v2#domains and
-// https://developers.digitalocean.com/documentation/v2#domain-records
+// See: https://docs.digitalocean.com/reference/api/api-reference/#tag/Domains and
+// https://docs.digitalocean.com/reference/api/api-reference/#tag/Domain-Records
 type DomainsService interface {
 	List(context.Context, *ListOptions) ([]Domain, *Response, error)
 	Get(context.Context, string) (*Domain, *Response, error)
@@ -53,7 +53,7 @@ type domainsRoot struct {
 	Meta    *Meta    `json:"meta"`
 }
 
-// DomainCreateRequest respresents a request to create a domain.
+// DomainCreateRequest represents a request to create a domain.
 type DomainCreateRequest struct {
 	Name      string `json:"name"`
 	IPAddress string `json:"ip_address,omitempty"`
@@ -72,12 +72,12 @@ type domainRecordsRoot struct {
 
 // DomainRecord represents a DigitalOcean DomainRecord
 type DomainRecord struct {
-	ID       int    `json:"id,float64,omitempty"`
+	ID       int    `json:"id,omitempty"`
 	Type     string `json:"type,omitempty"`
 	Name     string `json:"name,omitempty"`
 	Data     string `json:"data,omitempty"`
 	Priority int    `json:"priority"`
-	Port     int    `json:"port,omitempty"`
+	Port     int    `json:"port"`
 	TTL      int    `json:"ttl,omitempty"`
 	Weight   int    `json:"weight"`
 	Flags    int    `json:"flags"`
@@ -90,7 +90,7 @@ type DomainRecordEditRequest struct {
 	Name     string `json:"name,omitempty"`
 	Data     string `json:"data,omitempty"`
 	Priority int    `json:"priority"`
-	Port     int    `json:"port,omitempty"`
+	Port     int    `json:"port"`
 	TTL      int    `json:"ttl,omitempty"`
 	Weight   int    `json:"weight"`
 	Flags    int    `json:"flags"`
@@ -101,6 +101,7 @@ func (d Domain) String() string {
 	return Stringify(d)
 }
 
+// URN returns the domain name in a valid DO API URN form.
 func (d Domain) URN() string {
 	return ToURN("Domain", d.Name)
 }

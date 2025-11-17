@@ -9,6 +9,7 @@ type iLogger interface {
 	Errorf(format string, args ...interface{})
 	Fatalf(format string, args ...interface{})
 	Fatal(args ...interface{})
+	Infow(msg string, args ...interface{})
 	Infof(format string, args ...interface{})
 	Info(args ...interface{})
 	Warnf(format string, args ...interface{})
@@ -37,6 +38,9 @@ func (logger *loggerWrapper) Info(args ...interface{}) {
 	// noop
 }
 func (logger *loggerWrapper) Infof(format string, args ...interface{}) {
+	// noop
+}
+func (logger *loggerWrapper) Infow(format string, args ...interface{}) {
 	// noop
 }
 func (logger *loggerWrapper) Warnf(format string, args ...interface{}) {

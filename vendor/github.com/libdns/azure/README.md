@@ -19,11 +19,11 @@ Then keep the following information to pass to the `Provider` struct fields for 
 - `ResourceGroupName` (`json:"resource_group_name"`)
   - [DNS zones] > Your Zone > [Resource group]
 - `TenantId` (`json:"tenant_id"`)
-  - [Microsoft Entra ID] > [Properties] > [Tenant ID]
+  - [Microsoft Entra ID] > [Overview] > [Tenant ID]
 - `ClientId` (`json:"client_id"`)
-  - [Microsoft Entra ID] > [App registrations] > Your Application > [Application (client) ID]
+  - [Microsoft Entra ID] > [Manage] > [App registrations] > Your Application > [Application (client) ID]
 - `ClientSecret` (`json:"client_secret"`)
-  - [Microsoft Entra ID] > [App registrations] > Your Application > [Certificates & secrets] > [Client secrets] > [Value]
+  - [Microsoft Entra ID] > [Manage] > [App registrations] > Your Application > [Manage] > [Certificates & secrets] > [Client secrets] > [Value]
 
 ### Managed Identity
 

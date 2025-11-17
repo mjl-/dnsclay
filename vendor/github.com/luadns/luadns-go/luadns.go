@@ -2,6 +2,7 @@ package luadns
 
 const (
 	baseURL = "https://api.luadns.com/v1"
+	version = "0.0.3"
 )
 
 // ListMeta stores parsed headers used for result pagination.

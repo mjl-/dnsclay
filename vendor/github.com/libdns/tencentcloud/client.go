@@ -2,146 +2,206 @@ package tencentcloud
 
 import (
 	"context"
-	"fmt"
-	"strconv"
+	"encoding/json"
+	"io"
+	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/libdns/libdns"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	tp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
-
-	"github.com/libdns/tencentcloud/dnspod"
 )
 
-// getClient gets the client for Tencent Cloud DNS
-func (p *Provider) getClient() (*dnspod.Client, error) {
-	client := sync.OnceValues(func() (*dnspod.Client, error) {
-		credential := common.NewCredential(
-			p.SecretId,
-			p.SecretKey,
-		)
-		cpf := tp.NewClientProfile()
-		cpf.HttpProfile.Endpoint = "dnspod.tencentcloudapi.com"
-		client, err := dnspod.NewClient(credential, "", cpf)
-		if err != nil {
-			return nil, err
-		}
-		return client, nil
-	})
-	return client()
-}
+const (
+	endpoint = "https://dnspod.tencentcloudapi.com"
 
-// describeRecordList describes the records for a zone
-func (p *Provider) describeRecordList(ctx context.Context, zone string) ([]libdns.Record, error) {
-	client, err := p.getClient()
+	DescribeRecordList = "DescribeRecordList"
+	CreateRecord       = "CreateRecord"
+	ModifyRecord       = "ModifyRecord"
+	DeleteRecord       = "DeleteRecord"
+)
+
+func (p *Provider) listRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
+	domain := strings.TrimSuffix(zone, ".")
+
+	requestData := FindRecordRequest{
+		Domain:     domain,
+		RecordLine: "默认",
+	}
+
+	payload, err := json.Marshal(requestData)
 	if err != nil {
 		return nil, err
 	}
 
-	var list []libdns.Record
-	request := dnspod.NewDescribeRecordListRequest()
-	request.Domain = common.StringPtr(strings.Trim(zone, "."))
-	request.Offset = common.Uint64Ptr(0)
-	request.Limit = common.Uint64Ptr(3000)
+	resp, err := p.sendRequest(ctx, DescribeRecordList, string(payload))
+	if err != nil {
+		return nil, err
+	}
 
-	totalCount := uint64(100)
-	for *request.Offset < totalCount {
-		response, err := client.DescribeRecordListWithContext(ctx, request)
+	var response Response
+	if err = json.Unmarshal(resp, &response); err != nil {
+		return nil, err
+	}
+
+	list := make([]libdns.Record, 0, len(response.Response.RecordList))
+	for _, txRecord := range response.Response.RecordList {
+		rr := record{
+			Type:  txRecord.Type,
+			Name:  txRecord.Name,
+			Value: txRecord.Value,
+			TTL:   time.Duration(txRecord.TTL) * time.Second,
+			MX:    txRecord.MX,
+		}
+		libdnsRecord, err := rr.libdnsRecord()
 		if err != nil {
 			return nil, err
 		}
-		if response.Response.RecordList != nil && len(response.Response.RecordList) > 0 {
-			for _, record := range response.Response.RecordList {
-				list = append(list, libdns.Record{
-					ID:    strconv.Itoa(int(*record.RecordId)),
-					Type:  *record.Type,
-					Name:  *record.Name,
-					Value: *record.Value,
-					TTL:   time.Duration(*record.TTL) * time.Second,
-				})
+		list = append(list, libdnsRecord)
+	}
+
+	return list, nil
+}
+
+func (p *Provider) createRecord(ctx context.Context, zone string, record libdns.Record) error {
+	domain := strings.TrimSuffix(zone, ".")
+	r := fromLibdnsRecord(record)
+	requestData := CreateModifyRecordRequest{
+		Domain:     domain,
+		SubDomain:  r.Name,
+		RecordType: r.Type,
+		RecordLine: "默认",
+		Value:      r.Value,
+		TTL:        int64(r.TTL.Seconds()),
+	}
+
+	payload, err := json.Marshal(requestData)
+	if err != nil {
+		return err
+	}
+
+	resp, err := p.sendRequest(ctx, CreateRecord, string(payload))
+	if err != nil {
+		return err
+	}
+
+	var response Response
+	if err := json.Unmarshal(resp, &response); err != nil {
+		return err
+	}
+
+	if response.Response.RecordId == 0 {
+		return ErrNotValid
+	}
+
+	return nil
+}
+
+func (p *Provider) modifyRecord(ctx context.Context, id uint64, zone string, record libdns.Record) error {
+	domain := strings.TrimSuffix(zone, ".")
+	r := fromLibdnsRecord(record)
+	requestData := CreateModifyRecordRequest{
+		Domain:     domain,
+		SubDomain:  r.Name,
+		RecordType: r.Type,
+		RecordLine: "默认",
+		Value:      r.Value,
+		TTL:        int64(r.TTL.Seconds()),
+		RecordId:   id,
+	}
+
+	payload, err := json.Marshal(requestData)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.sendRequest(ctx, ModifyRecord, string(payload))
+	return err
+}
+
+func (p *Provider) deleteRecord(ctx context.Context, id uint64, zone string) error {
+	domain := strings.TrimSuffix(zone, ".")
+
+	requestData := DeleteRecordRequest{
+		Domain:   domain,
+		RecordId: id,
+	}
+
+	payload, err := json.Marshal(requestData)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.sendRequest(ctx, DeleteRecord, string(payload))
+	return err
+}
+
+func (p *Provider) findRecord(ctx context.Context, zone string, record libdns.Record) (uint64, error) {
+	domain := strings.TrimSuffix(zone, ".")
+	r := fromLibdnsRecord(record)
+	requestData := FindRecordRequest{
+		Domain:     domain,
+		RecordType: r.Type,
+		RecordLine: "默认",
+		Subdomain:  r.Name,
+		Limit:      3000,
+	}
+	payload, err := json.Marshal(requestData)
+	if err != nil {
+		return 0, err
+	}
+
+	resp, err := p.sendRequest(ctx, DescribeRecordList, string(payload))
+	if err != nil {
+		return 0, err
+	}
+
+	var response Response
+	if err = json.Unmarshal(resp, &response); err != nil {
+		return 0, err
+	}
+	var recordId uint64
+	for _, item := range response.Response.RecordList {
+		if item.Name == r.Name && item.Type == r.Type {
+			if r.Value != "" && item.Value != r.Value {
+				continue
 			}
-		}
-		totalCount = *response.Response.RecordCountInfo.TotalCount
-		request.Offset = common.Uint64Ptr(*request.Offset + uint64(len(response.Response.RecordList)))
-	}
-	return list, err
-}
-
-// createRecord creates a record for a zone
-func (p *Provider) createRecord(ctx context.Context, zone string, record libdns.Record) (string, error) {
-	client, err := p.getClient()
-	if err != nil {
-		return "", err
-	}
-
-	request := dnspod.NewCreateRecordRequest()
-	request.Domain = common.StringPtr(strings.Trim(zone, "."))
-	request.SubDomain = common.StringPtr(record.Name)
-	request.RecordType = common.StringPtr(record.Type)
-	request.RecordLine = common.StringPtr("默认")
-	request.Value = common.StringPtr(record.Value)
-	response, err := client.CreateRecordWithContext(ctx, request)
-
-	if err != nil {
-		return "", err
-	}
-	return strconv.Itoa(int(*response.Response.RecordId)), nil
-}
-
-// modifyRecord modifies a record for a zone
-func (p *Provider) modifyRecord(ctx context.Context, zone string, record libdns.Record) error {
-	client, err := p.getClient()
-	if err != nil {
-		return err
-	}
-
-	recordId, _ := strconv.Atoi(record.ID)
-	request := dnspod.NewModifyRecordRequest()
-	request.Domain = common.StringPtr(strings.Trim(zone, "."))
-	request.SubDomain = common.StringPtr(record.Name)
-	request.RecordType = common.StringPtr(record.Type)
-	request.RecordLine = common.StringPtr("默认")
-	request.Value = common.StringPtr(record.Value)
-	request.RecordId = common.Uint64Ptr(uint64(recordId))
-
-	_, err = client.ModifyRecordWithContext(ctx, request)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// deleteRecord deletes a record for a zone
-func (p *Provider) deleteRecord(ctx context.Context, zone string, record libdns.Record) error {
-	client, err := p.getClient()
-	if err != nil {
-		return err
-	}
-
-	recordId, _ := strconv.Atoi(record.ID)
-	request := dnspod.NewDeleteRecordRequest()
-	request.Domain = common.StringPtr(strings.Trim(zone, "."))
-	request.RecordId = common.Uint64Ptr(uint64(recordId))
-
-	_, err = client.DeleteRecordWithContext(ctx, request)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// getRecordIdByNameAndType gets the record id by name and type
-func (p *Provider) getRecordIdByNameAndType(ctx context.Context, zone, recName, recType string) (string, error) {
-	records, err := p.GetRecords(ctx, zone)
-	if err != nil {
-		return "", err
-	}
-	for _, record := range records {
-		if record.Name == recName && record.Type == recType {
-			return record.ID, nil
+			recordId = uint64(item.RecordId)
+			break
 		}
 	}
-	return "", fmt.Errorf("record %q not found", recName)
+
+	if recordId == 0 {
+		return 0, ErrRecordNotFound
+	}
+
+	return recordId, nil
+}
+
+func (p *Provider) sendRequest(ctx context.Context, action string, data string) ([]byte, error) {
+	endpointUrl := endpoint
+	if p.Region != "" {
+		endpointUrl = "https://dnspod." + p.Region + ".tencentcloudapi.com"
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", endpointUrl, strings.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-TC-Version", "2021-03-23")
+
+	SignRequest(p.SecretId, p.SecretKey, p.SessionToken, req, action, data)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
 }

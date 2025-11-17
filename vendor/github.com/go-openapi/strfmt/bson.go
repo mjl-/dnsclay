@@ -39,10 +39,10 @@ func IsBSONObjectID(str string) bool {
 // ObjectId represents a BSON object ID (alias to go.mongodb.org/mongo-driver/bson/primitive.ObjectID)
 //
 // swagger:strfmt bsonobjectid
-type ObjectId bsonprim.ObjectID //nolint:revive
+type ObjectId bsonprim.ObjectID
 
 // NewObjectId creates a ObjectId from a Hex String
-func NewObjectId(hex string) ObjectId { //nolint:revive
+func NewObjectId(hex string) ObjectId {
 	oid, err := bsonprim.ObjectIDFromHex(hex)
 	if err != nil {
 		panic(err)
@@ -95,7 +95,7 @@ func (id ObjectId) Value() (driver.Value, error) {
 }
 
 func (id ObjectId) String() string {
-	return bsonprim.ObjectID(id).Hex()
+	return bsonprim.ObjectID(id).String()
 }
 
 // MarshalJSON returns the ObjectId as JSON

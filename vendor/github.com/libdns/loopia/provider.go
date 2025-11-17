@@ -4,7 +4,6 @@ package loopia
 
 import (
 	"context"
-	"strings"
 
 	"github.com/libdns/libdns"
 )
@@ -15,27 +14,25 @@ type Provider struct {
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
 	Customer string `json:"customer,omitempty"`
+	logging  bool   // Enable logging
+}
+
+func (p *Provider) SetLogger(logger iLogger) {
+	defaultLogger = logger
+	Log().Info("Logging enabled")
+	p.logging = true
 }
 
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	n, z := loopify("", zone)
-	result, err := p.getZoneRecords(ctx, z)
+	ctx = addTrace(ctx, "GetRecords")
+	result, err := p.getZoneRecords(ctx, zone)
 	if err != nil {
 		return result, err
 	}
-	if n != "" {
-		filtered := []libdns.Record{}
-		for _, r := range result {
-			if strings.HasSuffix(r.Name, n) {
-				unLoopifyName(n, &r)
-				filtered = append(filtered, r)
-			}
-		}
-		return filtered, err
-	}
+
 	return result, err
 }
 
@@ -43,9 +40,9 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	n, z := loopifyRecords(zone, records)
-	result, err := p.addDNSEntries(ctx, z, records)
-	unLoopifyRecords(n, result)
+	ctx = addTrace(ctx, "AppendRecords")
+	result, err := p.addDNSEntries(ctx, zone, records)
+
 	return result, err
 }
 
@@ -54,9 +51,9 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	hostSuffix, z := loopifyRecords(zone, records)
-	result, err := p.setDNSEntries(ctx, z, records)
-	unLoopifyRecords(hostSuffix, result)
+	ctx = addTrace(ctx, "SetRecords")
+	result, err := p.setRecords(ctx, zone, records)
+
 	return result, err
 }
 
@@ -64,9 +61,8 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	hostSuffix, z := loopifyRecords(zone, records)
-	result, err := p.removeDNSEntries(ctx, z, records)
-	unLoopifyRecords(hostSuffix, result)
+	ctx = addTrace(ctx, "DeleteRecords")
+	result, err := p.deleteRecords(ctx, zone, records)
 	return result, err
 }
 

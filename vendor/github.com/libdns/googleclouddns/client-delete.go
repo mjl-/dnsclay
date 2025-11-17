@@ -33,7 +33,7 @@ func (p *Provider) deleteCloudDNSRecord(ctx context.Context, zone, name, recordT
 	rrs := dns.ResourceRecordSet{
 		Name:    fullName,
 		Rrdatas: make([]string, 0),
-		Ttl:     int64(updatedRecordList[0].TTL / time.Second),
+		Ttl:     int64(updatedRecordList[0].RR().TTL / time.Second),
 		Type:    recordType,
 	}
 	rrs.Rrdatas = updatedRecordList.prepValuesForCloudDNS()

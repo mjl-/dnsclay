@@ -8,6 +8,9 @@ This package implements the [libdns interfaces](https://github.com/libdns/libdns
 [PowerDNS](https://powerdns.com/), allowing you to 
 manage DNS records.
 
+This uses [mittwald/go-powerdns](https://github.com/mittwald/go-powerdns) under the covers
+to actually talk to powerdns.
+
 To configure this, simply specify the server URL and the access token. 
 
 

@@ -3,7 +3,7 @@ package duckdns
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/netip"
@@ -29,51 +29,44 @@ func (p *Provider) getDomain(ctx context.Context, zone string) ([]libdns.Record,
 	// request's IP address. So it's not safe to use for getting the current values
 	// because it has side effects. So instead, we should just make simple DNS queries
 	// to get the A, AAAA, and TXT records.
+	resolver := p.Resolver
+	if resolver == "" {
+		resolver = defaultResolver
+	}
 	r := &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			d := net.Dialer{Timeout: 10 * time.Second}
-			return d.DialContext(ctx, network, "8.8.8.8:53")
+			return d.DialContext(ctx, network, resolver)
 		},
 	}
 	ips, err := r.LookupHost(ctx, fqdn)
 	if err != nil {
-		return libRecords, err
+		return libRecords, fmt.Errorf("DuckDNS unable to lookup host: %w", err)
 	}
 
 	for _, ip := range ips {
-		parsed, err := netip.ParseAddr(ip)
+		parsedIp, err := netip.ParseAddr(ip)
 		if err != nil {
-			return libRecords, err
+			return libRecords, fmt.Errorf("DuckDNS unable to parse IP address '%s': %w", ip, err)
 		}
-
-		if parsed.Is4() {
-			libRecords = append(libRecords, libdns.Record{
-				Type:  "A",
-				Name:  "@",
-				Value: ip,
-			})
-		} else {
-			libRecords = append(libRecords, libdns.Record{
-				Type:  "AAAA",
-				Name:  "@",
-				Value: ip,
-			})
-		}
+		libRecords = append(libRecords, libdns.Address{
+			Name: "@",
+			IP:   parsedIp,
+		})
 	}
 
 	txt, err := r.LookupTXT(ctx, fqdn)
 	if err != nil {
-		return libRecords, err
+		return libRecords, fmt.Errorf("DuckDNS unable to lookup TXT records for '%s': %w", fqdn, err)
 	}
 	for _, t := range txt {
 		if t == "" {
 			continue
 		}
-		libRecords = append(libRecords, libdns.Record{
-			Type:  "TXT",
-			Name:  "@",
-			Value: t,
+		libRecords = append(libRecords, libdns.TXT{
+			Name: "@",
+			Text: t,
 		})
 	}
 
@@ -84,21 +77,28 @@ func (p *Provider) setRecord(ctx context.Context, zone string, record libdns.Rec
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	rr, err := record.RR().Parse()
+	if err != nil {
+		return fmt.Errorf("DuckDNS unable to parse libdns.RR: %w", err)
+	}
+
 	// sanitize the domain, combines the zone and record names
 	// the record name should typically be relative to the zone
-	domain := libdns.AbsoluteName(record.Name, zone)
+	domain := libdns.AbsoluteName(record.RR().Name, zone)
 
 	params := map[string]string{"verbose": "true"}
 
-	switch record.Type {
-	case "TXT":
-		params["txt"] = record.Value
-	case "A":
-		params["ip"] = record.Value
-	case "AAAA":
-		params["ipv6"] = record.Value
+	switch rec := rr.(type) {
+	case libdns.TXT:
+		params["txt"] = rec.Text
+	case libdns.Address:
+		if rec.IP.Is6() {
+			params["ipv6"] = rec.IP.String()
+		} else {
+			params["ip"] = rec.IP.String()
+		}
 	default:
-		return fmt.Errorf("unsupported record type: %s", record.Type)
+		return fmt.Errorf("DuckDNS unsupported record type: %s", record.RR().Type)
 	}
 
 	if clear {
@@ -106,7 +106,7 @@ func (p *Provider) setRecord(ctx context.Context, zone string, record libdns.Rec
 	}
 
 	// make the request to duckdns to set the records according to the params
-	_, err := p.doRequest(ctx, domain, params)
+	_, err = p.doRequest(ctx, domain, params)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (p *Provider) setRecord(ctx context.Context, zone string, record libdns.Rec
 }
 
 func (p *Provider) doRequest(ctx context.Context, domain string, params map[string]string) ([]string, error) {
-	u, _ := url.Parse("https://www.duckdns.org/update")
+	u, _ := url.Parse(duckDNSUpdateURL)
 
 	// extract the main domain
 	var mainDomain string
@@ -125,7 +125,11 @@ func (p *Provider) doRequest(ctx context.Context, domain string, params map[stri
 	}
 
 	if len(mainDomain) == 0 {
-		return nil, fmt.Errorf("unable to find the main domain for: %s", domain)
+		return nil, fmt.Errorf("DuckDNS unable to find the main domain for: %s", domain)
+	}
+
+	if len(p.APIToken) != 36 {
+		return nil, fmt.Errorf("DuckDNS API token must be a 36 characters long UUID, got: '%s'", p.APIToken)
 	}
 
 	// set up the query with the params we always set
@@ -144,24 +148,24 @@ func (p *Provider) doRequest(ctx context.Context, domain string, params map[stri
 	// make the request
 	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("DuckDNS unable to create request: %w", err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("DuckDNS unable to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("DuckDNS unable to read response body: %w", err)
 	}
 
 	body := string(bodyBytes)
 	bodyParts := strings.Split(body, "\n")
-	if bodyParts[0] != "OK" {
-		return nil, fmt.Errorf("DuckDNS request failed, expected (OK) but got (%s), url: [%s], body: %s", bodyParts[0], u, body)
+	if bodyParts[0] != responseOK {
+		return nil, fmt.Errorf("DuckDNS request failed, expected (OK) but got (%s), url: [%s], body: %s", bodyParts[0], u.String(), body)
 	}
 
 	return bodyParts, nil
@@ -174,7 +178,7 @@ func (p *Provider) doRequest(ctx context.Context, domain string, params map[stri
 func getMainDomain(domain string) string {
 	domain = strings.TrimSuffix(domain, ".")
 	split := dns.Split(domain)
-	if strings.HasSuffix(strings.ToLower(domain), "duckdns.org") {
+	if strings.HasSuffix(strings.ToLower(domain), duckDNSDomain) {
 		if len(split) < 3 {
 			return ""
 		}
@@ -185,3 +189,10 @@ func getMainDomain(domain string) string {
 
 	return domain[split[len(split)-1]:]
 }
+
+const (
+	duckDNSUpdateURL = "https://www.duckdns.org/update"
+	duckDNSDomain    = "duckdns.org"
+	responseOK       = "OK"
+	defaultResolver  = "8.8.8.8:53" // Google's public DNS server
+)

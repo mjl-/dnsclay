@@ -15,7 +15,6 @@ func loaderFromOptions(options []LoaderOption) *loader {
 	for _, apply := range options {
 		apply(opts)
 	}
-
 	return opts.loader
 }
 

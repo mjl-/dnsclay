@@ -2,9 +2,9 @@ package infomaniak
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -19,186 +19,260 @@ type Provider struct {
 	//infomaniak client used to call API
 	client IkClient
 
-	//mutex to prevent race conditions
-	mu sync.Mutex
+	//mutex to prevent race conditions when initializing client
+	mu_client sync.Mutex
+
+	//mutex to prevent race conditions when performing request
+	mu_req sync.Mutex
 }
 
-// GetRecords lists all the records in the zone.
+// GetRecords returns all the records in the DNS zone.
+//
+// DNSKEY and DS are DNSSEC-related record types that are included in the output.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	zone = getWithoutTrailingDot(zone)
-	ikRecords, err := p.getClient().GetDnsRecordsForZone(ctx, zone)
+	zones, err := p.getZoneMapping(ctx, zone)
 	if err != nil {
-		return nil, err
+		return []libdns.Record{}, err
+	}
+
+	ikRecords, err := p.getRecordsInZone(ctx, zones)
+	if err != nil {
+		return []libdns.Record{}, err
 	}
 
 	libdnsRecords := make([]libdns.Record, 0, len(ikRecords))
 	for _, rec := range ikRecords {
-		libdnsRecords = append(libdnsRecords, rec.ToLibDnsRecord(zone))
+		r, err := rec.ToLibDnsRecord(zones)
+		if err != nil {
+			return []libdns.Record{}, err
+		}
+		libdnsRecords = append(libdnsRecords, r)
 	}
 
 	return libdnsRecords, nil
 }
 
-// getRecordsByCoordinates returns the existing records in this zone by their coordinates
-func (p *Provider) getRecordsByCoordinates(ctx context.Context, zone string) (map[string][]libdns.Record, error) {
-	zone = getWithoutTrailingDot(zone)
-	records, err := p.GetRecords(ctx, zone)
-	if err != nil {
-		return nil, err
-	}
-
-	recordsByCoordinats := make(map[string][]libdns.Record)
-	for _, rec := range records {
-		coordinates := getCoordinates(rec)
-		recordsWithSameCoordinates := recordsByCoordinats[coordinates]
-		if recordsWithSameCoordinates == nil {
-			recordsWithSameCoordinates = make([]libdns.Record, 0)
-		}
-		recordsWithSameCoordinates = append(recordsWithSameCoordinates, rec)
-		recordsByCoordinats[coordinates] = recordsWithSameCoordinates
-	}
-	return recordsByCoordinats, nil
-}
-
-// getCoordinates returns the coordinates of a record
-func getCoordinates(record libdns.Record) string {
-	return fmt.Sprintf("%s-%s", record.Name, record.Type)
-}
-
-// AppendRecords adds records to the zone. It returns the records that were added.
+// AppendRecords creates the inputted records in the given zone and returns
+// the populated records that were created. It never changes existing records.
+//
+// Therefore, it makes little sense to use this method with CNAME-type
+// records since if there are no existing records with the same name, it
+// behaves the same as [libdns.RecordSetter.SetRecords], and if there are
+// existing records with the same name, it will either fail or leave the
+// zone in an invalid state.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	zone = getWithoutTrailingDot(zone)
-	mergedRecs, err := p.getRecordsMergedWithAlreadyExistingOnes(ctx, zone, records)
+	zones, err := p.getZoneMapping(ctx, zone)
 	if err != nil {
-		return nil, err
+		return []libdns.Record{}, err
 	}
+
+	p.mu_req.Lock()
+	defer p.mu_req.Unlock()
 
 	createdRecs := make([]libdns.Record, 0)
-	for _, rec := range mergedRecs {
-		if rec.ID == "" {
-			createdRec, err := p.getClient().CreateOrUpdateRecord(ctx, zone, ToInfomaniakRecord(&rec, zone))
-			if err != nil {
-				return nil, err
-			}
-			createdRecs = append(createdRecs, createdRec.ToLibDnsRecord(zone))
+	for _, rec := range records {
+		createdIkRec, err := p.getClient().CreateOrUpdateRecord(ctx, zones.InfomaniakManagedZone, ToInfomaniakRecord(rec.RR(), zones))
+		if err != nil {
+			return []libdns.Record{}, err
 		}
+		createdRec, err := createdIkRec.ToLibDnsRecord(zones)
+		if err != nil {
+			return []libdns.Record{}, err
+		}
+		createdRecs = append(createdRecs, createdRec)
 	}
 	return createdRecs, nil
 }
 
-// SetRecords sets the records in the zone, either by updating existing records or creating new ones.
-// It returns the updated records.
+// SetRecords updates the zone so that the records described in the input are
+// reflected in the output.
+//
+// For any (name, type) pair in the input, SetRecords ensures that the only
+// records in the output zone with that (name, type) pair are those that were
+// provided in the input.
+//
+// In RFC 9499 terms, SetRecords appends, modifies, or deletes records in the
+// zone so that for each RRset in the input, the records provided in the input
+// are the only members of their RRset in the output zone.
+//
+// DNSSEC-related records of type DS are supported.
+//
+// Calls to SetRecords are not to be presumed atomic; that is, if err == nil,
+// then all of the requested changes were made; if err != nil, then some changes
+// might have been applied already. In other words, errors may result in partial
+// changes to the zone.
+//
+// If SetRecords is used to add a CNAME record to a name with other existing
+// non-DNSSEC records, implementations may either fail with an error, add
+// the CNAME and leave the other records in place (in violation of the DNS
+// standards), or add the CNAME and remove the other preexisting records.
+// Therefore, users should proceed with caution when using SetRecords with
+// CNAME records.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	zone = getWithoutTrailingDot(zone)
-	recsToSet, err := p.getRecordsMergedWithAlreadyExistingOnes(ctx, zone, records)
+	zones, err := p.getZoneMapping(ctx, zone)
 	if err != nil {
-		return nil, err
+		return []libdns.Record{}, err
 	}
 
-	createdOrUpdatedRecs := make([]libdns.Record, 0)
-	for _, rec := range recsToSet {
-		updatedRec, err := p.getClient().CreateOrUpdateRecord(ctx, zone, ToInfomaniakRecord(&rec, zone))
-		if err != nil {
-			return nil, err
+	p.mu_req.Lock()
+	defer p.mu_req.Unlock()
+
+	recordIdsByCoords, err := p.getExistingRecordIdsByCoordinates(ctx, zones)
+	if err != nil {
+		return []libdns.Record{}, err
+	}
+
+	setRecs := make([]libdns.Record, 0)
+	for _, rec := range records {
+		rr := rec.RR()
+		coords := fmt.Sprintf("%s-%s", libdns.AbsoluteName(rr.Name, zone), rr.Type)
+		existingRecordIds := recordIdsByCoords[coords]
+
+		if existingRecordIds != nil {
+			for _, id := range existingRecordIds {
+				err := p.getClient().DeleteRecord(ctx, zones.InfomaniakManagedZone, id)
+				if err != nil {
+					return setRecs, err
+				}
+			}
+			recordIdsByCoords[coords] = nil
 		}
-		createdOrUpdatedRecs = append(createdOrUpdatedRecs, updatedRec.ToLibDnsRecord(zone))
-	}
 
-	return createdOrUpdatedRecs, nil
+		updatedIkRec, err := p.getClient().CreateOrUpdateRecord(ctx, zones.InfomaniakManagedZone, ToInfomaniakRecord(rec, zones))
+		if err != nil {
+			return setRecs, err
+		}
+
+		setRec, err := updatedIkRec.ToLibDnsRecord(zones)
+		if err != nil {
+			return setRecs, err
+		}
+		setRecs = append(setRecs, setRec)
+	}
+	return setRecs, nil
 }
 
-// DeleteRecords deletes the records from the zone. It returns the records that were deleted.
-func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	zone = getWithoutTrailingDot(zone)
-	recsToDelete, err := p.getRecordsMergedWithAlreadyExistingOnes(ctx, zone, records)
+// getExistingRecordIdsByCoordinates returns the existing records in this zone by their fqdn-type
+func (p *Provider) getExistingRecordIdsByCoordinates(ctx context.Context, zones *ZoneMapping) (map[string][]string, error) {
+	records, err := p.getRecordsInZone(ctx, zones)
 	if err != nil {
 		return nil, err
+	}
+
+	result := make(map[string][]string)
+	for _, rec := range records {
+		coordinates := fmt.Sprintf("%s-%s", libdns.AbsoluteName(rec.Source, zones.InfomaniakManagedZone), rec.Type)
+		recordsWithSameCoordinates := result[coordinates]
+		if recordsWithSameCoordinates == nil {
+			recordsWithSameCoordinates = make([]string, 0)
+		}
+		recordsWithSameCoordinates = append(recordsWithSameCoordinates, strconv.Itoa(rec.ID))
+		result[coordinates] = recordsWithSameCoordinates
+	}
+	return result, nil
+}
+
+// DeleteRecords deletes the given records from the zone if they exist in the
+// zone and exactly match the input. If the input records do not exist in the
+// zone, they are silently ignored. DeleteRecords returns only the the records
+// that were deleted, and does not return any records that were provided in the
+// input but did not exist in the zone.
+//
+// DeleteRecords only deletes records from the zone that *exactly* match the
+// input records—that is, the name, type, TTL, and value all must be identical
+// to a record in the zone for it to be deleted.
+//
+// As a special case, you may leave any of the fields [libdns.Record.Type],
+// [libdns.Record.TTL], or [libdns.Record.Value] empty ("", 0, and ""
+// respectively). In this case, DeleteRecords will delete any records that
+// match the other fields, regardless of the value of the fields that were left
+// empty. Note that this behavior does *not* apply to the [libdns.Record.Name]
+// field, which must always be specified.
+func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	zones, err := p.getZoneMapping(ctx, zone)
+	if err != nil {
+		return []libdns.Record{}, err
+	}
+
+	p.mu_req.Lock()
+	defer p.mu_req.Unlock()
+
+	existingRecs, err := p.getRecordsInZone(ctx, zones)
+	if err != nil {
+		return []libdns.Record{}, err
 	}
 
 	deletedRecs := make([]libdns.Record, 0)
-	for _, rec := range recsToDelete {
-		if rec.ID != "" {
-			err := p.getClient().DeleteRecord(ctx, zone, rec.ID)
-			if err != nil {
-				return nil, err
+	for _, recToDelete := range records {
+		rrToDelete := recToDelete.RR()
+		remainingRecs := make([]IkRecord, 0)
+		for _, existingRec := range existingRecs {
+			if !isDeleteRecord(zones, &rrToDelete, &existingRec) {
+				remainingRecs = append(remainingRecs, existingRec)
+			} else {
+				resultRec, err := existingRec.ToLibDnsRecord(zones)
+				if err != nil {
+					return deletedRecs, err
+				}
+
+				err = p.getClient().DeleteRecord(ctx, zones.InfomaniakManagedZone, strconv.Itoa(existingRec.ID))
+				if err != nil {
+					return deletedRecs, err
+				}
+				deletedRecs = append(deletedRecs, resultRec)
 			}
-			deletedRecs = append(deletedRecs, rec)
 		}
+		existingRecs = remainingRecs
 	}
 	return deletedRecs, nil
 }
 
-// getRecordsMergedWithAlreadyExistingOnes returns records with an ID immediately, checks for records without ID if a record with the same coordinates
-// already exists, if yes, then it returns the updated already existing records otherwise the new record
-func (p *Provider) getRecordsMergedWithAlreadyExistingOnes(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	zone = getWithoutTrailingDot(zone)
-	result := make([]libdns.Record, 0)
-	recsWithoutId := make([]libdns.Record, 0)
-
-	for _, rec := range records {
-		if rec.ID == "" {
-			recsWithoutId = append(recsWithoutId, rec)
-		} else {
-			result = append(result, rec)
-		}
-	}
-
-	if len(recsWithoutId) > 0 {
-		mergedRecs, err := p.mergeRecordsWithExistingOnes(ctx, zone, recsWithoutId)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, mergedRecs...)
-	}
-	return result, nil
-}
-
-// mergeRecordsWithExistingOnes takes a list of records without ID. If one or multiple records with the same coordinates already exist, these records' data
-// are updated and returned, otherwise the new record is returned without any ID set
-func (p *Provider) mergeRecordsWithExistingOnes(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	zone = getWithoutTrailingDot(zone)
-	if len(records) <= 0 {
-		return make([]libdns.Record, 0), nil
-	}
-	existingRecords, err := p.getRecordsByCoordinates(ctx, zone)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]libdns.Record, 0)
-	for _, rec := range records {
-		if rec.ID != "" {
-			return nil, errors.New("got record that already exists as parameter")
-		}
-		recordsWithSameCoords := existingRecords[getCoordinates(rec)]
-		if len(recordsWithSameCoords) > 0 {
-			for _, existingRec := range recordsWithSameCoords {
-				copy := rec
-				copy.ID = existingRec.ID
-				result = append(result, copy)
-			}
-		} else {
-			result = append(result, rec)
-		}
-	}
-	return result, nil
+// isDeleteRecord returns true when the existing record matches the record that should be deleted
+func isDeleteRecord(zoneMapping *ZoneMapping, rrToDelete *libdns.RR, existingRec *IkRecord) bool {
+	return libdns.AbsoluteName(rrToDelete.Name, zoneMapping.LibDnsZone) == libdns.AbsoluteName(existingRec.Source, zoneMapping.InfomaniakManagedZone) &&
+		(rrToDelete.TTL == 0 || rrToDelete.TTL == existingRec.getTtlAsTimeDuration()) &&
+		(rrToDelete.Type == "" || rrToDelete.Type == existingRec.Type) &&
+		(rrToDelete.Data == "" || rrToDelete.Data == existingRec.Target)
 }
 
 // getClient returns a new instance of the infomaniak API client
 func (p *Provider) getClient() IkClient {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu_client.Lock()
+	defer p.mu_client.Unlock()
 	if p.client == nil {
 		p.client = &Client{Token: p.APIToken, HttpClient: http.DefaultClient}
 	}
 	return p.client
 }
 
-// getWithoutTrailingDot returns a given string without any trailing dot
-func getWithoutTrailingDot(s string) string {
-	for strings.HasSuffix(s, ".") {
-		s = strings.TrimSuffix(s, ".")
+// getZoneMapping returns the DNS zone that is mangaged by infomaniak and the input zone
+// from the libdns caller without a trailing dot
+func (p *Provider) getZoneMapping(ctx context.Context, zone string) (*ZoneMapping, error) {
+	libdnsZone := strings.TrimSuffix(zone, ".")
+	infomaniakZone, err := p.getClient().GetFqdnOfZoneForDomain(ctx, libdnsZone)
+	if err != nil {
+		return nil, err
 	}
-	return s
+	return &ZoneMapping{
+		InfomaniakManagedZone: infomaniakZone,
+		LibDnsZone:            libdnsZone,
+	}, nil
+}
+
+// getRecordsInZone returns the records that are in theinput zone from the libdns caller
+func (p *Provider) getRecordsInZone(ctx context.Context, zones *ZoneMapping) ([]IkRecord, error) {
+	recs, err := p.getClient().GetDnsRecordsForZone(ctx, zones.InfomaniakManagedZone)
+	if err != nil {
+		return []IkRecord{}, err
+	}
+
+	result := make([]IkRecord, 0)
+	for _, rec := range recs {
+		if strings.HasSuffix(libdns.AbsoluteName(rec.Source, zones.InfomaniakManagedZone), zones.LibDnsZone) {
+			result = append(result, rec)
+		}
+	}
+	return result, nil
 }
 
 // Interface guards

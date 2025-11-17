@@ -38,7 +38,6 @@ It also provides convenient extensions to go-openapi users.
   - ssn
   - uuid, uuid3, uuid4, uuid5
   - cidr (e.g. "192.0.2.1/24", "2001:db8:a0b:12f0::1/32")
-  - ulid (e.g. "00000PP9HGSBSSDZ1JTEXBJ0PW", [spec](https://github.com/ulid/spec))
 
 > NOTE: as the name stands for, this package is intended to support string formatting only.
 > It does not provide validation for numerical values with swagger format extension for JSON types "number" or
@@ -85,4 +84,3 @@ List of defined types:
 - UUID3
 - UUID4
 - UUID5
-- [ULID](https://github.com/ulid/spec)

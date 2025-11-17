@@ -14,6 +14,8 @@ import (
 const (
 	retryAfterHeaderName      = "Retry-After"
 	maintenanceModeHeaderName = "X-Maintenance-Mode"
+
+	defaultRetryCount = 1000
 )
 
 // type RetryConditional func(r *resty.Response) (shouldRetry bool)
@@ -27,7 +29,7 @@ type RetryAfter resty.RetryAfterFunc
 // If the Retry-After header is not set, we fall back to value of SetPollDelay.
 func configureRetries(c *Client) {
 	c.resty.
-		SetRetryCount(1000).
+		SetRetryCount(defaultRetryCount).
 		AddRetryCondition(checkRetryConditionals(c)).
 		SetRetryAfter(respectRetryAfter)
 }
@@ -41,6 +43,7 @@ func checkRetryConditionals(c *Client) func(*resty.Response, error) bool {
 				return true
 			}
 		}
+
 		return false
 	}
 }
@@ -51,6 +54,7 @@ func linodeBusyRetryCondition(r *resty.Response, _ error) bool {
 	apiError, ok := r.Error().(*APIError)
 	linodeBusy := ok && apiError.Error() == "Linode busy."
 	retry := r.StatusCode() == http.StatusBadRequest && linodeBusy
+
 	return retry
 }
 
@@ -99,5 +103,6 @@ func respectRetryAfter(client *resty.Client, resp *resty.Response) (time.Duratio
 
 	duration := time.Duration(retryAfter) * time.Second
 	log.Printf("[INFO] Respecting Retry-After Header of %d (%s) (max %s)", retryAfter, duration, client.RetryMaxWaitTime)
+
 	return duration, nil
 }

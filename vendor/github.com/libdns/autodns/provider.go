@@ -50,11 +50,12 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	}
 
 	for _, r := range result.Data[0].Records {
-		records = append(records, libdns.Record{
-			Type:  r.Type,
-			Name:  r.Name,
-			Value: r.Value,
-		})
+		record, err := ToLibDNS(r)
+		if err != nil {
+			// TODO: Log the error but continue processing other records
+			continue
+		}
+		records = append(records, record)
 	}
 
 	return records, nil
@@ -73,11 +74,11 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	}
 
 	for _, r := range records {
-		result.Data[0].Records = append(result.Data[0].Records, ZoneRecord{
-			Name:  r.Name,
-			Value: r.Value,
-			Type:  r.Type,
-		})
+		zoneRecord, err := ToAutoDNS(r)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert record: %v", err)
+		}
+		result.Data[0].Records = append(result.Data[0].Records, zoneRecord)
 	}
 
 	if err := p.updateZone(ctx, zoneInfo.Origin, zoneInfo.Nameserver, result.Data[0]); err != nil {
@@ -103,32 +104,25 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	var set []libdns.Record
 
 	for _, r := range records {
+		zoneRecord, err := ToAutoDNS(r)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert record: %v", err)
+		}
+
 		// find record
 		idx := slices.IndexFunc(
 			result.Data[0].Records,
 			func(zr ZoneRecord) bool {
-				return zr.Name == r.Name && zr.Type == r.Type
+				return zr.Name == zoneRecord.Name && zr.Type == zoneRecord.Type
 			})
 		if idx == -1 {
-			result.Data[0].Records = append(result.Data[0].Records,
-				ZoneRecord{
-					Name:  r.Name,
-					Type:  r.Type,
-					Value: r.Value,
-				},
-			)
-
+			result.Data[0].Records = append(result.Data[0].Records, zoneRecord)
 			set = append(set, r)
 			continue
 		}
 
 		// update existing record
-		result.Data[0].Records[idx] = ZoneRecord{
-			Name:  r.Name,
-			Type:  r.Type,
-			Value: r.Value,
-		}
-
+		result.Data[0].Records[idx] = zoneRecord
 		set = append(set, r)
 	}
 
@@ -154,11 +148,16 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	var deleted []libdns.Record
 
 	for _, r := range records {
+		zoneRecord, err := ToAutoDNS(r)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert record: %v", err)
+		}
+
 		// find record
 		idx := slices.IndexFunc(
 			result.Data[0].Records,
 			func(zr ZoneRecord) bool {
-				return zr.Name == r.Name && zr.Type == r.Type
+				return zr.Name == zoneRecord.Name && zr.Type == zoneRecord.Type
 			})
 		if idx == -1 {
 			continue

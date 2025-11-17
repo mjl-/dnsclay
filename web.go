@@ -535,7 +535,9 @@ func (x API) ZoneImportRecords(ctx context.Context, zone, zonefile string) []Rec
 	ctx, cancel = context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	ladded, err := appendRecords(ctx, log, provider, z.Name, libdnsRecords(l))
+	ll, err := libdnsRRs(l)
+	_checkf(err, "parsing records to add")
+	ladded, err := appendRecords(ctx, log, provider, z.Name, ll)
 	if err == nil && len(ladded) < len(l) {
 		err = fmt.Errorf("provider added %d records, expected %d (%v != %v)", len(ladded), len(l), ladded, l)
 	}
@@ -641,7 +643,9 @@ func (x API) RecordSetAdd(ctx context.Context, zone string, rsc RecordSetChange)
 	ctx, cancel = context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	ladded, err := appendRecords(ctx, log, provider, z.Name, libdnsRecords(nset))
+	l, err := libdnsRRs(nset)
+	_checkf(err, "parsing records to add")
+	ladded, err := appendRecords(ctx, log, provider, z.Name, l)
 	if err == nil && len(ladded) != len(nset) {
 		err = fmt.Errorf("provider added %d records, expected %d", len(ladded), len(nset))
 	}
@@ -740,50 +744,17 @@ func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string
 		}
 	}
 
-	// We'll make changes by either "set" of records (changing them) or deleting &
-	// adding. If the name changed, we'll just deleted & add. Otherwise (the common
-	// case), we use SetRecords only for records that changed and have ProviderIDs
-	// (because we don't really know what "setting records" means otherwise if there is
-	// no reference; SOA is an exception, there is always exactly 1), and use
-	// AppendRecords/DeleteRecords otherwise.
-	var adds []Record
-	var expAdds []recordKey
-	var dels []Record
-	var sets []Record
-	for _, or := range oset {
-		index := slices.Index(valueRecordIDs, or.ID)
-		if index >= 0 && or.recordKey() == nset[index].recordKey() {
-			continue // Unchanged.
-		} else if or.AbsName != oldAbsName || index < 0 || (or.ProviderID == "" && or.Type != Type(dns.TypeSOA)) {
-			dels = append(dels, or)
-		}
-		// Otherwise, the record will be updated and we'll handle it below.
-	}
-	for i, nr := range nset {
-		if orID := valueRecordIDs[i]; orID > 0 && ormap[orID].recordKey() == nr.recordKey() {
-			continue // Unchanged.
-		} else if oset[0].AbsName != oldAbsName || orID <= 0 || (ormap[orID].ProviderID == "" && ormap[orID].Type != Type(dns.TypeSOA)) {
-			adds = append(adds, nr)
-			expAdds = append(expAdds, nr.recordKey())
-		} else {
-			nr.ProviderID = ormap[orID].ProviderID
-			sets = append(sets, nr)
-			expAdds = append(expAdds, nr.recordKey())
-		}
-	}
-
-	if len(dels) == 0 && len(adds) == 0 && len(sets) == 0 {
-		_checkuserf(errors.New("no added/removed/updated records"), "gathering changes")
-	}
-
-	log.Debug("updating record set", "oset", oset, "nset", nset, "dels", dels, "sets", sets, "adds", adds)
-
 	var cancel func()
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	if len(dels) > 0 {
-		ldrdels := libdnsRecords(dels)
+	var adds, dels []Record
+	var expAdds []recordKey
+	if libdns.AbsoluteName(rsc.RelName, z.Name) != oldAbsName {
+		log.Debug("updating by removing and adding record set", "oset", oset, "nset", nset, "dels", dels, "adds", adds)
+
+		ldrdels, err := libdnsRRs(dels)
+		_checkf(err, "parsing old records to delete")
 		ldeleted, err := deleteRecords(ctx, log, provider, z.Name, ldrdels)
 		if err == nil && len(ldeleted) != len(ldrdels) {
 			slog.Info("provider reported deletes", "deleted", ldeleted, "requested", ldrdels)
@@ -791,19 +762,9 @@ func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string
 		}
 		_checkf(err, "deleting old records through provider")
 		log.Debug("records deleted through provider", "deleted", ldeleted)
-	}
-	if len(sets) > 0 {
-		ldrsets := libdnsRecords(sets)
-		lupdated, err := setRecords(ctx, log, provider, z.Name, ldrsets)
-		if err == nil && len(lupdated) != len(ldrsets) {
-			slog.Info("provider reported updates", "updated", lupdated, "requested", ldrsets)
-			err = fmt.Errorf("provider reports %d records were updated, expected %d", len(lupdated), len(sets))
-		}
-		_checkf(err, "updating records through provider")
-		log.Debug("records updated through provider", "updated", lupdated)
-	}
-	if len(adds) > 0 {
-		ldradds := libdnsRecords(nset)
+
+		ldradds, err := libdnsRRs(nset)
+		_checkf(err, "parsing new records to add")
 		ladded, err := appendRecords(ctx, log, provider, z.Name, ldradds)
 		if err == nil && len(ladded) < len(ldradds) {
 			slog.Info("provider reported appends", "added", ladded, "requested", ldradds)
@@ -811,6 +772,40 @@ func (x API) RecordSetUpdate(ctx context.Context, zone string, oldRelName string
 		}
 		_checkf(err, "adding records through provider")
 		log.Debug("records added through provider", "added", ladded)
+		for _, r := range nset {
+			expAdds = append(expAdds, r.recordKey())
+		}
+	} else {
+		// Check that at least some value changed.
+		change := map[recordKey]int{}
+		for _, r := range oset {
+			change[r.recordKey()]++
+		}
+		for _, r := range nset {
+			change[r.recordKey()]--
+		}
+		var have bool
+		for _, n := range change {
+			if n != 0 {
+				have = true
+				break
+			}
+		}
+		if !have {
+			_checkuserf(errors.New("no modified records"), "gathering changes")
+		}
+
+		log.Debug("updating record set", "oset", oset, "nset", nset)
+
+		ldrsets, err := libdnsRRs(nset)
+		_checkf(err, "parsing records set to set")
+		lupdated, err := setRecords(ctx, log, provider, z.Name, ldrsets)
+		if err == nil && len(lupdated) != len(ldrsets) {
+			slog.Info("provider reported updates", "updated", lupdated, "requested", ldrsets)
+			err = fmt.Errorf("provider reports %d records were updated, expected %d", len(lupdated), len(nset))
+		}
+		_checkf(err, "updating records through provider")
+		log.Debug("records updated through provider", "updated", lupdated)
 	}
 
 	inserted, _, err := ensurePropagate(ctx, log, provider, z, expAdds, dels, soa.SerialFirst)
@@ -883,7 +878,9 @@ func (x API) RecordSetDelete(ctx context.Context, zone string, relName string, t
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	removed, err := deleteRecords(ctx, log, provider, z.Name, libdnsRecords(records))
+	l, err := libdnsRRs(records)
+	_checkf(err, "parsing records to delete")
+	removed, err := deleteRecords(ctx, log, provider, z.Name, l)
 	if err == nil && len(removed) != len(records) {
 		err = fmt.Errorf("provider reports %d records were removed, expected %d", len(removed), len(records))
 	}

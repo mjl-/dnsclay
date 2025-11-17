@@ -29,7 +29,7 @@ type LoadConfigOptions struct {
 	SkipLoadProfile bool
 }
 
-// LoadConfig loads a Linode config according to the options argument.
+// LoadConfig loads a Linode config according to the option's argument.
 // If no options are specified, the following defaults will be used:
 // Path: ~/.config/linode
 // Profile: default
@@ -140,7 +140,7 @@ func resolveValidConfigPath() (string, error) {
 			return "", err
 		}
 
-		if _, err := os.Stat(p); err != nil {
+		if _, err = os.Stat(p); err != nil {
 			continue
 		}
 

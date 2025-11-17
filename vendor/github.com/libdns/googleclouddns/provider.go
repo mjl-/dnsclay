@@ -117,8 +117,8 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 
 // Interface guards
 var (
-	_ libdns.RecordGetter   = (*Provider)(nil)
-	_ libdns.RecordAppender = (*Provider)(nil)
-	_ libdns.RecordSetter   = (*Provider)(nil)
-	_ libdns.RecordDeleter  = (*Provider)(nil)
+	_ libdns.RecordGetter   = new(Provider)
+	_ libdns.RecordAppender = new(Provider)
+	_ libdns.RecordSetter   = new(Provider)
+	_ libdns.RecordDeleter  = new(Provider)
 )

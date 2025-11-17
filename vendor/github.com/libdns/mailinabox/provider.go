@@ -6,10 +6,10 @@ package mailinabox
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"strings"
 
 	"github.com/libdns/libdns"
-	"github.com/luv2code/gomiabdns"
 	miab "github.com/luv2code/gomiabdns"
 )
 
@@ -25,60 +25,93 @@ type Provider struct {
 	EmailAddress string `json:"email_address,omitempty"`
 	// Password of the admin account that corresponds to the email.
 	Password string `json:"password,omitempty"`
+	// TOTP Secret Key of the admin account. Needed if multi factor authentication
+	// is enabled.
+	TOTPSecret string `json:"totp_secret,omitempty"`
 }
 
 func (p *Provider) getClient() *miab.Client {
-	return miab.New(p.APIURL, p.EmailAddress, p.Password)
+	return miab.New(p.APIURL, p.EmailAddress, p.Password, p.TOTPSecret)
 }
 
 func removeTrailingDot(zone string) string {
-	return zone[:len(zone)-1]
+	if strings.HasSuffix(zone, ".") {
+		zone = zone[:len(zone)-1]
+	}
+	return zone
 }
-func (p *Provider) zoneCheck(zone string) error {
+func (p *Provider) zoneCheck(zone string, client *miab.Client) error {
 	zone = removeTrailingDot(zone)
-	if !strings.Contains(p.APIURL, removeTrailingDot(zone)) {
+	ControlledZones, err := client.GetZones(context.TODO())
+	if err != nil {
+		return fmt.Errorf("This DNS provider (%s) gives an error (%s) when retrieving zones", p.APIURL, err.Error())
+	}
+
+	isOk := false
+	for _, dz := range ControlledZones {
+		isOk = isOk || strings.Contains(zone, string(dz))
+	}
+
+	if !isOk {
 		return fmt.Errorf("This DNS provider (%s) does not control the specified zone (%s)", p.APIURL, zone)
 	}
 	return nil
 }
-func toLibDnsRecords(zone string, miabRecords []miab.DNSRecord) []libdns.Record {
+func toLibDnsRecords(zone string, miabRecords []miab.DNSRecord) ([]libdns.Record, error) {
 	libDNSRecords := []libdns.Record{}
 	zone = removeTrailingDot(zone)
 	for _, mr := range miabRecords {
 		partialName := strings.ReplaceAll(mr.QualifiedName, zone, "")
 		partialName = removeTrailingDot(partialName)
-		libDNSRecords = append(libDNSRecords, libdns.Record{
-			ID:    mr.QualifiedName + ".",
-			Type:  string(mr.RecordType),
-			Name:  partialName,
-			Value: mr.Value,
-		})
+		var rr libdns.Record
+		switch mr.RecordType {
+		case miab.A, miab.AAAA:
+			addr, err := netip.ParseAddr(mr.Value)
+			if err != nil {
+				return nil, fmt.Errorf("Error parsing IP address. Error: %s, input: %s, record: %s", err, mr.Value, mr.QualifiedName)
+			}
+			rr = &libdns.Address{Name: partialName, IP: addr}
+		case miab.CAA:
+			rr = &libdns.CAA{Name: partialName, Value: mr.Value}
+		case miab.CNAME:
+			rr = &libdns.CNAME{Name: partialName, Target: mr.Value}
+		case miab.MX:
+			rr = &libdns.MX{Name: partialName, Target: mr.Value}
+		case miab.NS:
+			rr = &libdns.NS{Name: partialName, Target: mr.Value}
+		case miab.SRV:
+			rr = &libdns.SRV{Name: partialName, Target: mr.Value}
+		case miab.TXT:
+			rr = &libdns.TXT{Name: partialName, Text: mr.Value}
+		}
+		libDNSRecords = append(libDNSRecords, rr)
 	}
-	return libDNSRecords
+	return libDNSRecords, nil
 }
 
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	if err := p.zoneCheck(zone); err != nil {
+	client := p.getClient()
+	if err := p.zoneCheck(zone, client); err != nil {
 		return nil, err
 	}
-	client := p.getClient()
 	miabRecords, err := client.GetHosts(ctx, "", "")
 	if err != nil {
 		return nil, err
 	}
-	return toLibDnsRecords(zone, miabRecords), nil
+	return toLibDnsRecords(zone, miabRecords)
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	if err := p.zoneCheck(zone); err != nil {
+	client := p.getClient()
+	if err := p.zoneCheck(zone, client); err != nil {
 		return nil, err
 	}
 	zone = removeTrailingDot(zone)
-	client := p.getClient()
 	for _, r := range records {
-		if err := client.AddHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {
+		rr := r.RR()
+		if err := client.AddHost(ctx, rr.Name+"."+zone, miab.RecordType(rr.Type), rr.Data); err != nil {
 			return nil, err
 		}
 	}
@@ -88,13 +121,14 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
 // It returns the updated records.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	if err := p.zoneCheck(zone); err != nil {
+	client := p.getClient()
+	if err := p.zoneCheck(zone, client); err != nil {
 		return nil, err
 	}
 	zone = removeTrailingDot(zone)
-	client := p.getClient()
 	for _, r := range records {
-		if err := client.UpdateHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {
+		rr := r.RR()
+		if err := client.UpdateHost(ctx, rr.Name+"."+zone, miab.RecordType(rr.Type), rr.Data); err != nil {
 			return nil, err
 		}
 	}
@@ -103,13 +137,14 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	if err := p.zoneCheck(zone); err != nil {
+	client := p.getClient()
+	if err := p.zoneCheck(zone, client); err != nil {
 		return nil, err
 	}
 	zone = removeTrailingDot(zone)
-	client := p.getClient()
 	for _, r := range records {
-		if err := client.DeleteHost(ctx, r.Name+"."+zone, gomiabdns.RecordType(r.Type), r.Value); err != nil {
+		rr := r.RR()
+		if err := client.DeleteHost(ctx, rr.Name+"."+zone, miab.RecordType(rr.Type), rr.Data); err != nil {
 			return nil, err
 		}
 	}

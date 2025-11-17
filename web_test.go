@@ -10,26 +10,27 @@ import (
 	"github.com/miekg/dns"
 )
 
+var adminmux = makeAdminMux()
+
 func TestWebAuthExport(t *testing.T) {
-	mux := makeAdminMux()
 
 	testAuth := func(path string) {
 		// Missing credentials.
 		req := httptest.NewRequest("GET", path, nil)
 		rec := httptest.ResponseRecorder{}
-		mux.ServeHTTP(&rec, req)
+		adminmux.ServeHTTP(&rec, req)
 		tcompare(t, rec.Code, http.StatusUnauthorized)
 
 		// Bad password.
 		req.SetBasicAuth("admin", "bad")
 		rec = httptest.ResponseRecorder{}
-		mux.ServeHTTP(&rec, req)
+		adminmux.ServeHTTP(&rec, req)
 		tcompare(t, rec.Code, http.StatusUnauthorized)
 
 		// Allowed.
 		req.SetBasicAuth("admin", adminpassword)
 		rec = httptest.ResponseRecorder{}
-		mux.ServeHTTP(&rec, req)
+		adminmux.ServeHTTP(&rec, req)
 		tcompare(t, rec.Code, http.StatusOK)
 	}
 
@@ -71,6 +72,38 @@ func TestRecordSetAdd(t *testing.T) {
 		te.sherpaError("user:error", func() {
 			te.api.RecordSetAdd(ctxbg, z.Name, RecordSetChange{"testhost2", 600, Type(dns.TypeA), []string{"10.0.0.3"}})
 		}) // Already exists.
+
+		// Add long TXT record, testing for escaping.
+		tc = te.zoneChanged(func() {
+			longvalue := make([]byte, 500)
+			for i := range longvalue {
+				longvalue[i] = 'a'
+			}
+			rsn := RecordSetChange{"testtxt2", 600, Type(dns.TypeTXT), []string{string(longvalue)}}
+			te.api.RecordSetAdd(ctxbg, z.Name, rsn)
+		})
+		tc.checkRecordDelta(typecounts{}, typecounts{"TXT": 1})
+
+		// Add SRV record that stock libdns doesn't think is valid.
+		tc = te.zoneChanged(func() {
+			rsn := RecordSetChange{"testsrv2", 600, Type(dns.TypeSRV), []string{"0 0 143 other.example.com."}}
+			te.api.RecordSetAdd(ctxbg, z.Name, rsn)
+		})
+		tc.checkRecordDelta(typecounts{}, typecounts{"SRV": 1})
+
+		// Add SVCB record that stock libdns doesn't think is valid.
+		tc = te.zoneChanged(func() {
+			rsn := RecordSetChange{"testsvcb2", 600, Type(dns.TypeSVCB), []string{"0 test.example."}}
+			te.api.RecordSetAdd(ctxbg, z.Name, rsn)
+		})
+		tc.checkRecordDelta(typecounts{}, typecounts{"SVCB": 1})
+
+		// Add MX record.
+		tc = te.zoneChanged(func() {
+			rsn := RecordSetChange{"mx2", 600, Type(dns.TypeMX), []string{"10 test.example."}}
+			te.api.RecordSetAdd(ctxbg, z.Name, rsn)
+		})
+		tc.checkRecordDelta(typecounts{}, typecounts{"MX": 1})
 	})
 }
 
@@ -94,11 +127,32 @@ func TestRecordSetDelete(t *testing.T) {
 		})
 		tc.checkRecordDelta(typecounts{"A": 2}, typecounts{})
 	})
+
+	testDNS(t, func(te testEnv, z Zone) {
+		tc := te.zoneChanged(func() {
+			var prevRecords []int64
+			for _, r := range te.z0.records {
+				if r.Type == Type(dns.TypeTXT) {
+					prevRecords = append(prevRecords, r.ID)
+				}
+			}
+			tcompare(t, len(prevRecords), 1)
+
+			te.api.RecordSetDelete(ctxbg, z.Name, "testtxt", Type(dns.TypeTXT), prevRecords)
+			te.sherpaError("user:error", func() { te.api.RecordSetDelete(ctxbg, z.Name, "testtxt", Type(dns.TypeTXT), prevRecords) })
+		})
+		tc.checkRecordDelta(typecounts{"TXT": 1}, typecounts{})
+	})
 }
 
 func TestRecordSetUpdate(t *testing.T) {
 	testDNS(t, func(te testEnv, z Zone) {
 		rsn := RecordSetChange{"testhost", 600, Type(dns.TypeA), []string{"10.0.0.1", "10.0.0.3"}}
+
+		records := map[uint16][]int64{}
+		for _, r := range te.z0.records {
+			records[uint16(r.Type)] = append(records[uint16(r.Type)], r.ID)
+		}
 
 		tc := te.zoneChanged(func() {
 			var prevRecords []int64
@@ -128,6 +182,7 @@ func TestRecordSetUpdate(t *testing.T) {
 		})
 		tc.checkRecordDelta(typecounts{"A": 2}, typecounts{"A": 2})
 
+		// Try making "changes" to a record set, but keeping everything the same.
 		te.zoneUnchanged(func() {
 			var prevRecords []int64
 			for _, r := range te.z0.records {
@@ -138,6 +193,27 @@ func TestRecordSetUpdate(t *testing.T) {
 			tcompare(t, len(prevRecords), 2)
 			te.sherpaError("user:error", func() { te.api.RecordSetUpdate(ctxbg, z.Name, "testhost", rsn, prevRecords, prevRecords) }) // No changes.
 		})
+
+		// Update TXT record, testing for escaping.
+		tc = te.zoneChanged(func() {
+			rsn := RecordSetChange{"testtxt", 300, Type(dns.TypeTXT), []string{`modified`}}
+			te.api.RecordSetUpdate(ctxbg, z.Name, "testtxt", rsn, records[dns.TypeTXT], records[dns.TypeTXT])
+		})
+		tc.checkRecordDelta(typecounts{"TXT": 1}, typecounts{"TXT": 1})
+
+		// Add SVCB record that stock libdns doesn't think is valid.
+		tc = te.zoneChanged(func() {
+			rsn := RecordSetChange{"", 600, Type(dns.TypeSVCB), []string{"0 modified.example."}}
+			te.api.RecordSetUpdate(ctxbg, z.Name, "", rsn, records[dns.TypeSVCB], records[dns.TypeSVCB])
+		})
+		tc.checkRecordDelta(typecounts{"SVCB": 1}, typecounts{"SVCB": 1})
+
+		// Add MX record.
+		tc = te.zoneChanged(func() {
+			rsn := RecordSetChange{"", 600, Type(dns.TypeMX), []string{"10 modified.example."}}
+			te.api.RecordSetUpdate(ctxbg, z.Name, "", rsn, records[dns.TypeMX], records[dns.TypeMX])
+		})
+		tc.checkRecordDelta(typecounts{"MX": 1}, typecounts{"MX": 1})
 	})
 }
 
@@ -289,7 +365,7 @@ func TestProviderConfigUpdate(t *testing.T) {
 func TestZoneRecordSets(t *testing.T) {
 	testDNS(t, func(te testEnv, z Zone) {
 		sets := te.api.ZoneRecordSets(ctxbg, z.Name)
-		tcompare(t, len(sets), 2) // SOA and A.
+		tcompare(t, len(sets), 7)
 
 		te.sherpaError("user:notFound", func() { te.api.ZoneRecordSets(ctxbg, "bogus") })
 	})

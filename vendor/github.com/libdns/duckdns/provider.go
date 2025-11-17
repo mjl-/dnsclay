@@ -9,8 +9,20 @@ import (
 
 // Provider implements the libdns interfaces for Duck DNS.
 type Provider struct {
-	APIToken       string `json:"api_token,omitempty"`
+	// The DuckDNS API token.
+	APIToken string `json:"api_token,omitempty"`
+
+	// An override to the domain, useful if the domain being
+	// managed does not belong to DuckDNS, and instead is
+	// pointing to DuckDNS using a CNAME record. This allows
+	// using DuckDNS' API to manage records for other domains
+	// which have worse or no programmable APIs.
 	OverrideDomain string `json:"override_domain,omitempty"`
+
+	// An optional resolver to use when doing DNS queries to
+	// load the current records. By default, 8.8.8.8:53 is used,
+	// i.e. Google's public DNS server.
+	Resolver string `json:"resolver,omitempty"`
 
 	mutex sync.Mutex
 }

@@ -4,16 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
-
-	"github.com/libdns/libdns"
 )
 
 const defaultBaseURL string = "https://api.domeneshop.no/v0"
@@ -23,248 +19,273 @@ const defaultBaseURL string = "https://api.domeneshop.no/v0"
 // The api specifies that TTL must be in seconds but also in must multiples of 60
 const defaultTtl = time.Duration(2 * time.Minute)
 
-// Domain JSON data structure.
-type Domain struct {
-	Name           string   `json:"domain"`
-	ID             int      `json:"id"`
-	ExpiryDate     string   `json:"expiry_date"`
-	Nameservers    []string `json:"nameservers"`
-	RegisteredDate string   `json:"registered_date"`
-	Registrant     string   `json:"registrant"`
-	Renew          bool     `json:"renew"`
-	Services       Service  `json:"services"`
-	Status         string
-}
-
-type Service struct {
-	DNS       bool   `json:"dns"`
-	Email     bool   `json:"email"`
-	Registrar bool   `json:"registrar"`
-	Webhotel  string `json:"webhotel"`
-}
-
-// DNSRecord JSON data structure.
-type DNSRecord struct {
-	ID   int    `json:"id,omitempty"`
-	Host string `json:"host"`
-	Data string `json:"data"`
-	Type string `json:"type"`
-	TTL  int    `json:"ttl"`
-}
-
-func doRequest(token string, secret string, request *http.Request) ([]byte, error) {
+func (p *Provider) doRequest(token string, secret string, request *http.Request, result any) error {
 	request.SetBasicAuth(token, secret)
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("%s (%d)", http.StatusText(response.StatusCode), response.StatusCode)
-	}
-
 	defer response.Body.Close()
-	data, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
+
+	if response.StatusCode >= 400 {
+		body, _ := io.ReadAll(response.Body)
+		return fmt.Errorf("got error status: HTTP %d: %+v", response.StatusCode, string(body))
 	}
 
-	return data, nil
-}
-
-func getDomainID(ctx context.Context, token string, secret string, zone string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(defaultBaseURL+"/domains?domain=%s", url.QueryEscape(removeFQDNTrailingDot(zone))), nil)
-	if err != nil {
-		return "", err
-	}
-	data, err := doRequest(token, secret, req)
-	if err != nil {
-		return "", err
-	}
-
-	var result []Domain
-	if err := json.Unmarshal(data, &result); err != nil {
-		return "", err
-	}
-
-	if err := json.Unmarshal(data, &result); err != nil {
-		return "", err
-	}
-
-	if len(result) > 1 {
-		return "", errors.New("zone is ambiguous")
-	}
-
-	return strconv.Itoa(result[0].ID), nil
-}
-
-func getDNSRecord(ctx context.Context, token string, secret string, domainID string, recordID int) (libdns.Record, error) {
-	var result DNSRecord
-	reqBufferGet, err := json.Marshal(result)
-	if err != nil {
-		return libdns.Record{}, err
-	}
-
-	reqGet, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(defaultBaseURL+"/domains/%s/dns/%d", domainID, recordID), bytes.NewBuffer(reqBufferGet))
-	if err != nil {
-		return libdns.Record{}, err
-	}
-	dataGet, err := doRequest(token, secret, reqGet)
-	if err != nil {
-		return libdns.Record{}, err
-	}
-
-	if err := json.Unmarshal(dataGet, &result); err != nil {
-		return libdns.Record{}, err
-	}
-
-	return libdns.Record{
-		ID:    strconv.Itoa(result.ID),
-		Type:  result.Type,
-		Name:  result.Host,
-		Value: result.Data,
-		TTL:   time.Duration(result.TTL) * time.Second,
-	}, nil
-}
-
-func deleteDNSRecord(ctx context.Context, token string, secret string, record libdns.Record, zone string) error {
-	domainID, err := getDomainID(ctx, token, secret, zone)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, "DELETE", fmt.Sprintf(defaultBaseURL+"/domains/%s/dns/%s", domainID, record.ID), nil)
-	if err != nil {
-		return err
-	}
-	_, err = doRequest(token, secret, req)
-	if err != nil {
-		return err
+	if result != nil {
+		if err = json.NewDecoder(response.Body).Decode(&result); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func getAllDomainRecords(ctx context.Context, token string, secret string, zone string) ([]libdns.Record, error) {
-	domainID, err := getDomainID(ctx, token, secret, zone)
+func (p *Provider) getDomainInfo(ctx context.Context, token string, secret string, zone string) (dsZone, error) {
+	p.zonesMu.Lock()
+	defer p.zonesMu.Unlock()
+	// if we already got the zone info, reuse it
+	if p.zones == nil {
+		p.zones = make(map[string]dsZone)
+	}
+	if zone, ok := p.zones[zone]; ok {
+		return zone, nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(defaultBaseURL+"/domains?domain=%s", url.QueryEscape(removeFQDNTrailingDot(zone))), nil)
 	if err != nil {
-		return nil, err
+		return dsZone{}, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(defaultBaseURL+"/domains/%s/dns", domainID), nil)
+	var zones []dsZone
+	err = p.doRequest(token, secret, req, &zones)
 	if err != nil {
-		return nil, err
-	}
-	data, err := doRequest(token, secret, req)
-	if err != nil {
-		return nil, err
+		return dsZone{}, err
 	}
 
-	var result []DNSRecord
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, err
+	if len(zones) != 1 {
+		return dsZone{}, fmt.Errorf("expected 1 zone, got %d for %s", len(zones), zone)
 	}
+	p.zones[zone] = zones[0]
 
-	records := []libdns.Record{}
-	for _, r := range result {
-		records = append(records, libdns.Record{
-			ID:    strconv.Itoa(r.ID),
-			Type:  r.Type,
-			Name:  r.Host,
-			Value: r.Data,
-			TTL:   time.Duration(r.TTL) * time.Second,
-		})
-	}
-
-	return records, nil
+	return zones[0], nil
 }
 
-func createDNSRecord(ctx context.Context, token string, secret string, zone string, r libdns.Record) (libdns.Record, error) {
-	domainID, err := getDomainID(ctx, token, secret, zone)
+func (p *Provider) getAllDomainRecords(ctx context.Context, token string, secret string, zone string) ([]dsDNSRecord, error) {
+	domain, err := p.getDomainInfo(ctx, token, secret, zone)
 	if err != nil {
-		return libdns.Record{}, err
+		return nil, err
 	}
 
-	reqData := DNSRecord{
-		Type: r.Type,
-		Host: normalizeRecordName(r.Name, zone),
-		Data: r.Value,
-		TTL:  int(r.TTL.Seconds()),
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(defaultBaseURL+"/domains/%d/dns", domain.ID), nil)
+	if err != nil {
+		return nil, err
 	}
+
+	var result []dsDNSRecord
+	err = p.doRequest(token, secret, req, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save the records for later
+	p.knownRecordsMu.Lock()
+	defer p.knownRecordsMu.Unlock()
+	if p.knownRecords == nil {
+		p.knownRecords = make(map[string][]dsDNSRecord)
+	}
+	p.knownRecords[zone] = result
+
+	return result, nil
+}
+
+// Get a dns record from zone
+// Retrieving records directly require an ID, since we dont' really have that ahead of time we can only really rely on getting the whole zone
+// We try to cache results to reduce the need for queries
+func (p *Provider) getDNSRecord(ctx context.Context, token string, secret string, zone string, record dsDNSRecord) (dsDNSRecord, error) {
+	// Try to retrieve from our cached records first
+	var dsrecord = p.getRecordFromKnownRecords(record, zone)
+
+	// if it's not an emtpy struct we return it
+	if (dsDNSRecord{}) != dsrecord {
+		return dsrecord, nil
+	}
+
+	// Fall back to getting the full zone info
+	_, err := p.getAllDomainRecords(ctx, token, secret, zone)
+	if err != nil {
+		return dsDNSRecord{}, err
+	}
+
+	// Try to retrieve again, if it's still empty then we assume nothing was found
+	dsrecord = p.getRecordFromKnownRecords(record, zone)
+	return dsrecord, nil
+}
+
+func (p *Provider) deleteDNSRecord(ctx context.Context, token string, secret string, zone string, record dsDNSRecord) error {
+	domain, err := p.getDomainInfo(ctx, token, secret, zone)
+	if err != nil {
+		return err
+	}
+
+	// Try to retrieve from our cached records first
+	dsrecord, err := p.getDNSRecord(ctx, token, secret, zone, record)
+	if err != nil {
+		return err
+	}
+	// if the result is empty we don't need to delete
+	if (dsDNSRecord{}) == dsrecord {
+		return nil
+	}
+
+	reqURL := fmt.Sprintf(defaultBaseURL+"/domains/%d/dns/%d", domain.ID, dsrecord.ID)
+	req, err := http.NewRequestWithContext(ctx, "DELETE", reqURL, nil)
+	if err != nil {
+		return err
+	}
+
+	err = p.doRequest(token, secret, req, nil)
+	if err != nil {
+		return err
+	}
+	_ = p.removeRecordFromKnownRecords(dsrecord, zone)
+	return nil
+}
+
+func (p *Provider) createDNSRecord(ctx context.Context, token string, secret string, zone string, record dsDNSRecord) (dsDNSRecord, error) {
+	domain, err := p.getDomainInfo(ctx, token, secret, zone)
+	if err != nil {
+		return dsDNSRecord{}, err
+	}
+
+	record.Host = normalizeRecordName(record.Host, zone)
+
+	reqData := record
 	if reqData.TTL == 0 {
 		reqData.TTL = int(defaultTtl.Seconds())
 	}
-
 	reqBuffer, err := json.Marshal(reqData)
 	if err != nil {
-		return libdns.Record{}, err
+		return dsDNSRecord{}, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf(defaultBaseURL+"/domains/%s/dns", domainID), bytes.NewBuffer(reqBuffer))
+	reqURL := fmt.Sprintf(defaultBaseURL+"/domains/%d/dns", domain.ID)
+	req, err := http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewBuffer(reqBuffer))
 	if err != nil {
-		return libdns.Record{}, err
+		return dsDNSRecord{}, err
 	}
-	data, err := doRequest(token, secret, req)
-	if err != nil {
-		return libdns.Record{}, err
-	}
-	var result DNSRecord
-	if err := json.Unmarshal(data, &result); err != nil {
-		return libdns.Record{}, err
-	}
+	req.Header.Set("Content-Type", "application/json")
 
-	return getDNSRecord(ctx, token, secret, domainID, result.ID)
+	var result dsDNSRecord
+	err = p.doRequest(token, secret, req, &result)
+	if err != nil {
+		return dsDNSRecord{}, err
+	}
+	// Add the ID to the incoming record
+	record.ID = result.ID
+
+	return record, nil
 }
 
-func updateDNSRecord(ctx context.Context, token string, secret string, zone string, r libdns.Record) (libdns.Record, error) {
-	domainID, err := getDomainID(ctx, token, secret, zone)
+func (p *Provider) updateDNSRecord(ctx context.Context, token string, secret string, zone string, record dsDNSRecord) (dsDNSRecord, error) {
+	domain, err := p.getDomainInfo(ctx, token, secret, zone)
 	if err != nil {
-		return libdns.Record{}, err
+		return dsDNSRecord{}, err
 	}
 
-	id, err := strconv.Atoi(r.ID)
-	if err != nil {
-		return libdns.Record{}, err
-	}
-
-	reqData := DNSRecord{
-		Type: r.Type,
-		Host: normalizeRecordName(r.Name, zone),
-		Data: r.Value,
-		TTL:  int(r.TTL.Seconds()),
-	}
+	reqData := record
 	if reqData.TTL == 0 {
 		reqData.TTL = int(defaultTtl.Seconds())
 	}
-
 	reqBuffer, err := json.Marshal(reqData)
 	if err != nil {
-		return libdns.Record{}, err
+		return dsDNSRecord{}, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "PUT", fmt.Sprintf(defaultBaseURL+"/domains/%s/dns/%d", domainID, id), bytes.NewBuffer(reqBuffer))
+	reqURL := fmt.Sprintf(defaultBaseURL+"/domains/%d/dns/%d", domain.ID, record.ID)
+	req, err := http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewBuffer(reqBuffer))
 	if err != nil {
-		return libdns.Record{}, err
+		return dsDNSRecord{}, err
 	}
-	data, err := doRequest(token, secret, req)
-	if err != nil {
-		return libdns.Record{}, err
-	}
-	_ = data
+	req.Header.Set("Content-Type", "application/json")
 
-	return getDNSRecord(ctx, token, secret, domainID, id)
+	var result dsDNSRecord
+	err = p.doRequest(token, secret, req, &result)
+	if err != nil {
+		return dsDNSRecord{}, err
+	}
+	// We don't actually get an result from the API so we query for update
+	return p.getDNSRecord(ctx, token, secret, zone, record)
 }
 
-func createOrUpdateDNSRecord(ctx context.Context, token string, secret string, zone string, r libdns.Record) (libdns.Record, error) {
-	if len(r.ID) == 0 {
-		return createDNSRecord(ctx, token, secret, zone, r)
+func (p *Provider) createOrUpdateDNSRecord(ctx context.Context, token string, secret string, zone string, r dsDNSRecord) (dsDNSRecord, error) {
+	if r.ID == 0 {
+		return p.createDNSRecord(ctx, token, secret, zone, r)
 	}
 
-	return updateDNSRecord(ctx, token, secret, zone, r)
+	return p.updateDNSRecord(ctx, token, secret, zone, r)
 }
+
+func (p *Provider) getRecordFromKnownRecords(record dsDNSRecord, zone string) dsDNSRecord {
+	p.knownRecordsMu.Lock()
+	defer p.knownRecordsMu.Unlock()
+	if p.knownRecords == nil {
+		p.knownRecords = make(map[string][]dsDNSRecord)
+	}
+
+	if zoneRecords, ok := p.knownRecords[zone]; ok {
+		for _, rec := range zoneRecords {
+			if record.ID == rec.ID && record.ID != 0 && rec.ID != 0 {
+				return rec
+			} else if record.Host == rec.Host && record.Data == rec.Data && rec.ID != 0 {
+				return rec
+			}
+		}
+	}
+	return dsDNSRecord{}
+}
+
+func (p *Provider) removeRecordFromKnownRecords(record dsDNSRecord, zone string) bool {
+	p.knownRecordsMu.Lock()
+	defer p.knownRecordsMu.Unlock()
+	if p.knownRecords == nil {
+		p.knownRecords = make(map[string][]dsDNSRecord)
+	}
+
+	if zoneRecords, ok := p.knownRecords[zone]; ok {
+		for i, rec := range zoneRecords {
+			if record.ID == rec.ID && record.ID != 0 {
+				p.knownRecords[zone][i].ID = 0
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// func (p *Provider) updateRecordInKnownRecords(dsZoneRecords dsZoneRecord, dsRecord dsDNSRecord, zone string) {
+// 	p.knownRecordsMu.Lock()
+// 	defer p.knownRecordsMu.Unlock()
+// 	if p.knownRecords == nil {
+// 		p.knownRecords = make(map[string][]dsDNSRecord)
+// 	}
+// 	if zoneRecords, ok := p.knownRecords[zone]; ok {
+// 		for _, rec := range zoneRecords {
+// 			if record.ID == rec.ID {
+// 				return rec
+// 			} else if record.Host == rec.Host && record.Data == record.Data {
+// 				return rec
+// 			}
+// 		}
+// 	}
+// 	p.knownRecords[dsZoneRecords] = dsRecord
+// }
+
 func removeFQDNTrailingDot(fqdn string) string {
 	return strings.TrimSuffix(fqdn, ".")
 }
+
 func normalizeRecordName(recordName string, zone string) string {
 	normalized := removeFQDNTrailingDot(recordName)
 	normalized = strings.TrimSuffix(normalized, removeFQDNTrailingDot(zone))

@@ -89,11 +89,13 @@ func main() {
 
 	records, err := p.GetRecords(context.TODO(), zone)
 	if err != nil {
-        fmt.Printf("Error: %s", err.Error())
+        fmt.Printf("Error: %w", err)
         return
 	}
 
-	fmt.Println(records)
+	for _, rec := range records {
+		fmt.Printf("%#v", rec)
+	}
 }
 
 ```

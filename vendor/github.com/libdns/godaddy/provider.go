@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -44,12 +44,12 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	client := http.Client{}
 	domain := getDomain(zone)
 	var records []libdns.Record
-	resultObj := []struct {
+	var resultObj []struct {
 		Type  string `json:"type"`
 		Name  string `json:"name"`
 		Value string `json:"data"`
 		TTL   int    `json:"ttl"`
-	}{}
+	}
 
 	// retrieve pages of up to 500 records each; continue incrementing the page counter
 	// until the record count drops below the max 500 (final page)
@@ -71,7 +71,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 		// successful page retrieval returns code 200; attempting a page beyond the final sometimes returns code 422 UnprocessableEntity
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusUnprocessableEntity {
-			bodyBytes, _ := ioutil.ReadAll(resp.Body)
+			bodyBytes, _ := io.ReadAll(resp.Body)
 			return nil, fmt.Errorf("could not get records: Domain: %s; Status: %v; Body: %s",
 				domain, resp.StatusCode, string(bodyBytes))
 		}
@@ -81,7 +81,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 			break
 		}
 
-		result, err := ioutil.ReadAll(resp.Body)
+		result, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -99,11 +99,11 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 		// accumulate all records retrieved in the current page
 		for _, record := range resultObj {
-			records = append(records, libdns.Record{
-				Type:  record.Type,
-				Name:  record.Name,
-				Value: record.Value,
-				TTL:   time.Duration(record.TTL) * time.Second,
+			records = append(records, libdns.RR{
+				Type: record.Type,
+				Name: record.Name,
+				Data: record.Value,
+				TTL:  time.Duration(record.TTL) * time.Second,
 			})
 		}
 
@@ -122,7 +122,8 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	log.Println("AppendRecords", zone, records)
 	var appendedRecords []libdns.Record
 
-	for _, record := range records {
+	for _, r := range records {
+		record := r.RR()
 		client := http.Client{}
 
 		type PostRecord struct {
@@ -136,7 +137,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 
 		data, err := json.Marshal([]PostRecord{
 			{
-				Data: record.Value,
+				Data: record.Data,
 				TTL:  int(record.TTL / time.Second),
 			},
 		})
@@ -158,12 +159,12 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			bodyBytes, _ := ioutil.ReadAll(resp.Body)
+			bodyBytes, _ := io.ReadAll(resp.Body)
 			return nil, fmt.Errorf("could not append records: Domain: %s; Record: %s, Status: %v; Body: %s; PUT: %s",
 				getDomain(zone), getRecordName(zone, record.Name), resp.StatusCode, string(bodyBytes), data)
 		}
 
-		_, err = ioutil.ReadAll(resp.Body)
+		_, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -192,8 +193,10 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	var deletedRecords []libdns.Record
 
 	// accumulate records verified to actually exist in the zone
-	for _, record := range records {
-		for _, currentRecord := range currentRecords {
+	for _, r := range records {
+		record := r.RR()
+		for _, cr := range currentRecords {
+			currentRecord := cr.RR()
 			if currentRecord.Type == record.Type && currentRecord.Name == getRecordName(zone, record.Name) {
 				deletedRecords = append(deletedRecords, currentRecord)
 				break
@@ -202,7 +205,8 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	}
 
 	// loop through and delete verified records with individual API calls
-	for _, record := range deletedRecords {
+	for _, r := range deletedRecords {
+		record := r.RR()
 		req, err := http.NewRequest(http.MethodDelete, p.getApiHost()+"/v1/domains/"+getDomain(zone)+"/records/"+record.Type+"/"+record.Name, nil)
 		if err != nil {
 			return nil, err
@@ -218,12 +222,12 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusNoContent {
-			bodyBytes, _ := ioutil.ReadAll(resp.Body)
+			bodyBytes, _ := io.ReadAll(resp.Body)
 			return nil, fmt.Errorf("could not delete requested records: Domain: %s; Records: %v, Status: %v; Body: %s",
 				zone, deletedRecords, resp.StatusCode, string(bodyBytes))
 		}
 
-		_, err = ioutil.ReadAll(resp.Body)
+		_, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}

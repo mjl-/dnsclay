@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -82,14 +83,49 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		if err != nil {
 			priority = 0
 		}
-		records = append(records, libdns.Record{
-			ID:       r.Id,
-			Type:     r.Type,
-			Name:     r.Host,
-			Value:    r.Rdata,
-			TTL:      time.Duration(ttl) * time.Second,
-			Priority: uint(priority),
-		})
+
+		// Create the appropriate record type based on the DNS record type
+		var record libdns.Record
+		switch strings.ToUpper(r.Type) {
+		case "A", "AAAA":
+			record = &libdns.Address{
+				Name:         r.Host,
+				TTL:          time.Duration(ttl) * time.Second,
+				IP:           netip.MustParseAddr(r.Rdata),
+				ProviderData: r.Id,
+			}
+		case "TXT":
+			record = &libdns.TXT{
+				Name:         r.Host,
+				TTL:          time.Duration(ttl) * time.Second,
+				Text:         r.Rdata,
+				ProviderData: r.Id,
+			}
+		case "CNAME":
+			record = &libdns.CNAME{
+				Name:         r.Host,
+				TTL:          time.Duration(ttl) * time.Second,
+				Target:       r.Rdata,
+				ProviderData: r.Id,
+			}
+		case "MX":
+			record = &libdns.MX{
+				Name:         r.Host,
+				TTL:          time.Duration(ttl) * time.Second,
+				Target:       r.Rdata,
+				Preference:   uint16(priority),
+				ProviderData: r.Id,
+			}
+		default:
+			// For unsupported types, create a TXT record to store the data
+			record = &libdns.TXT{
+				Name:         r.Host,
+				TTL:          time.Duration(ttl) * time.Second,
+				Text:         r.Rdata,
+				ProviderData: r.Id,
+			}
+		}
+		records = append(records, record)
 	}
 
 	return records, nil
@@ -106,24 +142,26 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	for _, record := range records {
 		client := http.Client{}
 
-		if record.TTL < time.Duration(300)*time.Second {
-			record.TTL = time.Duration(300) * time.Second
+		rr := record.RR()
+		var ttl time.Duration
+		if rr.TTL < time.Duration(300)*time.Second {
+			ttl = time.Duration(300) * time.Second
+		} else {
+			ttl = rr.TTL
 		}
-
 		reqData, err := json.Marshal(AddEntry{
-			Domain:   zone,
-			Host:     record.Name,
-			TTL:      int(record.TTL.Seconds()),
-			Priority: int(record.Priority),
-			Type:     record.Type,
-			Rdata:    record.Value,
+			Domain: zone,
+			Host:   rr.Name,
+			TTL:    int(ttl.Seconds()),
+			Type:   rr.Type,
+			Rdata:  rr.Data,
 		})
 		if err != nil {
 			return nil, err
 		}
 
 		req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/zones/records/add/%s/%s",
-			p.getApiUrl(), zone, record.Type), bytes.NewBuffer(reqData))
+			p.getApiUrl(), zone, rr.Type), bytes.NewBuffer(reqData))
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +176,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusCreated {
-			return nil, fmt.Errorf("could not add record [%s] for domain [%s]: HTTP Status: %s", record.Name, zone, resp.Status)
+			return nil, fmt.Errorf("could not add record [%s] for domain [%s]: HTTP Status: %s", rr.Name, zone, resp.Status)
 		}
 
 		_, err = io.ReadAll(resp.Body)
@@ -170,25 +208,53 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	for _, record := range records {
 		updated := false
 		for _, currentRecord := range currentRecords {
-			if currentRecord.Name == record.Name && currentRecord.Type == record.Type {
+			currentRR := currentRecord.RR()
+			recordRR := record.RR()
+			if currentRR.Name == recordRR.Name && currentRR.Type == recordRR.Type {
 				client := http.Client{}
 
-				if record.TTL < time.Duration(300)*time.Second {
-					record.TTL = time.Duration(300) * time.Second
+				var ttl time.Duration
+				if recordRR.TTL < time.Duration(300)*time.Second {
+					ttl = time.Duration(300) * time.Second
+				} else {
+					ttl = recordRR.TTL
 				}
 
 				reqData, err := json.Marshal(UpdateEntry{
-					Host:  record.Name,
-					TTL:   int(record.TTL.Seconds()),
-					Type:  record.Type,
-					Rdata: record.Value,
+					Host:  recordRR.Name,
+					TTL:   int(ttl.Seconds()),
+					Type:  recordRR.Type,
+					Rdata: recordRR.Data,
 				})
 				if err != nil {
 					return nil, err
 				}
 
+				// Get the record ID from ProviderData
+				var recordID string
+				if currentRecord != nil {
+					switch r := currentRecord.(type) {
+					case *libdns.TXT:
+						if r.ProviderData != nil {
+							recordID = r.ProviderData.(string)
+						}
+					case *libdns.Address:
+						if r.ProviderData != nil {
+							recordID = r.ProviderData.(string)
+						}
+					case *libdns.CNAME:
+						if r.ProviderData != nil {
+							recordID = r.ProviderData.(string)
+						}
+					case *libdns.MX:
+						if r.ProviderData != nil {
+							recordID = r.ProviderData.(string)
+						}
+					}
+				}
+
 				req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/zones/records/%s",
-					p.getApiUrl(), currentRecord.ID), bytes.NewBuffer(reqData))
+					p.getApiUrl(), recordID), bytes.NewBuffer(reqData))
 				if err != nil {
 					return nil, err
 				}
@@ -244,11 +310,36 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	for _, record := range records {
 
 		for _, currentRecord := range currentRecords {
-			if currentRecord.Name == record.Name && currentRecord.Type == record.Type {
+			currentRR := currentRecord.RR()
+			recordRR := record.RR()
+			if currentRR.Name == recordRR.Name && currentRR.Type == recordRR.Type {
 				client := http.Client{}
 
+				// Get the record ID from ProviderData
+				var recordID string
+				if currentRecord != nil {
+					switch r := currentRecord.(type) {
+					case *libdns.TXT:
+						if r.ProviderData != nil {
+							recordID = r.ProviderData.(string)
+						}
+					case *libdns.Address:
+						if r.ProviderData != nil {
+							recordID = r.ProviderData.(string)
+						}
+					case *libdns.CNAME:
+						if r.ProviderData != nil {
+							recordID = r.ProviderData.(string)
+						}
+					case *libdns.MX:
+						if r.ProviderData != nil {
+							recordID = r.ProviderData.(string)
+						}
+					}
+				}
+
 				req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/zones/records/%s/%s",
-					p.getApiUrl(), zone, currentRecord.ID), nil)
+					p.getApiUrl(), zone, recordID), nil)
 				if err != nil {
 					return nil, err
 				}

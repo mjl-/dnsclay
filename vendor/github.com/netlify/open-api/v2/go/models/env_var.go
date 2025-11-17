@@ -20,6 +20,9 @@ import (
 // swagger:model envVar
 type EnvVar struct {
 
+	// Secret values are only readable by code running on Netlify's systems. With secrets, only the local development context values are readable from the UI, API, and CLI. By default, environment variable values are not secret.
+	IsSecret bool `json:"is_secret,omitempty"`
+
 	// The environment variable key, like ALGOLIA_ID (case-sensitive)
 	Key string `json:"key,omitempty"`
 
@@ -76,7 +79,7 @@ func init() {
 }
 
 func (m *EnvVar) validateScopesItemsEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, envVarScopesItemsEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, envVarScopesItemsEnum, true); err != nil {
 		return err
 	}
 	return nil

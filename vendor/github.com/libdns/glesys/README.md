@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2024 Peter Magnusson <me@kmpm.se>
+
+SPDX-License-Identifier: MIT
+-->
+
 Glesys for [`libdns`](https://github.com/libdns/libdns)
 ==============================================================
 

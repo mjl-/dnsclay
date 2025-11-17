@@ -54,6 +54,12 @@ func (entme ErrNoTypeMapEntry) Error() string {
 // ErrNotInterface is returned when the provided type is not an interface.
 var ErrNotInterface = errors.New("The provided type is not an interface")
 
+var defaultRegistry *Registry
+
+func init() {
+	defaultRegistry = buildDefaultRegistry()
+}
+
 // A RegistryBuilder is used to build a Registry. This type is not goroutine
 // safe.
 type RegistryBuilder struct {
@@ -254,7 +260,6 @@ func (rb *RegistryBuilder) RegisterDefaultDecoder(kind reflect.Kind, dec ValueDe
 // By default, BSON documents will decode into interface{} values as bson.D. To change the default type for BSON
 // documents, a type map entry for bsontype.EmbeddedDocument should be registered. For example, to force BSON documents
 // to decode to bson.Raw, use the following code:
-//
 //	rb.RegisterTypeMapEntry(bsontype.EmbeddedDocument, reflect.TypeOf(bson.Raw{}))
 func (rb *RegistryBuilder) RegisterTypeMapEntry(bt bsontype.Type, rt reflect.Type) *RegistryBuilder {
 	rb.typeMap[bt] = rt
@@ -299,7 +304,7 @@ func (rb *RegistryBuilder) Build() *Registry {
 	return registry
 }
 
-// LookupEncoder inspects the registry for an encoder for the given type. The lookup precedence works as follows:
+// LookupEncoder inspects the registry for an encoder for the given type. The lookup precendence works as follows:
 //
 // 1. An encoder registered for the exact type. If the given type represents an interface, an encoder registered using
 // RegisterTypeEncoder for the interface will be selected.
@@ -369,7 +374,7 @@ func (r *Registry) lookupInterfaceEncoder(t reflect.Type, allowAddr bool) (Value
 			// in interfaceEncoders
 			defaultEnc, found := r.lookupInterfaceEncoder(t, false)
 			if !found {
-				defaultEnc = r.kindEncoders[t.Kind()]
+				defaultEnc, _ = r.kindEncoders[t.Kind()]
 			}
 			return newCondAddrEncoder(ienc.ve, defaultEnc), true
 		}
@@ -377,7 +382,7 @@ func (r *Registry) lookupInterfaceEncoder(t reflect.Type, allowAddr bool) (Value
 	return nil, false
 }
 
-// LookupDecoder inspects the registry for an decoder for the given type. The lookup precedence works as follows:
+// LookupDecoder inspects the registry for an decoder for the given type. The lookup precendence works as follows:
 //
 // 1. A decoder registered for the exact type. If the given type represents an interface, a decoder registered using
 // RegisterTypeDecoder for the interface will be selected.
@@ -440,7 +445,7 @@ func (r *Registry) lookupInterfaceDecoder(t reflect.Type, allowAddr bool) (Value
 			// in interfaceDecoders
 			defaultDec, found := r.lookupInterfaceDecoder(t, false)
 			if !found {
-				defaultDec = r.kindDecoders[t.Kind()]
+				defaultDec, _ = r.kindDecoders[t.Kind()]
 			}
 			return newCondAddrDecoder(idec.vd, defaultDec), true
 		}

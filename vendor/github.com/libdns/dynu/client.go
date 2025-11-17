@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -22,8 +21,6 @@ type Client struct {
 	baseURL    *url.URL
 	HTTPClient *http.Client
 	APIToken   string
-
-	mutex sync.Mutex
 }
 
 func NewClient(APIToken string) *Client {
@@ -41,9 +38,6 @@ func (c *Client) joinUrlPath(elem ...string) *url.URL {
 }
 
 func (c *Client) GetRootDomain(ctx context.Context, hostname string) (*DNSHostname, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	endpoint := c.joinUrlPath("dns", "getroot", hostname)
 	apiResponse := DNSHostname{}
 	apiException := APIException{}
@@ -61,9 +55,6 @@ func (c *Client) GetRootDomain(ctx context.Context, hostname string) (*DNSHostna
 }
 
 func (c *Client) GetRecords(ctx context.Context, hostnameId int64) ([]DNSRecord, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	endpoint := c.joinUrlPath("dns", fmt.Sprint(hostnameId), "record")
 
 	apiResponse := RecordsResponse{}
@@ -80,14 +71,25 @@ func (c *Client) GetRecords(ctx context.Context, hostnameId int64) ([]DNSRecord,
 	return apiResponse.DNSRecords, nil
 }
 
-func (c *Client) AddOrUpdateRecord(ctx context.Context, hostnameId int64, record DNSRecord, ignoreRecordId bool) (*DNSRecord, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	urlPaths := []string{"dns", fmt.Sprint(hostnameId), "record"}
-	if record.ID != 0 && !ignoreRecordId {
-		urlPaths = append(urlPaths, fmt.Sprint(record.ID))
+func (c *Client) findRecordIds(ctx context.Context, hostnameId int64, rrType string, nodeName string, data string) ([]int64, error) {
+	dnsRecords, err := c.GetRecords(ctx, hostnameId)
+	if err != nil {
+		return nil, err
 	}
+
+	var recordIds = []int64{}
+
+	for _, rec := range dnsRecords {
+		if rec.Type == rrType && rec.NodeName == nodeName && (data == "" || rec.Content == data) {
+			recordIds = append(recordIds, rec.ID)
+		}
+	}
+
+	return recordIds, nil
+}
+
+func (c *Client) AddRecord(ctx context.Context, hostnameId int64, record DNSRecord) (*DNSRecord, error) {
+	urlPaths := []string{"dns", fmt.Sprint(hostnameId), "record"}
 
 	endpoint := c.joinUrlPath(urlPaths...)
 
@@ -110,10 +112,24 @@ func (c *Client) AddOrUpdateRecord(ctx context.Context, hostnameId int64, record
 	return &apiResponse, nil
 }
 
-func (c *Client) DeleteRecord(ctx context.Context, hostnameId int64, dnsRecordId string) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (c *Client) DeleteRecords(ctx context.Context, hostnameId int64, rrType string, nodeName string, data string) error {
+	deleteRecordIds, err := c.findRecordIds(ctx, hostnameId, rrType, nodeName, data)
 
+	if err != nil {
+		return err
+	}
+
+	var deleteErrors []error
+
+	for _, deleteRecordId := range deleteRecordIds {
+		err = c.DeleteRecord(ctx, hostnameId, fmt.Sprint(deleteRecordId))
+		deleteErrors = append(deleteErrors, err)
+	}
+
+	return errors.Join(deleteErrors...)
+}
+
+func (c *Client) DeleteRecord(ctx context.Context, hostnameId int64, dnsRecordId string) error {
 	endpoint := c.joinUrlPath("dns", fmt.Sprint(hostnameId), "record", dnsRecordId)
 
 	apiResponse := DeleteResponse{}

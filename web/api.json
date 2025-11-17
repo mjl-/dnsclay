@@ -952,8 +952,8 @@
 					]
 				},
 				{
-					"Name": "ProviderID",
-					"Docs": "From libdns.",
+					"Name": "ProviderDataJSON",
+					"Docs": "If non-empty, the ProviderData from the libdns.Record type-specific struct.",
 					"Typewords": [
 						"string"
 					]
@@ -1036,13 +1036,6 @@
 			"Docs": "KnownProviders ensures all providers types are included in sherpadoc API documentation.",
 			"Fields": [
 				{
-					"Name": "Xalidns",
-					"Docs": "",
-					"Typewords": [
-						"Provider_alidns"
-					]
-				},
-				{
 					"Name": "Xautodns",
 					"Docs": "",
 					"Typewords": [
@@ -1064,13 +1057,6 @@
 					]
 				},
 				{
-					"Name": "Xcivo",
-					"Docs": "",
-					"Typewords": [
-						"Provider_civo"
-					]
-				},
-				{
 					"Name": "Xcloudflare",
 					"Docs": "",
 					"Typewords": [
@@ -1082,13 +1068,6 @@
 					"Docs": "",
 					"Typewords": [
 						"Provider_cloudns"
-					]
-				},
-				{
-					"Name": "Xddnss",
-					"Docs": "",
-					"Typewords": [
-						"Provider_ddnss"
 					]
 				},
 				{
@@ -1120,38 +1099,10 @@
 					]
 				},
 				{
-					"Name": "Xdnsmadeeasy",
-					"Docs": "",
-					"Typewords": [
-						"Provider_dnsmadeeasy"
-					]
-				},
-				{
-					"Name": "Xdnspod",
-					"Docs": "",
-					"Typewords": [
-						"Provider_dnspod"
-					]
-				},
-				{
-					"Name": "Xdnsupdate",
-					"Docs": "",
-					"Typewords": [
-						"Provider_dnsupdate"
-					]
-				},
-				{
 					"Name": "Xdomainnameshop",
 					"Docs": "",
 					"Typewords": [
 						"Provider_domainnameshop"
-					]
-				},
-				{
-					"Name": "Xdreamhost",
-					"Docs": "",
-					"Typewords": [
-						"Provider_dreamhost"
 					]
 				},
 				{
@@ -1180,13 +1131,6 @@
 					"Docs": "",
 					"Typewords": [
 						"Provider_easydns"
-					]
-				},
-				{
-					"Name": "Xexoscale",
-					"Docs": "",
-					"Typewords": [
-						"Provider_exoscale"
 					]
 				},
 				{
@@ -1239,20 +1183,6 @@
 					]
 				},
 				{
-					"Name": "Xhexonet",
-					"Docs": "",
-					"Typewords": [
-						"Provider_hexonet"
-					]
-				},
-				{
-					"Name": "Xhosttech",
-					"Docs": "",
-					"Typewords": [
-						"Provider_hosttech"
-					]
-				},
-				{
 					"Name": "Xhuaweicloud",
 					"Docs": "",
 					"Typewords": [
@@ -1278,20 +1208,6 @@
 					"Docs": "",
 					"Typewords": [
 						"Provider_ionos"
-					]
-				},
-				{
-					"Name": "Xkatapult",
-					"Docs": "",
-					"Typewords": [
-						"Provider_katapult"
-					]
-				},
-				{
-					"Name": "Xleaseweb",
-					"Docs": "",
-					"Typewords": [
-						"Provider_leaseweb"
 					]
 				},
 				{
@@ -1323,38 +1239,10 @@
 					]
 				},
 				{
-					"Name": "Xmetaname",
-					"Docs": "",
-					"Typewords": [
-						"Provider_metaname"
-					]
-				},
-				{
-					"Name": "Xmijnhost",
-					"Docs": "",
-					"Typewords": [
-						"Provider_mijnhost"
-					]
-				},
-				{
 					"Name": "Xmythicbeasts",
 					"Docs": "",
 					"Typewords": [
 						"Provider_mythicbeasts"
-					]
-				},
-				{
-					"Name": "Xnamecheap",
-					"Docs": "",
-					"Typewords": [
-						"Provider_namecheap"
-					]
-				},
-				{
-					"Name": "Xnamedotcom",
-					"Docs": "",
-					"Typewords": [
-						"Provider_namedotcom"
 					]
 				},
 				{
@@ -1386,13 +1274,6 @@
 					]
 				},
 				{
-					"Name": "Xnfsn",
-					"Docs": "",
-					"Typewords": [
-						"Provider_nfsn"
-					]
-				},
-				{
 					"Name": "Xnjalla",
 					"Docs": "",
 					"Typewords": [
@@ -1400,24 +1281,10 @@
 					]
 				},
 				{
-					"Name": "Xopenstackdesignate",
-					"Docs": "",
-					"Typewords": [
-						"Provider"
-					]
-				},
-				{
 					"Name": "Xovh",
 					"Docs": "",
 					"Typewords": [
 						"Provider_ovh"
-					]
-				},
-				{
-					"Name": "Xporkbun",
-					"Docs": "",
-					"Typewords": [
-						"Provider_porkbun"
 					]
 				},
 				{
@@ -1449,13 +1316,6 @@
 					]
 				},
 				{
-					"Name": "Xselectel",
-					"Docs": "",
-					"Typewords": [
-						"Provider_selectel"
-					]
-				},
-				{
 					"Name": "Xtencentcloud",
 					"Docs": "",
 					"Typewords": [
@@ -1463,59 +1323,10 @@
 					]
 				},
 				{
-					"Name": "Xtimeweb",
-					"Docs": "",
-					"Typewords": [
-						"Provider_timeweb"
-					]
-				},
-				{
-					"Name": "Xtotaluptime",
-					"Docs": "",
-					"Typewords": [
-						"Provider_totaluptime"
-					]
-				},
-				{
-					"Name": "Xvultr",
-					"Docs": "",
-					"Typewords": [
-						"Provider_vultr"
-					]
-				},
-				{
 					"Name": "Xwestcn",
 					"Docs": "",
 					"Typewords": [
 						"Provider_westcn"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_alidns",
-			"Docs": "Provider implements the libdns interfaces for Alicloud.",
-			"Fields": [
-				{
-					"Name": "access_key_id",
-					"Docs": "The API Key ID Required by Aliyun's for accessing the Aliyun's API",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "access_key_secret",
-					"Docs": "The API Key Secret Required by Aliyun's for accessing the Aliyun's API",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "region_id",
-					"Docs": "Optional for identifing the region of the Aliyun's Service,The default is zh-hangzhou",
-					"Typewords": [
-						"nullable",
-						"string"
 					]
 				}
 			]
@@ -1628,22 +1439,8 @@
 			]
 		},
 		{
-			"Name": "Provider_civo",
-			"Docs": "",
-			"Fields": [
-				{
-					"Name": "api_token",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
 			"Name": "Provider_cloudflare",
-			"Docs": "Provider implements the libdns interfaces for Cloudflare.\nTODO: Support pagination and retries, handle rate limits.",
+			"Docs": "Provider implements the libdns interfaces for Cloudflare.\nTODO: Support retries and handle rate limits.",
 			"Fields": [
 				{
 					"Name": "api_token",
@@ -1671,6 +1468,7 @@
 					"Name": "auth_id",
 					"Docs": "",
 					"Typewords": [
+						"nullable",
 						"string"
 					]
 				},
@@ -1688,34 +1486,29 @@
 					"Typewords": [
 						"string"
 					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_ddnss",
-			"Docs": "Provider facilitates DNS record manipulation with ddnss.",
-			"Fields": [
-				{
-					"Name": "api_token",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
 				},
 				{
-					"Name": "username",
+					"Name": "operation_retries",
 					"Docs": "",
 					"Typewords": [
 						"nullable",
-						"string"
+						"int32"
 					]
 				},
 				{
-					"Name": "password",
+					"Name": "initial_backoff",
 					"Docs": "",
 					"Typewords": [
 						"nullable",
-						"string"
+						"int64"
+					]
+				},
+				{
+					"Name": "max_backoff",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"int64"
 					]
 				}
 			]
@@ -1769,7 +1562,7 @@
 				},
 				{
 					"Name": "login_key",
-					"Docs": "LoginKey is used for authentication  The key will need two permissions:  `CMD_API_SHOW_DOMAINS`  `CMD_API_DNS_CONTROL`  Unless you are only using `GetRecords()`, in which case `CMD_API_DNS_CONTROL` can be omitted",
+					"Docs": "LoginKey is used for authentication  The key will need two permissions:  `CMD_API_SHOW_DOMAINS` - Required for automatic zone detection  `CMD_API_DNS_CONTROL` - Required for DNS record management  Both permissions are required for all operations as the provider uses automatic zone detection to handle subdomains correctly",
 					"Typewords": [
 						"nullable",
 						"string"
@@ -1781,14 +1574,6 @@
 					"Typewords": [
 						"nullable",
 						"bool"
-					]
-				},
-				{
-					"Name": "debug",
-					"Docs": "Debug - can set this to stdout or stderr to dump debugging information about the API interaction with powerdns.  This will dump your auth token in plain text so be careful.",
-					"Typewords": [
-						"nullable",
-						"string"
 					]
 				}
 			]
@@ -1824,63 +1609,6 @@
 			]
 		},
 		{
-			"Name": "Provider_dnsmadeeasy",
-			"Docs": "Provider facilitates DNS record manipulation with DNSMadeEasy",
-			"Fields": [
-				{
-					"Name": "api_key",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "secret_key",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "api_endpoint",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"BaseURL"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_dnspod",
-			"Docs": "Provider implements the libdns interfaces for DNSPOD",
-			"Fields": [
-				{
-					"Name": "auth_token",
-					"Docs": "APIToken is the DNSPOD API token - see https://www.dnspod.cn/docs/info.html#common-parameters",
-					"Typewords": [
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_dnsupdate",
-			"Docs": "Provider facilitates DNS record manipulation with the DNS UPDATE protocol.",
-			"Fields": [
-				{
-					"Name": "addr",
-					"Docs": "DNS server address",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
 			"Name": "Provider_domainnameshop",
 			"Docs": "Provider facilitates DNS record manipulation with Domainnameshop\nhttps://api.domeneshop.no/docs/#section/Authentication",
 			"Fields": [
@@ -1901,26 +1629,12 @@
 			]
 		},
 		{
-			"Name": "Provider_dreamhost",
-			"Docs": "Provider facilitates DNS record manipulation with Dreamhost.",
-			"Fields": [
-				{
-					"Name": "api_key",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
 			"Name": "Provider_duckdns",
 			"Docs": "Provider implements the libdns interfaces for Duck DNS.",
 			"Fields": [
 				{
 					"Name": "api_token",
-					"Docs": "",
+					"Docs": "The DuckDNS API token.",
 					"Typewords": [
 						"nullable",
 						"string"
@@ -1928,7 +1642,15 @@
 				},
 				{
 					"Name": "override_domain",
-					"Docs": "",
+					"Docs": "An override to the domain, useful if the domain being managed does not belong to DuckDNS, and instead is pointing to DuckDNS using a CNAME record. This allows using DuckDNS' API to manage records for other domains which have worse or no programmable APIs.",
+					"Typewords": [
+						"nullable",
+						"string"
+					]
+				},
+				{
+					"Name": "resolver",
+					"Docs": "An optional resolver to use when doing DNS queries to load the current records. By default, 8.8.8.8:53 is used, i.e. Google's public DNS server.",
 					"Typewords": [
 						"nullable",
 						"string"
@@ -1995,28 +1717,6 @@
 				{
 					"Name": "api_url",
 					"Docs": "EasyDNS API URL (defaults to https://rest.easydns.net)",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_exoscale",
-			"Docs": "Provider facilitates DNS record manipulation with Exoscale.",
-			"Fields": [
-				{
-					"Name": "api_key",
-					"Docs": "Exoscale API Key (required)",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "api_secret",
-					"Docs": "Exoscale API Secret (required)",
 					"Typewords": [
 						"nullable",
 						"string"
@@ -2126,55 +1826,12 @@
 		},
 		{
 			"Name": "Provider_hetzner",
-			"Docs": "Provider implements the libdns interfaces for Hetzner",
+			"Docs": "Provider implements the libdns interfaces for Hetzner.",
 			"Fields": [
 				{
 					"Name": "auth_api_token",
 					"Docs": "AuthAPIToken is the Hetzner Auth API token - see https://dns.hetzner.com/api-docs#section/Authentication/Auth-API-Token",
 					"Typewords": [
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_hexonet",
-			"Docs": "Provider facilitates DNS record manipulation with Hexonet.",
-			"Fields": [
-				{
-					"Name": "username",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "password",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "debug",
-					"Docs": "Debug - can set this to stdout or stderr to dump debugging information about the API interaction with hexonet.  This will dump your auth token in plain text so be careful.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_hosttech",
-			"Docs": "Provider facilitates DNS record manipulation with Hosttech.ch.",
-			"Fields": [
-				{
-					"Name": "api_token",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
 						"string"
 					]
 				}
@@ -2276,34 +1933,6 @@
 			]
 		},
 		{
-			"Name": "Provider_katapult",
-			"Docs": "Provider facilitates DNS record manipulation with Katapult.",
-			"Fields": [
-				{
-					"Name": "api_token",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_leaseweb",
-			"Docs": "Provider facilitates DNS record manipulation with Leaseweb.",
-			"Fields": [
-				{
-					"Name": "api_token",
-					"Docs": "Leasewebs API key. Generate one in the Leaseweb customer portal -\u003e Administration -\u003e API Key",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
 			"Name": "Provider_linode",
 			"Docs": "Provider facilitates DNS record manipulation with Linode.",
 			"Fields": [
@@ -2329,6 +1958,14 @@
 					"Typewords": [
 						"nullable",
 						"string"
+					]
+				},
+				{
+					"Name": "debug_logs_enabled",
+					"Docs": "",
+					"Typewords": [
+						"nullable",
+						"bool"
 					]
 				}
 			]
@@ -2412,46 +2049,10 @@
 						"nullable",
 						"string"
 					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_metaname",
-			"Docs": "Provider facilitates DNS record manipulation with Metaname",
-			"Fields": [
-				{
-					"Name": "api_key",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
 				},
 				{
-					"Name": "account_reference",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "endpoint",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_mijnhost",
-			"Docs": "Provider facilitates DNS record manipulation with mijn.host.",
-			"Fields": [
-				{
-					"Name": "api_token",
-					"Docs": "",
+					"Name": "totp_secret",
+					"Docs": "TOTP Secret Key of the admin account. Needed if multi factor authentication is enabled.",
 					"Typewords": [
 						"nullable",
 						"string"
@@ -2474,74 +2075,6 @@
 				{
 					"Name": "secret",
 					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_namecheap",
-			"Docs": "Provider facilitates DNS record manipulation with namecheap.\nThe libdns methods that return updated structs do not have\ntheir ID fields set since this information is not returned\nby the namecheap API.",
-			"Fields": [
-				{
-					"Name": "api_key",
-					"Docs": "APIKey is your namecheap API key. See: https://www.namecheap.com/support/api/intro/ for more details.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "user",
-					"Docs": "User is your namecheap API user. This can be the same as your username.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "api_endpoint",
-					"Docs": "APIEndpoint to use. If testing, you can use the \"sandbox\" endpoint instead of the production one.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "client_ip",
-					"Docs": "ClientIP is the IP address of the requesting client. If this is not set, a discovery service will be used to determine the public ip of the machine. You must first whitelist your IP in the namecheap console before using the API.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_namedotcom",
-			"Docs": "Provider implements the libdns interface for namedotcom",
-			"Fields": [
-				{
-					"Name": "api_token",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "user",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "server",
-					"Docs": "e.g. https://api.name.com or https://api.dev.name.com",
 					"Typewords": [
 						"nullable",
 						"string"
@@ -2619,111 +2152,14 @@
 			]
 		},
 		{
-			"Name": "Provider_nfsn",
-			"Docs": "Provider facilitates DNS record manipulation with nearlyfreespeech.net",
-			"Fields": [
-				{
-					"Name": "login",
-					"Docs": "NFSN Member Login.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "api_key",
-					"Docs": "NFSN API Key. API Keys can be generated from the \"Profile\" tab in the NFSN member interface.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
 			"Name": "Provider_njalla",
-			"Docs": "",
+			"Docs": "Provider facilitates DNS record manipulation with Njalla.\nIt implements the libdns interfaces for DNS record management\nusing the Njalla API.\n\nThis implementation supports all standard record types that Njalla offers,\nwith special handling for the most common types (A, AAAA, CNAME, TXT, MX, SRV).\nOther record types are handled using the generic libdns.RR type.\n\nAll methods are safe for concurrent use.",
 			"Fields": [
 				{
 					"Name": "api_token",
-					"Docs": "",
+					"Docs": "APIToken is the Njalla API token required for authentication You can generate an API token from your Njalla account settings.",
 					"Typewords": [
 						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider",
-			"Docs": "Provider implements the libdns interfaces for OpenStack Designate.",
-			"Fields": [
-				{
-					"Name": "auth_open_stack",
-					"Docs": "",
-					"Typewords": [
-						"AuthOpenStack"
-					]
-				}
-			]
-		},
-		{
-			"Name": "AuthOpenStack",
-			"Docs": "AuthOpenStack contains credentials for OpenStack Designate.",
-			"Fields": [
-				{
-					"Name": "region_name",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "tenant_id",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "identity_api_version",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "password",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "auth_url",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "username",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "tenant_name",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				},
-				{
-					"Name": "endpoint_type",
-					"Docs": "",
-					"Typewords": [
 						"string"
 					]
 				}
@@ -2731,7 +2167,7 @@
 		},
 		{
 			"Name": "Provider_ovh",
-			"Docs": "Provider facilitates DNS record manipulation with OVH.",
+			"Docs": "Provider implements the libdns interfaces for OVH.",
 			"Fields": [
 				{
 					"Name": "endpoint",
@@ -2759,28 +2195,6 @@
 				},
 				{
 					"Name": "consumer_key",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_porkbun",
-			"Docs": "Provider facilitates DNS record manipulation with Porkbun.",
-			"Fields": [
-				{
-					"Name": "api_key",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "api_secret_key",
 					"Docs": "",
 					"Typewords": [
 						"nullable",
@@ -2877,14 +2291,6 @@
 					]
 				},
 				{
-					"Name": "aws_profile",
-					"Docs": "AWSProfile is the AWS Profile to use. If not set, it will use AWS_PROFILE environment variable.  Deprecated: Use Profile instead",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
 					"Name": "profile",
 					"Docs": "AWSProfile is the AWS Profile to use. If not set, it will use AWS_PROFILE environment variable.",
 					"Typewords": [
@@ -2894,7 +2300,7 @@
 				},
 				{
 					"Name": "access_key_id",
-					"Docs": "AccessKeyId is the AWS Access Key ID to use. If not set, it will use AWS_ACCESS_KEY_ID",
+					"Docs": "AccessKeyId is the AWS Access Key ID to use. If not set, it will use AWS_ACCESS_KEY_ID; ",
 					"Typewords": [
 						"nullable",
 						"string"
@@ -2903,14 +2309,6 @@
 				{
 					"Name": "secret_access_key",
 					"Docs": "SecretAccessKey is the AWS Secret Access Key to use. If not set, it will use AWS_SECRET_ACCESS_KEY environment variable.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "token",
-					"Docs": "Token is the AWS Session Token to use. If not set, it will use AWS_SESSION_TOKEN environment variable.  Deprecated: Use SessionToken instead.",
 					"Typewords": [
 						"nullable",
 						"string"
@@ -2933,16 +2331,24 @@
 					]
 				},
 				{
-					"Name": "max_wait_dur",
-					"Docs": "MaxWaitDur is the maximum amount of time in seconds to wait for a record to be propagated. If not set, it will 1 minute.",
+					"Name": "route53_max_wait",
+					"Docs": "Route53MaxWait is the maximum amount of time to wait for a record to be propagated within AWS infrastructure. Default is 1 minute.",
 					"Typewords": [
 						"nullable",
 						"int64"
 					]
 				},
 				{
-					"Name": "wait_for_propagation",
-					"Docs": "WaitForPropagation if set to true, it will wait for the record to be propagated before returning.",
+					"Name": "wait_for_route53_sync",
+					"Docs": "WaitForRoute53Sync if set to true, it will wait for the record to be propagated within AWS infrastructure before returning. This is not related to DNS propagation, that could take much longer.",
+					"Typewords": [
+						"nullable",
+						"bool"
+					]
+				},
+				{
+					"Name": "skip_route53_sync_on_delete",
+					"Docs": "SkipRoute53SyncOnDelete if set to true, it will skip waiting for Route53 synchronization when deleting records, even if WaitForRoute53Sync is true. This can speed up bulk delete operations where waiting is not necessary.",
 					"Typewords": [
 						"nullable",
 						"bool"
@@ -2981,121 +2387,34 @@
 			]
 		},
 		{
-			"Name": "Provider_selectel",
-			"Docs": "Provider facilitates DNS record manipulation with \u003cTODO: PROVIDER NAME\u003e.",
-			"Fields": [
-				{
-					"Name": "user",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "password",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "account_id",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "project_name",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "KeystoneToken",
-					"Docs": "",
-					"Typewords": [
-						"string"
-					]
-				}
-			]
-		},
-		{
 			"Name": "Provider_tencentcloud",
-			"Docs": "Provider is a libdns provider for Tencent Cloud DNS",
+			"Docs": "",
 			"Fields": [
 				{
 					"Name": "SecretId",
-					"Docs": "SecretId is the secret ID for Tencent Cloud DNS",
+					"Docs": "",
 					"Typewords": [
 						"string"
 					]
 				},
 				{
 					"Name": "SecretKey",
-					"Docs": "SecretKey is the secret key for Tencent Cloud DNS",
-					"Typewords": [
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_timeweb",
-			"Docs": "",
-			"Fields": [
-				{
-					"Name": "ApiURL",
 					"Docs": "",
 					"Typewords": [
 						"string"
 					]
 				},
 				{
-					"Name": "ApiToken",
+					"Name": "SessionToken",
 					"Docs": "",
 					"Typewords": [
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_totaluptime",
-			"Docs": "Provider facilitates DNS record manipulation with Total Uptime.",
-			"Fields": [
-				{
-					"Name": "username",
-					"Docs": "",
-					"Typewords": [
-						"nullable",
 						"string"
 					]
 				},
 				{
-					"Name": "password",
+					"Name": "Region",
 					"Docs": "",
 					"Typewords": [
-						"nullable",
-						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_vultr",
-			"Docs": "Provider implements the libdns interfaces for Vultr\nAdapted from libdns/digitalocean to work with the Vultr API",
-			"Fields": [
-				{
-					"Name": "api_token",
-					"Docs": "APIToken is the Vultr API token see https://my.vultr.com/settings/#settingsapi",
-					"Typewords": [
-						"nullable",
 						"string"
 					]
 				}
@@ -3433,24 +2752,7 @@
 		}
 	],
 	"Ints": [],
-	"Strings": [
-		{
-			"Name": "BaseURL",
-			"Docs": "",
-			"Values": [
-				{
-					"Name": "Sandbox",
-					"Value": "https://api.sandbox.dnsmadeeasy.com/V2.0/",
-					"Docs": ""
-				},
-				{
-					"Name": "Prod",
-					"Value": "https://api.dnsmadeeasy.com/V2.0/",
-					"Docs": ""
-				}
-			]
-		}
-	],
+	"Strings": [],
 	"SherpaVersion": 0,
 	"SherpadocVersion": 1
 }

@@ -19,19 +19,19 @@ type Provider struct {
 
 	// ServerID is the id of the server.  localhost will be used
 	// if this is omitted.
-	ServerID  string `json:"server_id,omitempty"`
+	ServerID string `json:"server_id,omitempty"`
 
 	// APIToken is the auth token.
-	APIToken  string `json:"api_token,omitempty"`
+	APIToken string `json:"api_token,omitempty"`
 
 	// Debug - can set this to stdout or stderr to dump
 	// debugging information about the API interaction with
 	// powerdns.  This will dump your auth token in plain text
 	// so be careful.
-	Debug     string `json:"debug,omitempty"`
+	Debug string `json:"debug,omitempty"`
 
-	mu        sync.Mutex
-	c         *client
+	mu sync.Mutex
+	c  *client
 }
 
 // GetRecords lists all the records in the zone.
@@ -47,14 +47,16 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	recs := make([]libdns.Record, 0, len(prec.ResourceRecordSets))
 	for _, rec := range prec.ResourceRecordSets {
 		for _, v := range rec.Records {
-			recs = append(recs, libdns.Record{
-				ID:       prec.ID,
-				Type:     rec.Type,
-				Name:     libdns.RelativeName(rec.Name, zone),
-				Value:    v.Content,
-				TTL:      time.Second * time.Duration(rec.TTL),
-				Priority: 0,
-			})
+			lrec, err := (libdns.RR{
+				Type: rec.Type,
+				Name: libdns.RelativeName(rec.Name, zone),
+				Data: v.Content,
+				TTL:  time.Second * time.Duration(rec.TTL),
+			}).Parse()
+			if err != nil {
+				return nil, err
+			}
+			recs = append(recs, lrec)
 		}
 	}
 	return recs, nil

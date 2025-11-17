@@ -37,20 +37,3 @@ The `CMD_API_SHOW_DOMAINS` permission is needed to get the zone ID, the `CMD_API
 If you're only using the `GetRecords()` method, you can remove the `CMD_API_DNS_CONTROL` permission to guarantee no changes will be made.
 
 ![Screenshot of login key settings](./assets/login-key-options.png)
-
-## Running Tests
-
-Please note that these tests **must** run against a real direct admin (DA) DNS API.
-
-You should **_never_** run these tests against an in use, production zone.
-
-To run these tests, you need to copy .env.example to .env and modify the values for your environment.
-
-| ENV Var      | Description  |
-|--------------|--------------|
-| `LIBDNS_DA_TEST_ZONE` | should be a root zone on the DA server |
-| `LIBDNS_DA_NON_ROOT_TEST_ZONE` | should be a non existing subdomain off of a root zoon on the DA server |
-| `LIBDNS_DA_TEST_SERVER_URL` | should be a url with a valid TLS certificate |
-| `LIBDNS_DA_TEST_INSECURE_SERVER_URL` | should likely be the direct IP url for your DA server |
-| `LIBDNS_DA_TEST_USER` | user with API access |
-| `LIBDNS_DA_TEST_LOGIN_KEY` | key for user |

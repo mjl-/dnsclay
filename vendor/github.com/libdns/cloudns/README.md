@@ -66,7 +66,7 @@ func main() {
 
 The `Provider` struct has the following fields:
 
-- `AuthId` (string): Your ClouDNS authentication ID.
+- `AuthId` (string, optional): Your ClouDNS authentication ID.
 - `SubAuthId` (string, optional): Your ClouDNS sub-authentication ID.
 - `AuthPassword` (string): Your ClouDNS authentication password.
 

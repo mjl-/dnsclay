@@ -1,13 +1,12 @@
 package cloudns
 
 import (
+	"context"
+	"fmt"
 	"time"
-)
 
-func parseDuration(s string) time.Duration {
-	d, _ := time.ParseDuration(s)
-	return d
-}
+	"github.com/libdns/libdns"
+)
 
 // Rounds the given TTL in seconds to the next accepted value.
 // Accepted TTL values are:
@@ -35,4 +34,91 @@ func ttlRounder(ttl time.Duration) int {
 	}
 
 	return 2592000
+}
+
+// RetryWithBackoff executes the given function with exponential backoff retry logic.
+// It will retry the function until it succeeds or the maximum number of retries is reached.
+//
+// Parameters:
+//   - ctx: Context for timeout and cancellation
+//   - operation: Function to execute
+//   - maxRetries: Maximum number of retry attempts
+//   - initialBackoff: Initial backoff duration
+//   - maxBackoff: Maximum backoff duration
+//
+// Returns:
+//   - error: The last error returned by the operation, or nil if it succeeded
+func RetryWithBackoff(ctx context.Context, operation func() error, maxRetries int, initialBackoff, maxBackoff time.Duration) error {
+	var err error
+	backoff := initialBackoff
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Check if context is canceled
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// Continue with operation
+		}
+
+		err = operation()
+		if err == nil {
+			return nil // Operation succeeded
+		}
+
+		// If this was the last attempt, return the error
+		if attempt == maxRetries-1 {
+			return fmt.Errorf("operation failed after %d attempts: %w", maxRetries, err)
+		}
+
+		// Wait before retrying with exponential backoff
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+			// Double the backoff for next attempt, but don't exceed maxBackoff
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+		}
+	}
+
+	return err
+}
+
+type nameAndType struct {
+	name  string
+	type_ string
+}
+
+// clouDNSRecordsToMap turns a slice of raw upstream results into a map indexed
+// by a the name and type of the record
+func clouDNSRecordsToMap(recs []ApiDnsRecord) map[nameAndType][]ApiDnsRecord {
+	ret := make(map[nameAndType][]ApiDnsRecord)
+	for _, res := range recs {
+		k := nameAndType{name: res.Host, type_: res.Type}
+		if _, ok := ret[k]; !ok {
+			ret[k] = []ApiDnsRecord{res}
+		} else {
+			ret[k] = append(ret[k], res)
+		}
+	}
+
+	return ret
+}
+
+func libdnsRecordsToMap(recs []libdns.Record) map[nameAndType][]libdns.RR {
+	ret := make(map[nameAndType][]libdns.RR)
+	for _, res := range recs {
+		rr := res.RR()
+		k := nameAndType{name: rr.Name, type_: rr.Type}
+		if _, ok := ret[k]; !ok {
+			ret[k] = []libdns.RR{rr}
+		} else {
+			ret[k] = append(ret[k], rr)
+		}
+	}
+
+	return ret
 }

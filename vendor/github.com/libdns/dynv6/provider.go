@@ -3,6 +3,7 @@ package dynv6
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/libdns/libdns"
 )
@@ -12,6 +13,46 @@ type Provider struct {
 	// Token is required for authorization.
 	// You can generate one at: https://dynv6.com/keys
 	Token string `json:"token,omitempty"`
+}
+
+// interne dynv6-Record-Struktur (vereinfacht)
+type record struct {
+	ID   int64         `json:"id,omitempty"`
+	Name string        `json:"name,omitempty"`
+	Type string        `json:"type,omitempty"`
+	Data string        `json:"data,omitempty"`
+	TTL  time.Duration `json:"ttl,omitempty"`
+}
+
+// Helpfunction: extracts .Data from the libdns.Record
+func getDataFromRecord(r libdns.Record) string {
+	if rr, ok := r.(libdns.RR); ok {
+		return rr.Data
+	}
+	return ""
+}
+
+// Converts a intern dynv6-Record to libdns.RR
+func (r *record) toLibdnsRecord() libdns.Record {
+	return libdns.RR{
+		Name: r.Name,
+		Type: r.Type,
+		Data: r.Data,
+		TTL:  r.TTL,
+	}
+}
+
+// Creates a dynv6-Record from the libdns.Record
+func fromLibdnsRecord(zone string, r *libdns.Record) (*record, error) {
+	if rr, ok := (*r).(libdns.RR); ok {
+		return &record{
+			Name: rr.Name,
+			Type: rr.Type,
+			Data: rr.Data,
+			TTL:  rr.TTL,
+		}, nil
+	}
+	return nil, fmt.Errorf("unsupported record type: %T", *r)
 }
 
 // GetRecords lists all the records in the zone.
@@ -67,15 +108,15 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, recs []libdns.Re
 		existingRecord := findRecord(existingRecords, &r)
 		var result *record
 		if existingRecord != nil {
-			//record found, update it
+			// record found, update it
 			updateRecord := *existingRecord
-			updateRecord.Data = r.Value
+			updateRecord.Data = getDataFromRecord(r)
 			result, err = p.updateRecord(ctx, zoneDetails.ID, &updateRecord)
 			if err != nil {
 				return results, err
 			}
 		} else {
-			//no record found, add a new one
+			// no record found, add a new one
 			newRecord, err := fromLibdnsRecord(zone, &r)
 			if err != nil {
 				return results, err

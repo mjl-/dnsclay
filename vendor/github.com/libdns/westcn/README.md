@@ -5,8 +5,6 @@ West.cn for [`libdns`](https://github.com/libdns/libdns)
 
 This package implements the [libdns interfaces](https://github.com/libdns/libdns) for [west.cn](https://west.cn), allowing you to manage DNS records.
 
-This package references and uses the implementation of [lego](https://github.com/go-acme/lego).
-
 ## Authenticating
 
 To authenticate you need to supply your Username and APIPassword to the Provider.
