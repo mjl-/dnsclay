@@ -282,7 +282,7 @@ func cmdDNSUpdate(dnsargs dnsArgs, args []string) {
 				flg.Usage()
 			}
 			name, err := cleanAbsName(absname(args[0]))
-			xcheckf(err, "parsing name %q", name)
+			xcheckf(err, "parsing name %q", args[0])
 			rr := &dns.RFC3597{
 				Hdr: dns.RR_Header{
 					Name:   name,
@@ -303,7 +303,7 @@ func cmdDNSUpdate(dnsargs dnsArgs, args []string) {
 				log.Fatalf("unknown type %q", args[1])
 			}
 			name, err := cleanAbsName(absname(args[0]))
-			xcheckf(err, "parsing name %q", name)
+			xcheckf(err, "parsing name %q", args[0])
 			rr := &dns.RFC3597{
 				Hdr: dns.RR_Header{
 					Name:   name,
