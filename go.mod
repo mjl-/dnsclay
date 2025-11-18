@@ -53,7 +53,6 @@ require (
 	github.com/mjl-/sherpa v0.6.7
 	github.com/mjl-/sherpadoc v0.0.18
 	github.com/mjl-/sherpaprom v0.0.2
-	github.com/mjl-/sherpats v0.0.6
 	github.com/prometheus/client_golang v1.20.5
 )
 
@@ -122,6 +121,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mittwald/go-powerdns v0.6.6 // indirect
+	github.com/mjl-/sherpats v0.0.6 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/netlify/open-api/v2 v2.40.0 // indirect
 	github.com/ovh/go-ovh v1.7.0 // indirect
@@ -165,3 +165,8 @@ require (
 )
 
 replace github.com/libdns/libdns => github.com/mjl-/libdns v0.0.0-20251118092705-15311e839c45
+
+tool (
+	github.com/mjl-/sherpadoc/cmd/sherpadoc
+	github.com/mjl-/sherpats/cmd/sherpats
+)
