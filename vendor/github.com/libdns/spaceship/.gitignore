@@ -1,0 +1,8 @@
+.env
+# Binaries
+bin/
+oryxBuildBinary
+# Vendor
+vendor/
+# Go workspace file
+go.work

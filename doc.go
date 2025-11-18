@@ -179,6 +179,8 @@ implementations maintained at https://github.com/libdns:
   - https://github.com/libdns/rfc2136
   - https://github.com/libdns/route53
   - https://github.com/libdns/scaleway
+  - https://github.com/libdns/simplydotcom
+  - https://github.com/libdns/spaceship
   - https://github.com/libdns/tencentcloud
   - https://github.com/libdns/westcn
 */

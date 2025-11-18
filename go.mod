@@ -44,6 +44,8 @@ require (
 	github.com/libdns/rfc2136 v1.0.1
 	github.com/libdns/route53 v1.6.0
 	github.com/libdns/scaleway v0.2.3
+	github.com/libdns/simplydotcom v1.0.0
+	github.com/libdns/spaceship v1.0.0
 	github.com/libdns/tencentcloud v1.4.2
 	github.com/libdns/westcn v1.0.2
 	github.com/miekg/dns v1.1.68
