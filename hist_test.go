@@ -192,7 +192,7 @@ func testHist(t *testing.T, inputs []input, outputs []output) {
 		hex, value, err := recordData(rr)
 		tcheck(t, err, "parse rr")
 
-		r := Record{0, zone, Serial(serialFirst), Serial(serialDel), first, deleted, zone, Type(dns.TypeSOA), Class(dns.ClassINET), 300, hex, value, ""}
+		r := Record{0, zone, Serial(serialFirst), Serial(serialDel), first, deleted, zone, Type(dns.TypeSOA), Class(dns.ClassINET), 300, hex, value}
 		err = tx.Insert(&r)
 		tcheck(t, err, "insert first soa")
 		time2soa[v] = r
@@ -206,7 +206,7 @@ func testHist(t *testing.T, inputs []input, outputs []output) {
 		if esoa.ID > 0 {
 			deleted = &esoa.First
 		}
-		r := Record{0, zone, ssoa.SerialFirst, esoa.SerialFirst, ssoa.First, deleted, inp.name + "." + zone, Type(inp.typ), Class(dns.ClassINET), TTL(inp.ttl), datahex, inp.value, ""}
+		r := Record{0, zone, ssoa.SerialFirst, esoa.SerialFirst, ssoa.First, deleted, inp.name + "." + zone, Type(inp.typ), Class(dns.ClassINET), TTL(inp.ttl), datahex, inp.value}
 		err := tx.Insert(&r)
 		tcheck(t, err, "insert record")
 	}

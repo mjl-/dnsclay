@@ -505,7 +505,7 @@ func (x API) ZoneImportRecords(ctx context.Context, zone, zonefile string) []Rec
 
 		_checkType(Type(h.Rrtype))
 
-		l = append(l, Record{0, z.Name, 0, 0, time.Time{}, nil, h.Name, Type(h.Rrtype), dns.ClassINET, TTL(h.Ttl), hex, value, ""})
+		l = append(l, Record{0, z.Name, 0, 0, time.Time{}, nil, h.Name, Type(h.Rrtype), dns.ClassINET, TTL(h.Ttl), hex, value})
 	}
 	err := zp.Err()
 	if err == nil && len(l) == 0 {
@@ -586,7 +586,7 @@ func _parseNewSet(zone string, rsc RecordSetChange) []Record {
 		hex, value, err := recordData(rr)
 		_checkf(err, "parsing record value")
 
-		r := Record{0, zone, 0, 0, time.Time{}, nil, absname, rsc.Type, dns.ClassINET, rsc.TTL, hex, value, ""}
+		r := Record{0, zone, 0, 0, time.Time{}, nil, absname, rsc.Type, dns.ClassINET, rsc.TTL, hex, value}
 		records = append(records, r)
 	}
 	return records
