@@ -6,7 +6,7 @@ build: node_modules/.bin/tsc providers.go
 	./gendoc.sh
 	./genapidoc.sh
 	./gents.sh web/api.json api.ts
-	./tsc.sh web/dnsclay.js dom.ts api.ts dnsclay.ts
+	./tsc.sh
 	CGO_ENABLED=0 go build # build with generated files
 
 providers.go: providers.txt Makefile genapidoc.sh genproviders.sh
@@ -45,10 +45,10 @@ tswatch:
 	bash -c 'while true; do inotifywait -q -e close_write *.ts; make web/dnsclay.js; done'
 
 frontend:
-	./tsc.sh web/dnsclay.js dom.ts api.ts dnsclay.ts
+	./tsc.sh
 
-web/dnsclay.js: node_modules/.bin/tsc dom.ts api.ts dnsclay.ts
-	./tsc.sh web/dnsclay.js dom.ts api.ts dnsclay.ts
+web/dnsclay.js: node_modules/.bin/tsc dom.ts api.ts dnsclay.ts tsconfig.json
+	./tsc.sh
 
 node_modules/.bin/tsc:
 	-mkdir -p node_modules/.bin

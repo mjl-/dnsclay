@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "outFile": "web/dnsclay.js",
+        "target": "es2022",
+        "module": "none",
+        "strict": true,
+        "noEmitOnError": true,
+        "pretty": false,
+        "newLine": "lf",
+        "allowUnreachableCode": false,
+        "allowUnusedLabels": false,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "noImplicitThis": true,
+        "noUnusedParameters": true
+    },
+    "files": [
+        "dom.ts",
+        "api.ts",
+        "dnsclay.ts"
+    ]
+}
