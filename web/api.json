@@ -665,6 +665,13 @@
 					]
 				},
 				{
+					"Name": "Comment",
+					"Docs": "Comment is a note by the user, shown at the top of the zone page.",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
 					"Name": "SerialLocal",
 					"Docs": "Locally known serial. Will be 0 for newly created zones. Can be different from SerialRemote since not all name servers change serials on zone changes.",
 					"Typewords": [

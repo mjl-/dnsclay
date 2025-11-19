@@ -374,6 +374,7 @@ const pageHome = async () => {
 											RefreshInterval: parseInt(refreshInterval.value)*1000*1000*1000,
 											NextSync: new Date(),
 											NextRefresh: new Date(),
+											Comment: '',
 										}
 										const nz = await check(fieldset, () => client.ZoneAdd(z, [])) // todo: allow specifying notifies
 										zones.push(nz)
@@ -756,6 +757,7 @@ const pageZone = async (zonestr: string) => {
 
 	const root = dom.div(
 		dom.div(
+			zone.Comment ? dom.div(style({ fontStyle: 'italic', marginBottom: '1em', whiteSpace: 'pre-wrap' }), zone.Comment) : [],
 			dom.p(`Provider config: ${ zone.ProviderConfigName } (provider ${ providerConfig.ProviderName })`),
 			dom.clickbutton(
 				'Edit zone config',
@@ -763,6 +765,7 @@ const pageZone = async (zonestr: string) => {
 					let fieldset: HTMLFieldSetElement
 					let refreshival: HTMLInputElement
 					let syncival: HTMLInputElement
+					let comment: HTMLTextAreaElement
 					let providerConfigName: HTMLSelectElement
 
 					const providerConfigs = await check(e.target, () => client.ProviderConfigs()) || []
@@ -779,8 +782,10 @@ const pageZone = async (zonestr: string) => {
 								nz.ProviderConfigName = providerConfigName.value
 								nz.RefreshInterval = 1000*1000*1000 * parseInt(refreshival.value)
 								nz.SyncInterval = 1000*1000*1000 * parseInt(syncival.value)
+								nz.Comment = comment.value
 								zone = await check(fieldset, () => client.ZoneUpdate(nz))
 								close()
+								location.reload() // Update view, e.g. comment.
 							},
 							fieldset=dom.fieldset(
 								style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
@@ -799,6 +804,10 @@ const pageZone = async (zonestr: string) => {
 										providerConfigs.sort((a, b) => a.Name < b.Name ? -1 : 1).map(pc => dom.option(pc.Name)),
 										prop({value: zone.ProviderConfigName}),
 									),
+								),
+								dom.label(
+									dom.div('Comment'),
+									comment = dom.textarea(attr.rows('5'), style({ width: '30em' }), zone.Comment),
 								),
 								dom.div(
 									dom.submitbutton('Save')

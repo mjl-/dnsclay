@@ -26,6 +26,9 @@ type Zone struct {
 
 	ProviderConfigName string `bstore:"nonzero,ref ProviderConfig"`
 
+	// Comment is a note by the user, shown at the top of the zone page.
+	Comment string
+
 	// Locally known serial. Will be 0 for newly created zones. Can be different from
 	// SerialRemote since not all name servers change serials on zone changes.
 	SerialLocal Serial

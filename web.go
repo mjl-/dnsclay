@@ -337,6 +337,7 @@ func (x API) ZoneUpdate(ctx context.Context, z Zone) (nz Zone) {
 		oz := _zone(tx, z.Name)
 
 		oz.ProviderConfigName = z.ProviderConfigName
+		oz.Comment = z.Comment
 		oz.RefreshInterval = z.RefreshInterval
 		oz.SyncInterval = z.SyncInterval
 		if refresh := time.Now().Add(oz.RefreshInterval); refresh.Before(oz.NextRefresh) {

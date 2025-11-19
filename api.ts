@@ -8,6 +8,7 @@ namespace api {
 export interface Zone {
 	Name: string  // Absolute name with trailing dot. In lower-case form.
 	ProviderConfigName: string
+	Comment: string  // Comment is a note by the user, shown at the top of the zone page.
 	SerialLocal: number  // Locally known serial. Will be 0 for newly created zones. Can be different from SerialRemote since not all name servers change serials on zone changes.
 	SerialRemote: number  // Serial as known at remote. Used during refresh to decide whether to sync. Not meaningful when <= 1 (e.g. always for AWS Route53).
 	LastSync?: Date | null  // Last time an attempt to sync was made. Used for periodic sync.
@@ -523,7 +524,7 @@ export const structTypes: {[typename: string]: boolean} = {"Credential":true,"In
 export const stringsTypes: {[typename: string]: boolean} = {}
 export const intsTypes: {[typename: string]: boolean} = {}
 export const types: TypenameMap = {
-	"Zone": {"Name":"Zone","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"ProviderConfigName","Docs":"","Typewords":["string"]},{"Name":"SerialLocal","Docs":"","Typewords":["uint32"]},{"Name":"SerialRemote","Docs":"","Typewords":["uint32"]},{"Name":"LastSync","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"LastRecordChange","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"SyncInterval","Docs":"","Typewords":["int64"]},{"Name":"RefreshInterval","Docs":"","Typewords":["int64"]},{"Name":"NextSync","Docs":"","Typewords":["timestamp"]},{"Name":"NextRefresh","Docs":"","Typewords":["timestamp"]}]},
+	"Zone": {"Name":"Zone","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"ProviderConfigName","Docs":"","Typewords":["string"]},{"Name":"Comment","Docs":"","Typewords":["string"]},{"Name":"SerialLocal","Docs":"","Typewords":["uint32"]},{"Name":"SerialRemote","Docs":"","Typewords":["uint32"]},{"Name":"LastSync","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"LastRecordChange","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"SyncInterval","Docs":"","Typewords":["int64"]},{"Name":"RefreshInterval","Docs":"","Typewords":["int64"]},{"Name":"NextSync","Docs":"","Typewords":["timestamp"]},{"Name":"NextRefresh","Docs":"","Typewords":["timestamp"]}]},
 	"ProviderConfig": {"Name":"ProviderConfig","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"ProviderName","Docs":"","Typewords":["string"]},{"Name":"ProviderConfigJSON","Docs":"","Typewords":["string"]}]},
 	"ZoneNotify": {"Name":"ZoneNotify","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Created","Docs":"","Typewords":["timestamp"]},{"Name":"Zone","Docs":"","Typewords":["string"]},{"Name":"Address","Docs":"","Typewords":["string"]},{"Name":"Protocol","Docs":"","Typewords":["string"]}]},
 	"Credential": {"Name":"Credential","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Created","Docs":"","Typewords":["timestamp"]},{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Type","Docs":"","Typewords":["string"]},{"Name":"TSIGSecret","Docs":"","Typewords":["string"]},{"Name":"TLSPublicKey","Docs":"","Typewords":["string"]}]},

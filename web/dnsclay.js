@@ -238,7 +238,7 @@ var api;
 	api.stringsTypes = {};
 	api.intsTypes = {};
 	api.types = {
-		"Zone": { "Name": "Zone", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderConfigName", "Docs": "", "Typewords": ["string"] }, { "Name": "SerialLocal", "Docs": "", "Typewords": ["uint32"] }, { "Name": "SerialRemote", "Docs": "", "Typewords": ["uint32"] }, { "Name": "LastSync", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "LastRecordChange", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "SyncInterval", "Docs": "", "Typewords": ["int64"] }, { "Name": "RefreshInterval", "Docs": "", "Typewords": ["int64"] }, { "Name": "NextSync", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "NextRefresh", "Docs": "", "Typewords": ["timestamp"] }] },
+		"Zone": { "Name": "Zone", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderConfigName", "Docs": "", "Typewords": ["string"] }, { "Name": "Comment", "Docs": "", "Typewords": ["string"] }, { "Name": "SerialLocal", "Docs": "", "Typewords": ["uint32"] }, { "Name": "SerialRemote", "Docs": "", "Typewords": ["uint32"] }, { "Name": "LastSync", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "LastRecordChange", "Docs": "", "Typewords": ["nullable", "timestamp"] }, { "Name": "SyncInterval", "Docs": "", "Typewords": ["int64"] }, { "Name": "RefreshInterval", "Docs": "", "Typewords": ["int64"] }, { "Name": "NextSync", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "NextRefresh", "Docs": "", "Typewords": ["timestamp"] }] },
 		"ProviderConfig": { "Name": "ProviderConfig", "Docs": "", "Fields": [{ "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderName", "Docs": "", "Typewords": ["string"] }, { "Name": "ProviderConfigJSON", "Docs": "", "Typewords": ["string"] }] },
 		"ZoneNotify": { "Name": "ZoneNotify", "Docs": "", "Fields": [{ "Name": "ID", "Docs": "", "Typewords": ["int64"] }, { "Name": "Created", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "Zone", "Docs": "", "Typewords": ["string"] }, { "Name": "Address", "Docs": "", "Typewords": ["string"] }, { "Name": "Protocol", "Docs": "", "Typewords": ["string"] }] },
 		"Credential": { "Name": "Credential", "Docs": "", "Fields": [{ "Name": "ID", "Docs": "", "Typewords": ["int64"] }, { "Name": "Created", "Docs": "", "Typewords": ["timestamp"] }, { "Name": "Name", "Docs": "", "Typewords": ["string"] }, { "Name": "Type", "Docs": "", "Typewords": ["string"] }, { "Name": "TSIGSecret", "Docs": "", "Typewords": ["string"] }, { "Name": "TLSPublicKey", "Docs": "", "Typewords": ["string"] }] },
@@ -1258,6 +1258,7 @@ const pageHome = async () => {
 				RefreshInterval: parseInt(refreshInterval.value) * 1000 * 1000 * 1000,
 				NextSync: new Date(),
 				NextRefresh: new Date(),
+				Comment: '',
 			};
 			const nz = await check(fieldset, () => client.ZoneAdd(z, [])); // todo: allow specifying notifies
 			zones.push(nz);
@@ -1452,10 +1453,11 @@ const pageZone = async (zonestr) => {
 		sets = nsets || [];
 		render();
 	};
-	const root = dom.div(dom.div(dom.p(`Provider config: ${zone.ProviderConfigName} (provider ${providerConfig.ProviderName})`), dom.clickbutton('Edit zone config', async function click(e) {
+	const root = dom.div(dom.div(zone.Comment ? dom.div(style({ fontStyle: 'italic', marginBottom: '1em', whiteSpace: 'pre-wrap' }), zone.Comment) : [], dom.p(`Provider config: ${zone.ProviderConfigName} (provider ${providerConfig.ProviderName})`), dom.clickbutton('Edit zone config', async function click(e) {
 		let fieldset;
 		let refreshival;
 		let syncival;
+		let comment;
 		let providerConfigName;
 		const providerConfigs = await check(e.target, () => client.ProviderConfigs()) || [];
 		const [close] = popup(dom.h1('Edit zone'), dom.br(), dom.form(async function submit(e) {
@@ -1465,9 +1467,11 @@ const pageZone = async (zonestr) => {
 			nz.ProviderConfigName = providerConfigName.value;
 			nz.RefreshInterval = 1000 * 1000 * 1000 * parseInt(refreshival.value);
 			nz.SyncInterval = 1000 * 1000 * 1000 * parseInt(syncival.value);
+			nz.Comment = comment.value;
 			zone = await check(fieldset, () => client.ZoneUpdate(nz));
 			close();
-		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.label(dom.div('Refresh interval (in seconds)', attr.title('The zone SOA DNS record is fetched through the DNS resolver to check for updates. An interval of 0 disables periodic SOA DNS record lookup.')), refreshival = dom.input(attr.type('number'), attr.required(''), attr.value('' + (zone.RefreshInterval / (1000 * 1000 * 1000)))), dom.div(style({ fontStyle: 'italic' }), '0 disables SOA refresh checks')), dom.label(dom.div('Sync interval (in seconds)', attr.title('The zone is fetched in full during each sync.')), syncival = dom.input(attr.type('number'), attr.required(''), attr.value('' + (zone.SyncInterval / (1000 * 1000 * 1000))))), dom.label(dom.div('Provider config'), providerConfigName = dom.select(providerConfigs.sort((a, b) => a.Name < b.Name ? -1 : 1).map(pc => dom.option(pc.Name)), prop({ value: zone.ProviderConfigName }))), dom.div(dom.submitbutton('Save')))));
+			location.reload(); // Update view, e.g. comment.
+		}, fieldset = dom.fieldset(style({ display: 'flex', flexDirection: 'column', gap: '2ex' }), dom.label(dom.div('Refresh interval (in seconds)', attr.title('The zone SOA DNS record is fetched through the DNS resolver to check for updates. An interval of 0 disables periodic SOA DNS record lookup.')), refreshival = dom.input(attr.type('number'), attr.required(''), attr.value('' + (zone.RefreshInterval / (1000 * 1000 * 1000)))), dom.div(style({ fontStyle: 'italic' }), '0 disables SOA refresh checks')), dom.label(dom.div('Sync interval (in seconds)', attr.title('The zone is fetched in full during each sync.')), syncival = dom.input(attr.type('number'), attr.required(''), attr.value('' + (zone.SyncInterval / (1000 * 1000 * 1000))))), dom.label(dom.div('Provider config'), providerConfigName = dom.select(providerConfigs.sort((a, b) => a.Name < b.Name ? -1 : 1).map(pc => dom.option(pc.Name)), prop({ value: zone.ProviderConfigName }))), dom.label(dom.div('Comment'), comment = dom.textarea(attr.rows('5'), style({ width: '30em' }), zone.Comment)), dom.div(dom.submitbutton('Save')))));
 	}), ' ', dom.clickbutton('Edit provider config', async function click(e) {
 		let fieldset;
 		const [stringEnums, providers] = await check(e.target, () => availableProviders());
