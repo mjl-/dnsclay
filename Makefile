@@ -56,7 +56,7 @@ node_modules/.bin/tsc:
 
 install-js:
 	-mkdir -p node_modules/.bin
-	npm install --ignore-scripts --save-dev --save-exact typescript@5.1.6
+	npm install --ignore-scripts --save-dev --save-exact typescript@5.1.6 prettier@3.0.0
 
 govendor:
 	go mod tidy
