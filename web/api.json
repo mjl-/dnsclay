@@ -1316,20 +1316,6 @@
 					]
 				},
 				{
-					"Name": "Xsimplydotcom",
-					"Docs": "",
-					"Typewords": [
-						"Provider_simplydotcom"
-					]
-				},
-				{
-					"Name": "Xspaceship",
-					"Docs": "",
-					"Typewords": [
-						"Provider"
-					]
-				},
-				{
 					"Name": "Xtencentcloud",
 					"Docs": "",
 					"Typewords": [
@@ -2396,82 +2382,6 @@
 					"Typewords": [
 						"nullable",
 						"string"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider_simplydotcom",
-			"Docs": "Provider implements the libdns interfaces for Simply.com.",
-			"Fields": [
-				{
-					"Name": "account_name",
-					"Docs": "AccountName is the account name of the Simply.com account. It is required.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "api_key",
-					"Docs": "APIKey is the API key for the Simply.com account. It is required.",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "base_url",
-					"Docs": "BaseURL is the base URL of the Simply.com API. Default is https://api.simply.com/2/",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "max_retries",
-					"Docs": "MaxRetries is the maximum number of retries if rate limiting occurs. Default is 3.",
-					"Typewords": [
-						"nullable",
-						"int32"
-					]
-				}
-			]
-		},
-		{
-			"Name": "Provider",
-			"Docs": "Provider facilitates DNS record manipulation with Spaceship.",
-			"Fields": [
-				{
-					"Name": "api_key",
-					"Docs": "APIKey is the Spaceship API key for authentication",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "api_secret",
-					"Docs": "APISecret is the Spaceship API secret for authentication",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "base_url",
-					"Docs": "BaseURL is the base URL for the Spaceship API (defaults to https://spaceship.dev/api)",
-					"Typewords": [
-						"nullable",
-						"string"
-					]
-				},
-				{
-					"Name": "page_size",
-					"Docs": "PageSize controls pagination size used by GetRecords (defaults to 100)",
-					"Typewords": [
-						"nullable",
-						"int32"
 					]
 				}
 			]

@@ -43,8 +43,6 @@ import (
 	rfc2136 "github.com/libdns/rfc2136"
 	route53 "github.com/libdns/route53"
 	scaleway "github.com/libdns/scaleway"
-	simplydotcom "github.com/libdns/simplydotcom"
-	spaceship "github.com/libdns/spaceship"
 	tencentcloud "github.com/libdns/tencentcloud"
 	westcn "github.com/libdns/westcn"
 )
@@ -91,8 +89,6 @@ type KnownProviders struct {
 	Xrfc2136        rfc2136.Provider
 	Xroute53        route53.Provider
 	Xscaleway       scaleway.Provider
-	Xsimplydotcom   simplydotcom.Provider
-	Xspaceship      spaceship.Provider
 	Xtencentcloud   tencentcloud.Provider
 	Xwestcn         westcn.Provider
 }
@@ -139,8 +135,6 @@ var providers = map[string]any{
 	"rfc2136":        rfc2136.Provider{},
 	"route53":        route53.Provider{},
 	"scaleway":       scaleway.Provider{},
-	"simplydotcom":   simplydotcom.Provider{},
-	"spaceship":      spaceship.Provider{},
 	"tencentcloud":   tencentcloud.Provider{},
 	"westcn":         westcn.Provider{},
 }
@@ -187,8 +181,6 @@ var providerURLs = map[string]string{
 	"rfc2136":        "github.com/libdns/rfc2136",
 	"route53":        "github.com/libdns/route53",
 	"scaleway":       "github.com/libdns/scaleway",
-	"simplydotcom":   "github.com/libdns/simplydotcom",
-	"spaceship":      "github.com/libdns/spaceship",
 	"tencentcloud":   "github.com/libdns/tencentcloud",
 	"westcn":         "github.com/libdns/westcn",
 }

@@ -53,6 +53,9 @@ providers at https://github.com/libdns. If your DNS operator of choice is
 missing in dnsclay, check if someone has implemented a provider, or consider
 implementing it yourself. See https://github.com/libdns/libdns.
 
+Most providers available at https://github.com/libdns at the time of writing have
+been added.
+
 ## Supported providers
 
 - github.com/libdns/autodns
@@ -95,8 +98,6 @@ implementing it yourself. See https://github.com/libdns/libdns.
 - github.com/libdns/rfc2136
 - github.com/libdns/route53
 - github.com/libdns/scaleway
-- github.com/libdns/simplydotcom
-- github.com/libdns/spaceship
 - github.com/libdns/tencentcloud
 - github.com/libdns/westcn
 
@@ -104,23 +105,17 @@ implementing it yourself. See https://github.com/libdns/libdns.
 
 - github.com/libdns/acmedns, only creates ACME TXT records
 - github.com/libdns/acmeproxy, only creates ACME TXT records
-- github.com/libdns/conoha, defines a clashing type Provider
 - github.com/libdns/dinahosting, only creates ACME TXT records
 - github.com/libdns/dnsexit, no proper GetRecords
 - github.com/libdns/dode, only creates ACME TXT records
-- github.com/libdns/edgeone, defines a clashing type Provider
-- github.com/libdns/metaname, only supports limited set of record types, dropping all others
-- github.com/libdns/mijnhost, uses a type that dnsclay doesn't yet support in its tooling
 - github.com/libdns/neoserv, it doesn't use an api, but parses html pages
-- github.com/libdns/nfsn, only supports limited set of record types
 - github.com/libdns/nicrudns, does not compile against latest libdns
-- github.com/libdns/porkbun, only supports limited set of record types
 - github.com/libdns/regfish, does not compile against latest libdns
 - github.com/libdns/transip, requires a key in a file on disk
 - github.com/libdns/vercel, cannot set TTL
-
-Several other providers are not included because they haven't been updated to
-libdns v1.
+- github.com/libdns/nfsn, only supports limited set of record types
+- github.com/libdns/metaname, only supports limited set of record types, dropping all others
+- github.com/libdns/porkbun, only supports limited set of record types
 
 
 ## Adding a new provider
