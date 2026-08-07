@@ -957,6 +957,13 @@
 					"Typewords": [
 						"string"
 					]
+				},
+				{
+					"Name": "ProviderDataJSON",
+					"Docs": "If non-empty, the ProviderData from the libdns.Record type-specific struct.",
+					"Typewords": [
+						"string"
+					]
 				}
 			]
 		},

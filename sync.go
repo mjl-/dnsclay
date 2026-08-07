@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -47,7 +48,7 @@ func serial(tm time.Time) Serial {
 
 // syncRecords syncs the records in the database with the latest records from the
 // provider. If changed is true, the caller must queue a dns notify for the zone.
-func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.RR) (changed bool, latestSOA *Record, inserted, deleted []Record, rerr error) {
+func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (changed bool, latestSOA *Record, inserted, deleted []Record, rerr error) {
 	// note: for dns xfr, the first and last records are the SOA records. for SOA, we only keep the last.
 
 	now := time.Now()
@@ -66,7 +67,7 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.RR) (c
 
 	type xlibdnsRR struct {
 		Key   recordKey
-		RR    libdns.RR
+		RR    libdnsRR
 		Value string // In proper DNS zone form, not libdns with its TXT format exception.
 	}
 
@@ -139,7 +140,15 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.RR) (c
 		// For AXFR, we will be getting two SOA records, at the start and end. The rfc2136
 		// passes both of them on.
 		if x, ok := rr.(*dns.SOA); ok && name == z.Name {
-			latestSOA = &Record{0, z.Name, Serial(x.Serial), 0, now, nil, name, Type(h.Rrtype), Class(h.Class), TTL(h.Ttl), hex, value}
+			var providerDataJSON string
+			if lr.ProviderData != nil {
+				if buf, err := json.Marshal(lr.ProviderData); err != nil {
+					log.Error("marshal providerdata as json (ignoring, continuing without providerdata)", "err", err)
+				} else {
+					providerDataJSON = string(buf)
+				}
+			}
+			latestSOA = &Record{0, z.Name, Serial(x.Serial), 0, now, nil, name, Type(h.Rrtype), Class(h.Class), TTL(h.Ttl), hex, value, providerDataJSON}
 			continue
 		}
 
@@ -246,7 +255,15 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.RR) (c
 		}
 		for _, lr := range ll {
 			k := lr.Key
-			r := Record{0, z.Name, latestSOA.SerialFirst, 0, now, nil, k.Name, k.Type, k.Class, k.TTL, k.DataHex, lr.Value}
+			var providerDataJSON string
+			if lr.RR.ProviderData != nil {
+				if buf, err := json.Marshal(lr.RR.ProviderData); err != nil {
+					slog.Error("marshal providerdata as json (ignoring, continuing without providerdata)", "err", err)
+				} else {
+					providerDataJSON = string(buf)
+				}
+			}
+			r := Record{0, z.Name, latestSOA.SerialFirst, 0, now, nil, k.Name, k.Type, k.Class, k.TTL, k.DataHex, lr.Value, providerDataJSON}
 			if err := tx.Insert(&r); err != nil {
 				return fmt.Errorf("insert record: %v", err)
 			}

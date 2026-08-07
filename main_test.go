@@ -95,7 +95,10 @@ func (pp *fakeProvider) GetRecords(ctx context.Context, zone string) ([]libdns.R
 			t[2] = "1"
 			rr.Data = strings.Join(t, " ")
 		}
-		nr, _ := rr.Parse()
+		nr, err := rr.Parse()
+		if err == nil {
+			setProviderData(&nr, providerData(r))
+		}
 		l = append(l, nr)
 	}
 	return l, nil
@@ -347,6 +350,7 @@ func ldr(id any, relname string, ttl int, typ, data string) libdns.Record {
 	if err != nil {
 		panic(fmt.Sprintf("ldr %q %v %q %q: %v", relname, ttl, typ, data, err))
 	}
+	setProviderData(&r, id)
 	return r
 }
 

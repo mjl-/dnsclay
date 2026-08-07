@@ -28,12 +28,19 @@ import (
 	"github.com/mjl-/bstore"
 )
 
+// libdnsRR is a libdns.RR along with the optional ProviderData from the
+// libdns.Record for known types.
+type libdnsRR struct {
+	libdns.RR
+	ProviderData any // Optional, from libdns.Record.
+}
+
 type Provider struct {
 	name string
 	libdnsProvider
 }
 
-func (p Provider) withMetric(op string, fn func() ([]libdns.RR, error)) ([]libdns.RR, error) {
+func (p Provider) withMetric(op string, fn func() ([]libdnsRR, error)) ([]libdnsRR, error) {
 	t0 := time.Now()
 	l, err := fn()
 	metricProviderOp.WithLabelValues(p.name, op).Observe(float64(time.Since(t0) / time.Second))
@@ -43,52 +50,121 @@ func (p Provider) withMetric(op string, fn func() ([]libdns.RR, error)) ([]libdn
 	return l, err
 }
 
-func toRRs(l []libdns.Record) []libdns.RR {
+// todo: get providerData/setProviderData in libdns? as method on type Record, or as an optional interface on such records.
+
+func providerData(r libdns.Record) any {
+	switch rr := r.(type) {
+	case libdns.Address:
+		return rr.ProviderData
+	case libdns.CAA:
+		return rr.ProviderData
+	case libdns.CNAME:
+		return rr.ProviderData
+	case libdns.MX:
+		return rr.ProviderData
+	case libdns.NS:
+		return rr.ProviderData
+	case libdns.SRV:
+		return rr.ProviderData
+	case libdns.ServiceBinding:
+		return rr.ProviderData
+	case libdns.TXT:
+		return rr.ProviderData
+	}
+	return nil
+}
+
+func setProviderData(r *libdns.Record, data any) {
+	switch rr := (*r).(type) {
+	case libdns.Address:
+		rr.ProviderData = data
+		*r = rr
+	case libdns.CAA:
+		rr.ProviderData = data
+		*r = rr
+	case libdns.CNAME:
+		rr.ProviderData = data
+		*r = rr
+	case libdns.MX:
+		rr.ProviderData = data
+		*r = rr
+	case libdns.NS:
+		rr.ProviderData = data
+		*r = rr
+	case libdns.SRV:
+		rr.ProviderData = data
+		*r = rr
+	case libdns.ServiceBinding:
+		rr.ProviderData = data
+		*r = rr
+	case libdns.TXT:
+		rr.ProviderData = data
+		*r = rr
+	}
+}
+
+func toRRs(l []libdns.Record) []libdnsRR {
 	if l == nil {
 		return nil
 	}
-	nl := make([]libdns.RR, len(l))
+	nl := make([]libdnsRR, len(l))
 	for i, r := range l {
-		nl[i] = r.RR()
+		nl[i] = libdnsRR{r.RR(), providerData(r)}
 	}
 	return nl
 }
 
-func toRecords(l []libdns.RR) []libdns.Record {
+func toRecords(l []libdnsRR) ([]libdns.Record, error) {
 	if l == nil {
-		return nil
+		return nil, nil
 	}
-	nl := make([]libdns.Record, len(l))
-	for i, rr := range l {
-		// rr.Parse is a no-op with our libdns fork.
-		nl[i], _ = rr.Parse()
+	nl := make([]libdns.Record, 0, len(l))
+	for _, rr := range l {
+		r, err := rr.Parse()
+		if err != nil {
+			return nil, fmt.Errorf("parsing rr %v: %v", rr, err)
+		}
+		setProviderData(&r, rr.ProviderData)
+		nl = append(nl, r)
 	}
-	return nl
+	return nl, nil
 }
 
-func (p Provider) AppendRecords(ctx context.Context, zone string, rrs []libdns.RR) (l []libdns.RR, err error) {
-	return p.withMetric("append", func() ([]libdns.RR, error) {
-		l, err := p.libdnsProvider.AppendRecords(ctx, zone, toRecords(rrs))
+func (p Provider) AppendRecords(ctx context.Context, zone string, rrs []libdnsRR) (l []libdnsRR, err error) {
+	return p.withMetric("append", func() ([]libdnsRR, error) {
+		recs, err := toRecords(rrs)
+		if err != nil {
+			return nil, fmt.Errorf("converting RRs to records: %v", err)
+		}
+		l, err := p.libdnsProvider.AppendRecords(ctx, zone, recs)
 		return toRRs(l), err
 	})
 }
 
-func (p Provider) DeleteRecords(ctx context.Context, zone string, rrs []libdns.RR) (l []libdns.RR, err error) {
-	return p.withMetric("delete", func() ([]libdns.RR, error) {
-		l, err := p.libdnsProvider.DeleteRecords(ctx, zone, toRecords(rrs))
+func (p Provider) DeleteRecords(ctx context.Context, zone string, rrs []libdnsRR) (l []libdnsRR, err error) {
+	return p.withMetric("delete", func() ([]libdnsRR, error) {
+		recs, err := toRecords(rrs)
+		if err != nil {
+			return nil, fmt.Errorf("converting RRs to records: %v", err)
+		}
+		l, err := p.libdnsProvider.DeleteRecords(ctx, zone, recs)
 		return toRRs(l), err
 	})
 }
 
-func (p Provider) SetRecords(ctx context.Context, zone string, rrs []libdns.RR) (l []libdns.RR, err error) {
-	return p.withMetric("set", func() ([]libdns.RR, error) {
-		l, err := p.libdnsProvider.SetRecords(ctx, zone, toRecords(rrs))
+func (p Provider) SetRecords(ctx context.Context, zone string, rrs []libdnsRR) (l []libdnsRR, err error) {
+	return p.withMetric("set", func() ([]libdnsRR, error) {
+		recs, err := toRecords(rrs)
+		if err != nil {
+			return nil, fmt.Errorf("converting RRs to records: %v", err)
+		}
+		l, err := p.libdnsProvider.SetRecords(ctx, zone, recs)
 		return toRRs(l), err
 	})
 }
 
-func (p Provider) GetRecords(ctx context.Context, zone string) (rrs []libdns.RR, err error) {
-	return p.withMetric("get", func() ([]libdns.RR, error) {
+func (p Provider) GetRecords(ctx context.Context, zone string) (rrs []libdnsRR, err error) {
+	return p.withMetric("get", func() ([]libdnsRR, error) {
 		l, err := p.libdnsProvider.GetRecords(ctx, zone)
 		return toRRs(l), err
 	})

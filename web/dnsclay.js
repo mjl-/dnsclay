@@ -390,6 +390,7 @@ var api
 				{ Name: 'TTL', Docs: '', Typewords: ['uint32'] },
 				{ Name: 'DataHex', Docs: '', Typewords: ['string'] },
 				{ Name: 'Value', Docs: '', Typewords: ['string'] },
+				{ Name: 'ProviderDataJSON', Docs: '', Typewords: ['string'] },
 			],
 		},
 		PropagationState: {
@@ -2668,7 +2669,11 @@ const pageZone = async zonestr => {
 						dom.td(age(r0)),
 						dom.td(relName(r0.AbsName), style({ textAlign: 'right' })),
 						dom.td('' + r0.TTL),
-						dom.td(dnsTypeNames[r0.Type] || '' + r0.Type, attr.title('Type ' + r0.Type), style({ textAlign: 'left' })),
+						dom.td(
+							dnsTypeNames[r0.Type] || '' + r0.Type,
+							attr.title('Type ' + r0.Type + (r0.ProviderDataJSON ? '\nID at provider: ' + r0.ProviderDataJSON : '')),
+							style({ textAlign: 'left' }),
+						),
 						dom.td(
 							style({ textAlign: 'left' }),
 							(set.Records || []).map(r => dom.div(style({ wordBreak: 'break-all' }), r.Value)),

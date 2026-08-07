@@ -16,7 +16,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/libdns/libdns"
 	"github.com/miekg/dns"
 
 	"github.com/mjl-/bstore"
@@ -781,7 +780,7 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 
 			// Full rrset must exist. We gather the record into an rrset now, and we check it
 			// later/below once we have gone through all prerequisite records.
-			r := Record{0, z.Name, 0, 0, time.Time{}, nil, name, Type(h.Rrtype), Class(dns.ClassINET), TTL(0), hex, value}
+			r := Record{0, z.Name, 0, 0, time.Time{}, nil, name, Type(h.Rrtype), Class(dns.ClassINET), TTL(0), hex, value, ""}
 			k := r.rrsetKey()
 			rrsetsCheck[k] = append(rrsetsCheck[k], r)
 			ok = true // Checked later.
@@ -881,7 +880,7 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 			continue
 		}
 
-		r := Record{0, z.Name, 0, 0, time.Time{}, nil, name, Type(h.Rrtype), Class(dns.ClassINET), TTL(h.Ttl), "", ""}
+		r := Record{0, z.Name, 0, 0, time.Time{}, nil, name, Type(h.Rrtype), Class(dns.ClassINET), TTL(h.Ttl), "", "", ""}
 
 		hex, value, err := recordData(rr)
 		if err != nil {
@@ -974,7 +973,7 @@ func (c *conn) handleUpdate(ctx context.Context) (ok bool) {
 
 	c.log.Debug("adding/setting/removing records", "add", add, "set", set, "remove", remove)
 
-	var added, xset, removed []libdns.RR
+	var added, xset, removed []libdnsRR
 	if len(add) > 0 {
 		l, err := libdnsRRs(add)
 		if err == nil {
@@ -1260,19 +1259,19 @@ func responseError(m *dns.Msg) error {
 	return err
 }
 
-func deleteRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdns.RR) ([]libdns.RR, error) {
+func deleteRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdnsRR) ([]libdnsRR, error) {
 	l, err := provider.DeleteRecords(ctx, zone, records)
 	log.Debug("deleting records at provider", "err", err, "zone", zone, "records", records, "deleted", l)
 	return l, err
 }
 
-func appendRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdns.RR) ([]libdns.RR, error) {
+func appendRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdnsRR) ([]libdnsRR, error) {
 	l, err := provider.AppendRecords(ctx, zone, records)
 	log.Debug("appending records at provider", "err", err, "zone", zone, "records", records, "appended", l)
 	return l, err
 }
 
-func setRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdns.RR) ([]libdns.RR, error) {
+func setRecords(ctx context.Context, log *slog.Logger, provider Provider, zone string, records []libdnsRR) ([]libdnsRR, error) {
 	l, err := provider.SetRecords(ctx, zone, records)
 	log.Debug("setting records at provider", "err", err, "zone", zone, "records", records, "set", l)
 	return l, err

@@ -1255,7 +1255,7 @@ const pageZone = async (zonestr: string) => {
 					),
 					dom.td(
 						dnsTypeNames[r0.Type] || (''+r0.Type),
-						attr.title('Type '+r0.Type),
+						attr.title('Type '+r0.Type + (r0.ProviderDataJSON ? '\nID at provider: '+r0.ProviderDataJSON : '')),
 						style({textAlign: 'left'}),
 					),
 					dom.td(
