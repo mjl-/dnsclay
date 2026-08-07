@@ -87,7 +87,6 @@ func New() *Resolver {
 var partitionRegexp = struct {
 	Aws      *regexp.Regexp
 	AwsCn    *regexp.Regexp
-	AwsEusc  *regexp.Regexp
 	AwsIso   *regexp.Regexp
 	AwsIsoB  *regexp.Regexp
 	AwsIsoE  *regexp.Regexp
@@ -95,9 +94,8 @@ var partitionRegexp = struct {
 	AwsUsGov *regexp.Regexp
 }{
 
-	Aws:      regexp.MustCompile("^(us|eu|ap|sa|ca|me|af|il|mx)\\-\\w+\\-\\d+$"),
+	Aws:      regexp.MustCompile("^(us|eu|ap|sa|ca|me|af|il)\\-\\w+\\-\\d+$"),
 	AwsCn:    regexp.MustCompile("^cn\\-\\w+\\-\\d+$"),
-	AwsEusc:  regexp.MustCompile("^eusc\\-(de)\\-\\w+\\-\\d+$"),
 	AwsIso:   regexp.MustCompile("^us\\-iso\\-\\w+\\-\\d+$"),
 	AwsIsoB:  regexp.MustCompile("^us\\-isob\\-\\w+\\-\\d+$"),
 	AwsIsoE:  regexp.MustCompile("^eu\\-isoe\\-\\w+\\-\\d+$"),
@@ -217,27 +215,6 @@ var defaultPartitions = endpoints.Partitions{
 		},
 	},
 	{
-		ID: "aws-eusc",
-		Defaults: map[endpoints.DefaultKey]endpoints.Endpoint{
-			{
-				Variant: endpoints.FIPSVariant,
-			}: {
-				Hostname:          "route53-fips.{region}.amazonaws.eu",
-				Protocols:         []string{"https"},
-				SignatureVersions: []string{"v4"},
-			},
-			{
-				Variant: 0,
-			}: {
-				Hostname:          "route53.{region}.amazonaws.eu",
-				Protocols:         []string{"https"},
-				SignatureVersions: []string{"v4"},
-			},
-		},
-		RegionRegex:    partitionRegexp.AwsEusc,
-		IsRegionalized: true,
-	},
-	{
 		ID: "aws-iso",
 		Defaults: map[endpoints.DefaultKey]endpoints.Endpoint{
 			{
@@ -319,19 +296,8 @@ var defaultPartitions = endpoints.Partitions{
 				SignatureVersions: []string{"v4"},
 			},
 		},
-		RegionRegex:       partitionRegexp.AwsIsoE,
-		IsRegionalized:    false,
-		PartitionEndpoint: "aws-iso-e-global",
-		Endpoints: endpoints.Endpoints{
-			endpoints.EndpointKey{
-				Region: "aws-iso-e-global",
-			}: endpoints.Endpoint{
-				Hostname: "route53.cloud.adc-e.uk",
-				CredentialScope: endpoints.CredentialScope{
-					Region: "eu-isoe-west-1",
-				},
-			},
-		},
+		RegionRegex:    partitionRegexp.AwsIsoE,
+		IsRegionalized: true,
 	},
 	{
 		ID: "aws-iso-f",
@@ -351,19 +317,8 @@ var defaultPartitions = endpoints.Partitions{
 				SignatureVersions: []string{"v4"},
 			},
 		},
-		RegionRegex:       partitionRegexp.AwsIsoF,
-		IsRegionalized:    false,
-		PartitionEndpoint: "aws-iso-f-global",
-		Endpoints: endpoints.Endpoints{
-			endpoints.EndpointKey{
-				Region: "aws-iso-f-global",
-			}: endpoints.Endpoint{
-				Hostname: "route53.csp.hci.ic.gov",
-				CredentialScope: endpoints.CredentialScope{
-					Region: "us-isof-south-1",
-				},
-			},
-		},
+		RegionRegex:    partitionRegexp.AwsIsoF,
+		IsRegionalized: true,
 	},
 	{
 		ID: "aws-us-gov",

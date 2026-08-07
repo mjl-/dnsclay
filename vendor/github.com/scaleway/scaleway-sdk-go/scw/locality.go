@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/scaleway/scaleway-sdk-go/errors"
+	"github.com/scaleway/scaleway-sdk-go/internal/errors"
 	"github.com/scaleway/scaleway-sdk-go/logger"
 	"github.com/scaleway/scaleway-sdk-go/validation"
 )
@@ -37,18 +37,20 @@ const (
 	ZonePlWaw3 = Zone("pl-waw-3")
 )
 
-// AllZones is an array that list all zones
-var AllZones = []Zone{
-	ZoneFrPar1,
-	ZoneFrPar2,
-	ZoneFrPar3,
-	ZoneNlAms1,
-	ZoneNlAms2,
-	ZoneNlAms3,
-	ZonePlWaw1,
-	ZonePlWaw2,
-	ZonePlWaw3,
-}
+var (
+	// AllZones is an array that list all zones
+	AllZones = []Zone{
+		ZoneFrPar1,
+		ZoneFrPar2,
+		ZoneFrPar3,
+		ZoneNlAms1,
+		ZoneNlAms2,
+		ZoneNlAms3,
+		ZonePlWaw1,
+		ZonePlWaw2,
+		ZonePlWaw3,
+	}
+)
 
 // Exists checks whether a zone exists
 func (zone Zone) Exists() bool {
@@ -88,12 +90,14 @@ const (
 	RegionPlWaw = Region("pl-waw")
 )
 
-// AllRegions is an array that list all regions
-var AllRegions = []Region{
-	RegionFrPar,
-	RegionNlAms,
-	RegionPlWaw,
-}
+var (
+	// AllRegions is an array that list all regions
+	AllRegions = []Region{
+		RegionFrPar,
+		RegionNlAms,
+		RegionPlWaw,
+	}
+)
 
 // Exists checks whether a region exists
 func (region Region) Exists() bool {

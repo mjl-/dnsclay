@@ -32,13 +32,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		if err != nil {
 			return nil, err
 		}
-
-		rr := newRecord.RR()
-		rr.TTL = time.Duration(rr.TTL) * time.Second
-		newRecord, err = rr.Parse()
-		if err != nil {
-			return nil, err
-		}
+		newRecord.TTL = newRecord.TTL * time.Second
 		appendedRecords = append(appendedRecords, newRecord)
 	}
 
@@ -54,13 +48,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 		if err != nil {
 			return setRecords, err
 		}
-
-		rr := setRecord.RR()
-		rr.TTL = time.Duration(rr.TTL) * time.Second
-		setRecord, err = rr.Parse()
-		if err != nil {
-			return nil, err
-		}
+		setRecord.TTL = time.Duration(setRecord.TTL) * time.Second
 		setRecords = append(setRecords, setRecord)
 	}
 	return setRecords, nil
@@ -75,12 +63,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		if err != nil {
 			return nil, err
 		}
-		rr := deletedRecord.RR()
-		rr.TTL = time.Duration(rr.TTL) * time.Second
-		deletedRecord, err = rr.Parse()
-		if err != nil {
-			return nil, err
-		}
+		deletedRecord.TTL = deletedRecord.TTL * time.Second
 		deletedRecords = append(deletedRecords, deletedRecord)
 	}
 

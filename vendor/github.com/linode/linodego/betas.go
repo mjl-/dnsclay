@@ -3,8 +3,11 @@ package linodego
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/url"
 	"time"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/linode/linodego/internal/parseabletime"
 )
 
@@ -29,13 +32,23 @@ type BetaProgram struct {
 	MoreInfo string `json:"more_info"`
 }
 
+// BetasPagedResponse represents a paginated Beta Programs API response
+type BetasPagedResponse struct {
+	*PageOptions
+	Data []BetaProgram `json:"data"`
+}
+
+// endpoint gets the endpoint URL for BetaProgram
+func (BetasPagedResponse) endpoint(_ ...any) string {
+	return "/betas"
+}
+
 // UnmarshalJSON implements the json.Unmarshaler interface
 func (beta *BetaProgram) UnmarshalJSON(b []byte) error {
 	type Mask BetaProgram
 
 	p := struct {
 		*Mask
-
 		Started *parseabletime.ParseableTime `json:"started"`
 		Ended   *parseabletime.ParseableTime `json:"ended"`
 	}{
@@ -52,13 +65,35 @@ func (beta *BetaProgram) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (resp *BetasPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
+	res, err := coupleAPIErrors(r.SetResult(BetasPagedResponse{}).Get(e))
+	if err != nil {
+		return 0, 0, err
+	}
+	castedRes := res.Result().(*BetasPagedResponse)
+	resp.Data = append(resp.Data, castedRes.Data...)
+	return castedRes.Pages, castedRes.Results, nil
+}
+
 // ListBetaPrograms lists active beta programs
 func (c *Client) ListBetaPrograms(ctx context.Context, opts *ListOptions) ([]BetaProgram, error) {
-	return getPaginatedResults[BetaProgram](ctx, c, "/betas", opts)
+	response := BetasPagedResponse{}
+	err := c.listHelper(ctx, &response, opts)
+	if err != nil {
+		return nil, err
+	}
+	return response.Data, nil
 }
 
 // GetBetaProgram gets the beta program's detail with the ID
 func (c *Client) GetBetaProgram(ctx context.Context, betaID string) (*BetaProgram, error) {
-	e := formatAPIPath("betas/%s", betaID)
-	return doGETRequest[BetaProgram](ctx, c, e)
+	req := c.R(ctx).SetResult(&BetaProgram{})
+	betaID = url.PathEscape(betaID)
+	b := fmt.Sprintf("betas/%s", betaID)
+	r, err := coupleAPIErrors(req.Get(b))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Result().(*BetaProgram), nil
 }

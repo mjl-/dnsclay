@@ -65,7 +65,7 @@ export interface Record {
 	TTL: number
 	DataHex: string
 	Value: string  // Human-readable.
-	ProviderDataJSON: string  // If non-empty, the ProviderData from the libdns.Record type-specific struct.
+	ProviderID: string  // From libdns.
 }
 
 // PropagationState indicates value(s) of a record set in a period, or that a
@@ -87,20 +87,28 @@ export interface RecordSetChange {
 
 // KnownProviders ensures all providers types are included in sherpadoc API documentation.
 export interface KnownProviders {
+	Xalidns: Provider_alidns
 	Xautodns: Provider_autodns
 	Xazure: Provider_azure
 	Xbunny: Provider_bunny
+	Xcivo: Provider_civo
 	Xcloudflare: Provider_cloudflare
 	Xcloudns: Provider_cloudns
+	Xddnss: Provider_ddnss
 	Xdesec: Provider_desec
 	Xdigitalocean: Provider_digitalocean
 	Xdirectadmin: Provider_directadmin
 	Xdnsimple: Provider_dnsimple
+	Xdnsmadeeasy: Provider_dnsmadeeasy
+	Xdnspod: Provider_dnspod
+	Xdnsupdate: Provider_dnsupdate
 	Xdomainnameshop: Provider_domainnameshop
+	Xdreamhost: Provider_dreamhost
 	Xduckdns: Provider_duckdns
 	Xdynu: Provider_dynu
 	Xdynv6: Provider_dynv6
 	Xeasydns: Provider_easydns
+	Xexoscale: Provider_exoscale
 	Xgandi: Provider_gandi
 	Xgcore: Provider_gcore
 	Xglesys: Provider_glesys
@@ -108,27 +116,49 @@ export interface KnownProviders {
 	Xgoogleclouddns: Provider_googleclouddns
 	Xhe: Provider_he
 	Xhetzner: Provider_hetzner
+	Xhexonet: Provider_hexonet
+	Xhosttech: Provider_hosttech
 	Xhuaweicloud: Provider_huaweicloud
 	Xinfomaniak: Provider_infomaniak
 	Xinwx: Provider_inwx
 	Xionos: Provider_ionos
+	Xkatapult: Provider_katapult
+	Xleaseweb: Provider_leaseweb
 	Xlinode: Provider_linode
 	Xloopia: Provider_loopia
 	Xluadns: Provider_luadns
 	Xmailinabox: Provider_mailinabox
+	Xmetaname: Provider_metaname
+	Xmijnhost: Provider_mijnhost
 	Xmythicbeasts: Provider_mythicbeasts
+	Xnamecheap: Provider_namecheap
+	Xnamedotcom: Provider_namedotcom
 	Xnamesilo: Provider_namesilo
 	Xnanelo: Provider_nanelo
 	Xnetcup: Provider_netcup
 	Xnetlify: Provider_netlify
+	Xnfsn: Provider_nfsn
 	Xnjalla: Provider_njalla
+	Xopenstackdesignate: Provider
 	Xovh: Provider_ovh
+	Xporkbun: Provider_porkbun
 	Xpowerdns: Provider_powerdns
 	Xrfc2136: Provider_rfc2136
 	Xroute53: Provider_route53
 	Xscaleway: Provider_scaleway
+	Xselectel: Provider_selectel
 	Xtencentcloud: Provider_tencentcloud
+	Xtimeweb: Provider_timeweb
+	Xtotaluptime: Provider_totaluptime
+	Xvultr: Provider_vultr
 	Xwestcn: Provider_westcn
+}
+
+// Provider implements the libdns interfaces for Alicloud.
+export interface Provider_alidns {
+	access_key_id: string  // The API Key ID Required by Aliyun's for accessing the Aliyun's API
+	access_key_secret: string  // The API Key Secret Required by Aliyun's for accessing the Aliyun's API
+	region_id?: string | null  // Optional for identifing the region of the Aliyun's Service,The default is zh-hangzhou
 }
 
 // Provider facilitates DNS record manipulation with Autodns.
@@ -155,8 +185,12 @@ export interface Provider_bunny {
 	debug: boolean
 }
 
+export interface Provider_civo {
+	api_token?: string | null
+}
+
 // Provider implements the libdns interfaces for Cloudflare.
-// TODO: Support retries and handle rate limits.
+// TODO: Support pagination and retries, handle rate limits.
 export interface Provider_cloudflare {
 	api_token?: string | null  // API tokens are used for authentication. Make sure to use scoped API **tokens**, NOT a global API **key**.; API token with Zone.DNS:Write (can be scoped to single Zone if ZoneToken is also provided)
 	zone_token?: string | null  // Optional Zone:Read token (global scope)
@@ -164,12 +198,16 @@ export interface Provider_cloudflare {
 
 // Provider facilitates DNS record manipulation with ClouDNS.
 export interface Provider_cloudns {
-	auth_id?: string | null
+	auth_id: string
 	sub_auth_id?: string | null
 	auth_password: string
-	operation_retries?: number | null
-	initial_backoff?: number | null
-	max_backoff?: number | null
+}
+
+// Provider facilitates DNS record manipulation with ddnss.
+export interface Provider_ddnss {
+	api_token: string
+	username?: string | null
+	password?: string | null
 }
 
 // Provider facilitates DNS record manipulation with deSEC.
@@ -186,8 +224,9 @@ export interface Provider_digitalocean {
 export interface Provider_directadmin {
 	host?: string | null  // ServerURL should be the hostname (with port if necessary) of the DirectAdmin instance you are trying to use
 	user?: string | null  // User should be the DirectAdmin username that the Login Key is created under
-	login_key?: string | null  // LoginKey is used for authentication  The key will need two permissions:  `CMD_API_SHOW_DOMAINS` - Required for automatic zone detection  `CMD_API_DNS_CONTROL` - Required for DNS record management  Both permissions are required for all operations as the provider uses automatic zone detection to handle subdomains correctly
+	login_key?: string | null  // LoginKey is used for authentication  The key will need two permissions:  `CMD_API_SHOW_DOMAINS`  `CMD_API_DNS_CONTROL`  Unless you are only using `GetRecords()`, in which case `CMD_API_DNS_CONTROL` can be omitted
 	insecure_requests?: boolean | null  // InsecureRequests is an optional parameter used to ignore SSL related errors on the DirectAdmin host
+	debug?: string | null  // Debug - can set this to stdout or stderr to dump debugging information about the API interaction with powerdns.  This will dump your auth token in plain text so be careful.
 }
 
 // Provider facilitates DNS record manipulation with DNSimple.
@@ -197,6 +236,23 @@ export interface Provider_dnsimple {
 	api_url?: string | null
 }
 
+// Provider facilitates DNS record manipulation with DNSMadeEasy
+export interface Provider_dnsmadeeasy {
+	api_key?: string | null
+	secret_key?: string | null
+	api_endpoint?: BaseURL | null
+}
+
+// Provider implements the libdns interfaces for DNSPOD
+export interface Provider_dnspod {
+	auth_token: string  // APIToken is the DNSPOD API token - see https://www.dnspod.cn/docs/info.html#common-parameters
+}
+
+// Provider facilitates DNS record manipulation with the DNS UPDATE protocol.
+export interface Provider_dnsupdate {
+	addr?: string | null  // DNS server address
+}
+
 // Provider facilitates DNS record manipulation with Domainnameshop
 // https://api.domeneshop.no/docs/#section/Authentication
 export interface Provider_domainnameshop {
@@ -204,11 +260,15 @@ export interface Provider_domainnameshop {
 	api_secret: string
 }
 
+// Provider facilitates DNS record manipulation with Dreamhost.
+export interface Provider_dreamhost {
+	api_key?: string | null
+}
+
 // Provider implements the libdns interfaces for Duck DNS.
 export interface Provider_duckdns {
-	api_token?: string | null  // The DuckDNS API token.
-	override_domain?: string | null  // An override to the domain, useful if the domain being managed does not belong to DuckDNS, and instead is pointing to DuckDNS using a CNAME record. This allows using DuckDNS' API to manage records for other domains which have worse or no programmable APIs.
-	resolver?: string | null  // An optional resolver to use when doing DNS queries to load the current records. By default, 8.8.8.8:53 is used, i.e. Google's public DNS server.
+	api_token?: string | null
+	override_domain?: string | null
 }
 
 // Provider facilitates DNS record manipulation with dynu.
@@ -227,6 +287,12 @@ export interface Provider_easydns {
 	api_token?: string | null  // EasyDNS API Token (required)
 	api_key?: string | null  // EasyDNS API Key (required)
 	api_url?: string | null  // EasyDNS API URL (defaults to https://rest.easydns.net)
+}
+
+// Provider facilitates DNS record manipulation with Exoscale.
+export interface Provider_exoscale {
+	api_key?: string | null  // Exoscale API Key (required)
+	api_secret?: string | null  // Exoscale API Secret (required)
 }
 
 // Provider implements the libdns interfaces for Gandi.
@@ -260,9 +326,21 @@ export interface Provider_he {
 	api_key?: string | null  // Hurricane Electric DDNS key to use for authentication when modifying DNS records.
 }
 
-// Provider implements the libdns interfaces for Hetzner.
+// Provider implements the libdns interfaces for Hetzner
 export interface Provider_hetzner {
 	auth_api_token: string  // AuthAPIToken is the Hetzner Auth API token - see https://dns.hetzner.com/api-docs#section/Authentication/Auth-API-Token
+}
+
+// Provider facilitates DNS record manipulation with Hexonet.
+export interface Provider_hexonet {
+	username: string
+	password?: string | null
+	debug?: string | null  // Debug - can set this to stdout or stderr to dump debugging information about the API interaction with hexonet.  This will dump your auth token in plain text so be careful.
+}
+
+// Provider facilitates DNS record manipulation with Hosttech.ch.
+export interface Provider_hosttech {
+	api_token?: string | null
 }
 
 // Provider facilitates DNS record manipulation with Huawei Cloud
@@ -290,12 +368,21 @@ export interface Provider_ionos {
 	auth_api_token: string  // AuthAPIToken is the IONOS Auth API token - see https://dns.ionos.com/api-docs#section/Authentication/Auth-API-Token
 }
 
+// Provider facilitates DNS record manipulation with Katapult.
+export interface Provider_katapult {
+	api_token?: string | null
+}
+
+// Provider facilitates DNS record manipulation with Leaseweb.
+export interface Provider_leaseweb {
+	api_token?: string | null  // Leasewebs API key. Generate one in the Leaseweb customer portal -> Administration -> API Key
+}
+
 // Provider facilitates DNS record manipulation with Linode.
 export interface Provider_linode {
 	api_token?: string | null  // APIToken is the Linode Personal Access Token, see https://cloud.linode.com/profile/tokens.
 	api_url?: string | null  // APIURL is the Linode API hostname, i.e. "api.linode.com".
 	api_version?: string | null  // APIVersion is the Linode API version, i.e. "v4".
-	debug_logs_enabled?: boolean | null
 }
 
 // Provider facilitates DNS record manipulation with Loopia.
@@ -316,13 +403,42 @@ export interface Provider_mailinabox {
 	api_url?: string | null  // APIURL is the URL provided by the mailinabox admin interface, found on your box here: https://box.[your-domain.com]/admin#custom_dns https://box.[your-domain.com]/admin/dns/custom
 	email_address?: string | null  // EmailAddress of an admin account. It's recommended that a dedicated account be created especially for managing DNS.
 	password?: string | null  // Password of the admin account that corresponds to the email.
-	totp_secret?: string | null  // TOTP Secret Key of the admin account. Needed if multi factor authentication is enabled.
+}
+
+// Provider facilitates DNS record manipulation with Metaname
+export interface Provider_metaname {
+	api_key?: string | null
+	account_reference?: string | null
+	endpoint?: string | null
+}
+
+// Provider facilitates DNS record manipulation with mijn.host.
+export interface Provider_mijnhost {
+	api_token?: string | null
 }
 
 // Provider facilitates DNS record manipulation with Mythic Beasts.
 export interface Provider_mythicbeasts {
 	key_id?: string | null
 	secret?: string | null
+}
+
+// Provider facilitates DNS record manipulation with namecheap.
+// The libdns methods that return updated structs do not have
+// their ID fields set since this information is not returned
+// by the namecheap API.
+export interface Provider_namecheap {
+	api_key?: string | null  // APIKey is your namecheap API key. See: https://www.namecheap.com/support/api/intro/ for more details.
+	user?: string | null  // User is your namecheap API user. This can be the same as your username.
+	api_endpoint?: string | null  // APIEndpoint to use. If testing, you can use the "sandbox" endpoint instead of the production one.
+	client_ip?: string | null  // ClientIP is the IP address of the requesting client. If this is not set, a discovery service will be used to determine the public ip of the machine. You must first whitelist your IP in the namecheap console before using the API.
+}
+
+// Provider implements the libdns interface for namedotcom
+export interface Provider_namedotcom {
+	api_token?: string | null
+	user?: string | null
+	server?: string | null  // e.g. https://api.name.com or https://api.dev.name.com
 }
 
 // Provider facilitates DNS record manipulation with Namesilo.
@@ -352,25 +468,45 @@ export interface Provider_netlify {
 	personal_access_token?: string | null  // Personal Access Token is required to Authenticate yourself to Netlify's API
 }
 
-// Provider facilitates DNS record manipulation with Njalla.
-// It implements the libdns interfaces for DNS record management
-// using the Njalla API.
-// 
-// This implementation supports all standard record types that Njalla offers,
-// with special handling for the most common types (A, AAAA, CNAME, TXT, MX, SRV).
-// Other record types are handled using the generic libdns.RR type.
-// 
-// All methods are safe for concurrent use.
-export interface Provider_njalla {
-	api_token?: string | null  // APIToken is the Njalla API token required for authentication You can generate an API token from your Njalla account settings.
+// Provider facilitates DNS record manipulation with nearlyfreespeech.net
+export interface Provider_nfsn {
+	login?: string | null  // NFSN Member Login.
+	api_key?: string | null  // NFSN API Key. API Keys can be generated from the "Profile" tab in the NFSN member interface.
 }
 
-// Provider implements the libdns interfaces for OVH.
+export interface Provider_njalla {
+	api_token?: string | null
+}
+
+// Provider implements the libdns interfaces for OpenStack Designate.
+export interface Provider {
+	auth_open_stack: AuthOpenStack
+}
+
+// AuthOpenStack contains credentials for OpenStack Designate.
+export interface AuthOpenStack {
+	region_name: string
+	tenant_id: string
+	identity_api_version: string
+	password: string
+	auth_url: string
+	username: string
+	tenant_name: string
+	endpoint_type: string
+}
+
+// Provider facilitates DNS record manipulation with OVH.
 export interface Provider_ovh {
 	endpoint?: string | null
 	application_key?: string | null
 	application_secret?: string | null
 	consumer_key?: string | null
+}
+
+// Provider facilitates DNS record manipulation with Porkbun.
+export interface Provider_porkbun {
+	api_key?: string | null
+	api_secret_key?: string | null
 }
 
 // Provider facilitates DNS record manipulation with PowerDNS.
@@ -394,14 +530,15 @@ export interface Provider_rfc2136 {
 // To override these values, set the fields in the Provider struct.
 export interface Provider_route53 {
 	region?: string | null  // Region is the AWS Region to use. If not set, it will use AWS_REGION environment variable.
+	aws_profile?: string | null  // AWSProfile is the AWS Profile to use. If not set, it will use AWS_PROFILE environment variable.  Deprecated: Use Profile instead
 	profile?: string | null  // AWSProfile is the AWS Profile to use. If not set, it will use AWS_PROFILE environment variable.
-	access_key_id?: string | null  // AccessKeyId is the AWS Access Key ID to use. If not set, it will use AWS_ACCESS_KEY_ID;
+	access_key_id?: string | null  // AccessKeyId is the AWS Access Key ID to use. If not set, it will use AWS_ACCESS_KEY_ID
 	secret_access_key?: string | null  // SecretAccessKey is the AWS Secret Access Key to use. If not set, it will use AWS_SECRET_ACCESS_KEY environment variable.
+	token?: string | null  // Token is the AWS Session Token to use. If not set, it will use AWS_SESSION_TOKEN environment variable.  Deprecated: Use SessionToken instead.
 	session_token?: string | null  // SessionToken is the AWS Session Token to use. If not set, it will use AWS_SESSION_TOKEN environment variable.
 	max_retries?: number | null  // MaxRetries is the maximum number of retries to make when a request fails. If not set, it will use 5 retries.
-	route53_max_wait?: number | null  // Route53MaxWait is the maximum amount of time to wait for a record to be propagated within AWS infrastructure. Default is 1 minute.
-	wait_for_route53_sync?: boolean | null  // WaitForRoute53Sync if set to true, it will wait for the record to be propagated within AWS infrastructure before returning. This is not related to DNS propagation, that could take much longer.
-	skip_route53_sync_on_delete?: boolean | null  // SkipRoute53SyncOnDelete if set to true, it will skip waiting for Route53 synchronization when deleting records, even if WaitForRoute53Sync is true. This can speed up bulk delete operations where waiting is not necessary.
+	max_wait_dur?: number | null  // MaxWaitDur is the maximum amount of time in seconds to wait for a record to be propagated. If not set, it will 1 minute.
+	wait_for_propagation?: boolean | null  // WaitForPropagation if set to true, it will wait for the record to be propagated before returning.
 	hosted_zone_id?: string | null  // HostedZoneID is the ID of the hosted zone to use. If not set, it will be discovered from the zone name.  This option should contain only the ID; the "/hostedzone/" prefix will be added automatically.
 }
 
@@ -410,11 +547,36 @@ export interface Provider_scaleway {
 	organization_id?: string | null
 }
 
+// Provider facilitates DNS record manipulation with <TODO: PROVIDER NAME>.
+export interface Provider_selectel {
+	user?: string | null
+	password?: string | null
+	account_id?: string | null
+	project_name?: string | null
+	KeystoneToken: string
+}
+
+// Provider is a libdns provider for Tencent Cloud DNS
 export interface Provider_tencentcloud {
-	SecretId: string
-	SecretKey: string
-	SessionToken: string
-	Region: string
+	SecretId: string  // SecretId is the secret ID for Tencent Cloud DNS
+	SecretKey: string  // SecretKey is the secret key for Tencent Cloud DNS
+}
+
+export interface Provider_timeweb {
+	ApiURL: string
+	ApiToken: string
+}
+
+// Provider facilitates DNS record manipulation with Total Uptime.
+export interface Provider_totaluptime {
+	username?: string | null
+	password?: string | null
+}
+
+// Provider implements the libdns interfaces for Vultr
+// Adapted from libdns/digitalocean to work with the Vultr API
+export interface Provider_vultr {
+	api_token?: string | null  // APIToken is the Vultr API token see https://my.vultr.com/settings/#settingsapi
 }
 
 // Provider facilitates DNS record manipulation with west.cn.
@@ -503,8 +665,13 @@ export interface StringValue {
 	Docs: string
 }
 
-export const structTypes: {[typename: string]: boolean} = {"Credential":true,"IntValue":true,"KnownProviders":true,"PropagationState":true,"ProviderConfig":true,"Provider_autodns":true,"Provider_azure":true,"Provider_bunny":true,"Provider_cloudflare":true,"Provider_cloudns":true,"Provider_desec":true,"Provider_digitalocean":true,"Provider_directadmin":true,"Provider_dnsimple":true,"Provider_domainnameshop":true,"Provider_duckdns":true,"Provider_dynu":true,"Provider_dynv6":true,"Provider_easydns":true,"Provider_gandi":true,"Provider_gcore":true,"Provider_glesys":true,"Provider_godaddy":true,"Provider_googleclouddns":true,"Provider_he":true,"Provider_hetzner":true,"Provider_huaweicloud":true,"Provider_infomaniak":true,"Provider_inwx":true,"Provider_ionos":true,"Provider_linode":true,"Provider_loopia":true,"Provider_luadns":true,"Provider_mailinabox":true,"Provider_mythicbeasts":true,"Provider_namesilo":true,"Provider_nanelo":true,"Provider_netcup":true,"Provider_netlify":true,"Provider_njalla":true,"Provider_ovh":true,"Provider_powerdns":true,"Provider_rfc2136":true,"Provider_route53":true,"Provider_scaleway":true,"Provider_tencentcloud":true,"Provider_westcn":true,"Record":true,"RecordSet":true,"RecordSetChange":true,"StringValue":true,"Zone":true,"ZoneNotify":true,"sherpadocArg":true,"sherpadocField":true,"sherpadocFunction":true,"sherpadocInts":true,"sherpadocSection":true,"sherpadocStrings":true,"sherpadocStruct":true}
-export const stringsTypes: {[typename: string]: boolean} = {}
+export enum BaseURL {
+	Sandbox = "https://api.sandbox.dnsmadeeasy.com/V2.0/",
+	Prod = "https://api.dnsmadeeasy.com/V2.0/",
+}
+
+export const structTypes: {[typename: string]: boolean} = {"AuthOpenStack":true,"Credential":true,"IntValue":true,"KnownProviders":true,"PropagationState":true,"Provider":true,"ProviderConfig":true,"Provider_alidns":true,"Provider_autodns":true,"Provider_azure":true,"Provider_bunny":true,"Provider_civo":true,"Provider_cloudflare":true,"Provider_cloudns":true,"Provider_ddnss":true,"Provider_desec":true,"Provider_digitalocean":true,"Provider_directadmin":true,"Provider_dnsimple":true,"Provider_dnsmadeeasy":true,"Provider_dnspod":true,"Provider_dnsupdate":true,"Provider_domainnameshop":true,"Provider_dreamhost":true,"Provider_duckdns":true,"Provider_dynu":true,"Provider_dynv6":true,"Provider_easydns":true,"Provider_exoscale":true,"Provider_gandi":true,"Provider_gcore":true,"Provider_glesys":true,"Provider_godaddy":true,"Provider_googleclouddns":true,"Provider_he":true,"Provider_hetzner":true,"Provider_hexonet":true,"Provider_hosttech":true,"Provider_huaweicloud":true,"Provider_infomaniak":true,"Provider_inwx":true,"Provider_ionos":true,"Provider_katapult":true,"Provider_leaseweb":true,"Provider_linode":true,"Provider_loopia":true,"Provider_luadns":true,"Provider_mailinabox":true,"Provider_metaname":true,"Provider_mijnhost":true,"Provider_mythicbeasts":true,"Provider_namecheap":true,"Provider_namedotcom":true,"Provider_namesilo":true,"Provider_nanelo":true,"Provider_netcup":true,"Provider_netlify":true,"Provider_nfsn":true,"Provider_njalla":true,"Provider_ovh":true,"Provider_porkbun":true,"Provider_powerdns":true,"Provider_rfc2136":true,"Provider_route53":true,"Provider_scaleway":true,"Provider_selectel":true,"Provider_tencentcloud":true,"Provider_timeweb":true,"Provider_totaluptime":true,"Provider_vultr":true,"Provider_westcn":true,"Record":true,"RecordSet":true,"RecordSetChange":true,"StringValue":true,"Zone":true,"ZoneNotify":true,"sherpadocArg":true,"sherpadocField":true,"sherpadocFunction":true,"sherpadocInts":true,"sherpadocSection":true,"sherpadocStrings":true,"sherpadocStruct":true}
+export const stringsTypes: {[typename: string]: boolean} = {"BaseURL":true}
 export const intsTypes: {[typename: string]: boolean} = {}
 export const types: TypenameMap = {
 	"Zone": {"Name":"Zone","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"ProviderConfigName","Docs":"","Typewords":["string"]},{"Name":"Comment","Docs":"","Typewords":["string"]},{"Name":"SerialLocal","Docs":"","Typewords":["uint32"]},{"Name":"SerialRemote","Docs":"","Typewords":["uint32"]},{"Name":"LastSync","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"LastRecordChange","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"SyncInterval","Docs":"","Typewords":["int64"]},{"Name":"RefreshInterval","Docs":"","Typewords":["int64"]},{"Name":"NextSync","Docs":"","Typewords":["timestamp"]},{"Name":"NextRefresh","Docs":"","Typewords":["timestamp"]}]},
@@ -512,24 +679,32 @@ export const types: TypenameMap = {
 	"ZoneNotify": {"Name":"ZoneNotify","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Created","Docs":"","Typewords":["timestamp"]},{"Name":"Zone","Docs":"","Typewords":["string"]},{"Name":"Address","Docs":"","Typewords":["string"]},{"Name":"Protocol","Docs":"","Typewords":["string"]}]},
 	"Credential": {"Name":"Credential","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Created","Docs":"","Typewords":["timestamp"]},{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Type","Docs":"","Typewords":["string"]},{"Name":"TSIGSecret","Docs":"","Typewords":["string"]},{"Name":"TLSPublicKey","Docs":"","Typewords":["string"]}]},
 	"RecordSet": {"Name":"RecordSet","Docs":"","Fields":[{"Name":"Records","Docs":"","Typewords":["[]","Record"]},{"Name":"States","Docs":"","Typewords":["[]","PropagationState"]}]},
-	"Record": {"Name":"Record","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Zone","Docs":"","Typewords":["string"]},{"Name":"SerialFirst","Docs":"","Typewords":["uint32"]},{"Name":"SerialDeleted","Docs":"","Typewords":["uint32"]},{"Name":"First","Docs":"","Typewords":["timestamp"]},{"Name":"Deleted","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"AbsName","Docs":"","Typewords":["string"]},{"Name":"Type","Docs":"","Typewords":["uint16"]},{"Name":"Class","Docs":"","Typewords":["uint16"]},{"Name":"TTL","Docs":"","Typewords":["uint32"]},{"Name":"DataHex","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["string"]},{"Name":"ProviderDataJSON","Docs":"","Typewords":["string"]}]},
+	"Record": {"Name":"Record","Docs":"","Fields":[{"Name":"ID","Docs":"","Typewords":["int64"]},{"Name":"Zone","Docs":"","Typewords":["string"]},{"Name":"SerialFirst","Docs":"","Typewords":["uint32"]},{"Name":"SerialDeleted","Docs":"","Typewords":["uint32"]},{"Name":"First","Docs":"","Typewords":["timestamp"]},{"Name":"Deleted","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"AbsName","Docs":"","Typewords":["string"]},{"Name":"Type","Docs":"","Typewords":["uint16"]},{"Name":"Class","Docs":"","Typewords":["uint16"]},{"Name":"TTL","Docs":"","Typewords":["uint32"]},{"Name":"DataHex","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["string"]},{"Name":"ProviderID","Docs":"","Typewords":["string"]}]},
 	"PropagationState": {"Name":"PropagationState","Docs":"","Fields":[{"Name":"Start","Docs":"","Typewords":["timestamp"]},{"Name":"End","Docs":"","Typewords":["nullable","timestamp"]},{"Name":"Negative","Docs":"","Typewords":["bool"]},{"Name":"Records","Docs":"","Typewords":["[]","Record"]}]},
 	"RecordSetChange": {"Name":"RecordSetChange","Docs":"","Fields":[{"Name":"RelName","Docs":"","Typewords":["string"]},{"Name":"TTL","Docs":"","Typewords":["uint32"]},{"Name":"Type","Docs":"","Typewords":["uint16"]},{"Name":"Values","Docs":"","Typewords":["[]","string"]}]},
-	"KnownProviders": {"Name":"KnownProviders","Docs":"","Fields":[{"Name":"Xautodns","Docs":"","Typewords":["Provider_autodns"]},{"Name":"Xazure","Docs":"","Typewords":["Provider_azure"]},{"Name":"Xbunny","Docs":"","Typewords":["Provider_bunny"]},{"Name":"Xcloudflare","Docs":"","Typewords":["Provider_cloudflare"]},{"Name":"Xcloudns","Docs":"","Typewords":["Provider_cloudns"]},{"Name":"Xdesec","Docs":"","Typewords":["Provider_desec"]},{"Name":"Xdigitalocean","Docs":"","Typewords":["Provider_digitalocean"]},{"Name":"Xdirectadmin","Docs":"","Typewords":["Provider_directadmin"]},{"Name":"Xdnsimple","Docs":"","Typewords":["Provider_dnsimple"]},{"Name":"Xdomainnameshop","Docs":"","Typewords":["Provider_domainnameshop"]},{"Name":"Xduckdns","Docs":"","Typewords":["Provider_duckdns"]},{"Name":"Xdynu","Docs":"","Typewords":["Provider_dynu"]},{"Name":"Xdynv6","Docs":"","Typewords":["Provider_dynv6"]},{"Name":"Xeasydns","Docs":"","Typewords":["Provider_easydns"]},{"Name":"Xgandi","Docs":"","Typewords":["Provider_gandi"]},{"Name":"Xgcore","Docs":"","Typewords":["Provider_gcore"]},{"Name":"Xglesys","Docs":"","Typewords":["Provider_glesys"]},{"Name":"Xgodaddy","Docs":"","Typewords":["Provider_godaddy"]},{"Name":"Xgoogleclouddns","Docs":"","Typewords":["Provider_googleclouddns"]},{"Name":"Xhe","Docs":"","Typewords":["Provider_he"]},{"Name":"Xhetzner","Docs":"","Typewords":["Provider_hetzner"]},{"Name":"Xhuaweicloud","Docs":"","Typewords":["Provider_huaweicloud"]},{"Name":"Xinfomaniak","Docs":"","Typewords":["Provider_infomaniak"]},{"Name":"Xinwx","Docs":"","Typewords":["Provider_inwx"]},{"Name":"Xionos","Docs":"","Typewords":["Provider_ionos"]},{"Name":"Xlinode","Docs":"","Typewords":["Provider_linode"]},{"Name":"Xloopia","Docs":"","Typewords":["Provider_loopia"]},{"Name":"Xluadns","Docs":"","Typewords":["Provider_luadns"]},{"Name":"Xmailinabox","Docs":"","Typewords":["Provider_mailinabox"]},{"Name":"Xmythicbeasts","Docs":"","Typewords":["Provider_mythicbeasts"]},{"Name":"Xnamesilo","Docs":"","Typewords":["Provider_namesilo"]},{"Name":"Xnanelo","Docs":"","Typewords":["Provider_nanelo"]},{"Name":"Xnetcup","Docs":"","Typewords":["Provider_netcup"]},{"Name":"Xnetlify","Docs":"","Typewords":["Provider_netlify"]},{"Name":"Xnjalla","Docs":"","Typewords":["Provider_njalla"]},{"Name":"Xovh","Docs":"","Typewords":["Provider_ovh"]},{"Name":"Xpowerdns","Docs":"","Typewords":["Provider_powerdns"]},{"Name":"Xrfc2136","Docs":"","Typewords":["Provider_rfc2136"]},{"Name":"Xroute53","Docs":"","Typewords":["Provider_route53"]},{"Name":"Xscaleway","Docs":"","Typewords":["Provider_scaleway"]},{"Name":"Xtencentcloud","Docs":"","Typewords":["Provider_tencentcloud"]},{"Name":"Xwestcn","Docs":"","Typewords":["Provider_westcn"]}]},
+	"KnownProviders": {"Name":"KnownProviders","Docs":"","Fields":[{"Name":"Xalidns","Docs":"","Typewords":["Provider_alidns"]},{"Name":"Xautodns","Docs":"","Typewords":["Provider_autodns"]},{"Name":"Xazure","Docs":"","Typewords":["Provider_azure"]},{"Name":"Xbunny","Docs":"","Typewords":["Provider_bunny"]},{"Name":"Xcivo","Docs":"","Typewords":["Provider_civo"]},{"Name":"Xcloudflare","Docs":"","Typewords":["Provider_cloudflare"]},{"Name":"Xcloudns","Docs":"","Typewords":["Provider_cloudns"]},{"Name":"Xddnss","Docs":"","Typewords":["Provider_ddnss"]},{"Name":"Xdesec","Docs":"","Typewords":["Provider_desec"]},{"Name":"Xdigitalocean","Docs":"","Typewords":["Provider_digitalocean"]},{"Name":"Xdirectadmin","Docs":"","Typewords":["Provider_directadmin"]},{"Name":"Xdnsimple","Docs":"","Typewords":["Provider_dnsimple"]},{"Name":"Xdnsmadeeasy","Docs":"","Typewords":["Provider_dnsmadeeasy"]},{"Name":"Xdnspod","Docs":"","Typewords":["Provider_dnspod"]},{"Name":"Xdnsupdate","Docs":"","Typewords":["Provider_dnsupdate"]},{"Name":"Xdomainnameshop","Docs":"","Typewords":["Provider_domainnameshop"]},{"Name":"Xdreamhost","Docs":"","Typewords":["Provider_dreamhost"]},{"Name":"Xduckdns","Docs":"","Typewords":["Provider_duckdns"]},{"Name":"Xdynu","Docs":"","Typewords":["Provider_dynu"]},{"Name":"Xdynv6","Docs":"","Typewords":["Provider_dynv6"]},{"Name":"Xeasydns","Docs":"","Typewords":["Provider_easydns"]},{"Name":"Xexoscale","Docs":"","Typewords":["Provider_exoscale"]},{"Name":"Xgandi","Docs":"","Typewords":["Provider_gandi"]},{"Name":"Xgcore","Docs":"","Typewords":["Provider_gcore"]},{"Name":"Xglesys","Docs":"","Typewords":["Provider_glesys"]},{"Name":"Xgodaddy","Docs":"","Typewords":["Provider_godaddy"]},{"Name":"Xgoogleclouddns","Docs":"","Typewords":["Provider_googleclouddns"]},{"Name":"Xhe","Docs":"","Typewords":["Provider_he"]},{"Name":"Xhetzner","Docs":"","Typewords":["Provider_hetzner"]},{"Name":"Xhexonet","Docs":"","Typewords":["Provider_hexonet"]},{"Name":"Xhosttech","Docs":"","Typewords":["Provider_hosttech"]},{"Name":"Xhuaweicloud","Docs":"","Typewords":["Provider_huaweicloud"]},{"Name":"Xinfomaniak","Docs":"","Typewords":["Provider_infomaniak"]},{"Name":"Xinwx","Docs":"","Typewords":["Provider_inwx"]},{"Name":"Xionos","Docs":"","Typewords":["Provider_ionos"]},{"Name":"Xkatapult","Docs":"","Typewords":["Provider_katapult"]},{"Name":"Xleaseweb","Docs":"","Typewords":["Provider_leaseweb"]},{"Name":"Xlinode","Docs":"","Typewords":["Provider_linode"]},{"Name":"Xloopia","Docs":"","Typewords":["Provider_loopia"]},{"Name":"Xluadns","Docs":"","Typewords":["Provider_luadns"]},{"Name":"Xmailinabox","Docs":"","Typewords":["Provider_mailinabox"]},{"Name":"Xmetaname","Docs":"","Typewords":["Provider_metaname"]},{"Name":"Xmijnhost","Docs":"","Typewords":["Provider_mijnhost"]},{"Name":"Xmythicbeasts","Docs":"","Typewords":["Provider_mythicbeasts"]},{"Name":"Xnamecheap","Docs":"","Typewords":["Provider_namecheap"]},{"Name":"Xnamedotcom","Docs":"","Typewords":["Provider_namedotcom"]},{"Name":"Xnamesilo","Docs":"","Typewords":["Provider_namesilo"]},{"Name":"Xnanelo","Docs":"","Typewords":["Provider_nanelo"]},{"Name":"Xnetcup","Docs":"","Typewords":["Provider_netcup"]},{"Name":"Xnetlify","Docs":"","Typewords":["Provider_netlify"]},{"Name":"Xnfsn","Docs":"","Typewords":["Provider_nfsn"]},{"Name":"Xnjalla","Docs":"","Typewords":["Provider_njalla"]},{"Name":"Xopenstackdesignate","Docs":"","Typewords":["Provider"]},{"Name":"Xovh","Docs":"","Typewords":["Provider_ovh"]},{"Name":"Xporkbun","Docs":"","Typewords":["Provider_porkbun"]},{"Name":"Xpowerdns","Docs":"","Typewords":["Provider_powerdns"]},{"Name":"Xrfc2136","Docs":"","Typewords":["Provider_rfc2136"]},{"Name":"Xroute53","Docs":"","Typewords":["Provider_route53"]},{"Name":"Xscaleway","Docs":"","Typewords":["Provider_scaleway"]},{"Name":"Xselectel","Docs":"","Typewords":["Provider_selectel"]},{"Name":"Xtencentcloud","Docs":"","Typewords":["Provider_tencentcloud"]},{"Name":"Xtimeweb","Docs":"","Typewords":["Provider_timeweb"]},{"Name":"Xtotaluptime","Docs":"","Typewords":["Provider_totaluptime"]},{"Name":"Xvultr","Docs":"","Typewords":["Provider_vultr"]},{"Name":"Xwestcn","Docs":"","Typewords":["Provider_westcn"]}]},
+	"Provider_alidns": {"Name":"Provider_alidns","Docs":"","Fields":[{"Name":"access_key_id","Docs":"","Typewords":["string"]},{"Name":"access_key_secret","Docs":"","Typewords":["string"]},{"Name":"region_id","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_autodns": {"Name":"Provider_autodns","Docs":"","Fields":[{"Name":"username","Docs":"","Typewords":["string"]},{"Name":"password","Docs":"","Typewords":["string"]},{"Name":"Endpoint","Docs":"","Typewords":["string"]},{"Name":"context","Docs":"","Typewords":["string"]},{"Name":"primary","Docs":"","Typewords":["string"]}]},
 	"Provider_azure": {"Name":"Provider_azure","Docs":"","Fields":[{"Name":"subscription_id","Docs":"","Typewords":["nullable","string"]},{"Name":"resource_group_name","Docs":"","Typewords":["nullable","string"]},{"Name":"tenant_id","Docs":"","Typewords":["nullable","string"]},{"Name":"client_id","Docs":"","Typewords":["nullable","string"]},{"Name":"client_secret","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_bunny": {"Name":"Provider_bunny","Docs":"","Fields":[{"Name":"access_key","Docs":"","Typewords":["string"]},{"Name":"debug","Docs":"","Typewords":["bool"]}]},
+	"Provider_civo": {"Name":"Provider_civo","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_cloudflare": {"Name":"Provider_cloudflare","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"zone_token","Docs":"","Typewords":["nullable","string"]}]},
-	"Provider_cloudns": {"Name":"Provider_cloudns","Docs":"","Fields":[{"Name":"auth_id","Docs":"","Typewords":["nullable","string"]},{"Name":"sub_auth_id","Docs":"","Typewords":["nullable","string"]},{"Name":"auth_password","Docs":"","Typewords":["string"]},{"Name":"operation_retries","Docs":"","Typewords":["nullable","int32"]},{"Name":"initial_backoff","Docs":"","Typewords":["nullable","int64"]},{"Name":"max_backoff","Docs":"","Typewords":["nullable","int64"]}]},
+	"Provider_cloudns": {"Name":"Provider_cloudns","Docs":"","Fields":[{"Name":"auth_id","Docs":"","Typewords":["string"]},{"Name":"sub_auth_id","Docs":"","Typewords":["nullable","string"]},{"Name":"auth_password","Docs":"","Typewords":["string"]}]},
+	"Provider_ddnss": {"Name":"Provider_ddnss","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["string"]},{"Name":"username","Docs":"","Typewords":["nullable","string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_desec": {"Name":"Provider_desec","Docs":"","Fields":[{"Name":"token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_digitalocean": {"Name":"Provider_digitalocean","Docs":"","Fields":[{"Name":"auth_token","Docs":"","Typewords":["string"]}]},
-	"Provider_directadmin": {"Name":"Provider_directadmin","Docs":"","Fields":[{"Name":"host","Docs":"","Typewords":["nullable","string"]},{"Name":"user","Docs":"","Typewords":["nullable","string"]},{"Name":"login_key","Docs":"","Typewords":["nullable","string"]},{"Name":"insecure_requests","Docs":"","Typewords":["nullable","bool"]}]},
+	"Provider_directadmin": {"Name":"Provider_directadmin","Docs":"","Fields":[{"Name":"host","Docs":"","Typewords":["nullable","string"]},{"Name":"user","Docs":"","Typewords":["nullable","string"]},{"Name":"login_key","Docs":"","Typewords":["nullable","string"]},{"Name":"insecure_requests","Docs":"","Typewords":["nullable","bool"]},{"Name":"debug","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_dnsimple": {"Name":"Provider_dnsimple","Docs":"","Fields":[{"Name":"api_access_token","Docs":"","Typewords":["nullable","string"]},{"Name":"account_id","Docs":"","Typewords":["nullable","string"]},{"Name":"api_url","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_dnsmadeeasy": {"Name":"Provider_dnsmadeeasy","Docs":"","Fields":[{"Name":"api_key","Docs":"","Typewords":["nullable","string"]},{"Name":"secret_key","Docs":"","Typewords":["nullable","string"]},{"Name":"api_endpoint","Docs":"","Typewords":["nullable","BaseURL"]}]},
+	"Provider_dnspod": {"Name":"Provider_dnspod","Docs":"","Fields":[{"Name":"auth_token","Docs":"","Typewords":["string"]}]},
+	"Provider_dnsupdate": {"Name":"Provider_dnsupdate","Docs":"","Fields":[{"Name":"addr","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_domainnameshop": {"Name":"Provider_domainnameshop","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["string"]},{"Name":"api_secret","Docs":"","Typewords":["string"]}]},
-	"Provider_duckdns": {"Name":"Provider_duckdns","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"override_domain","Docs":"","Typewords":["nullable","string"]},{"Name":"resolver","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_dreamhost": {"Name":"Provider_dreamhost","Docs":"","Fields":[{"Name":"api_key","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_duckdns": {"Name":"Provider_duckdns","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"override_domain","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_dynu": {"Name":"Provider_dynu","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"own_domain","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_dynv6": {"Name":"Provider_dynv6","Docs":"","Fields":[{"Name":"token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_easydns": {"Name":"Provider_easydns","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"api_key","Docs":"","Typewords":["nullable","string"]},{"Name":"api_url","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_exoscale": {"Name":"Provider_exoscale","Docs":"","Fields":[{"Name":"api_key","Docs":"","Typewords":["nullable","string"]},{"Name":"api_secret","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_gandi": {"Name":"Provider_gandi","Docs":"","Fields":[{"Name":"bearer_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_gcore": {"Name":"Provider_gcore","Docs":"","Fields":[{"Name":"api_key","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_glesys": {"Name":"Provider_glesys","Docs":"","Fields":[{"Name":"project","Docs":"","Typewords":["nullable","string"]},{"Name":"api_key","Docs":"","Typewords":["nullable","string"]}]},
@@ -537,26 +712,42 @@ export const types: TypenameMap = {
 	"Provider_googleclouddns": {"Name":"Provider_googleclouddns","Docs":"","Fields":[{"Name":"gcp_project","Docs":"","Typewords":["nullable","string"]},{"Name":"gcp_application_default","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_he": {"Name":"Provider_he","Docs":"","Fields":[{"Name":"api_key","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_hetzner": {"Name":"Provider_hetzner","Docs":"","Fields":[{"Name":"auth_api_token","Docs":"","Typewords":["string"]}]},
+	"Provider_hexonet": {"Name":"Provider_hexonet","Docs":"","Fields":[{"Name":"username","Docs":"","Typewords":["string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]},{"Name":"debug","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_hosttech": {"Name":"Provider_hosttech","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_huaweicloud": {"Name":"Provider_huaweicloud","Docs":"","Fields":[{"Name":"access_key_id","Docs":"","Typewords":["nullable","string"]},{"Name":"secret_access_key","Docs":"","Typewords":["nullable","string"]},{"Name":"region_id","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_infomaniak": {"Name":"Provider_infomaniak","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_inwx": {"Name":"Provider_inwx","Docs":"","Fields":[{"Name":"username","Docs":"","Typewords":["nullable","string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]},{"Name":"shared_secret","Docs":"","Typewords":["nullable","string"]},{"Name":"endpoint_url","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_ionos": {"Name":"Provider_ionos","Docs":"","Fields":[{"Name":"auth_api_token","Docs":"","Typewords":["string"]}]},
-	"Provider_linode": {"Name":"Provider_linode","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"api_url","Docs":"","Typewords":["nullable","string"]},{"Name":"api_version","Docs":"","Typewords":["nullable","string"]},{"Name":"debug_logs_enabled","Docs":"","Typewords":["nullable","bool"]}]},
+	"Provider_katapult": {"Name":"Provider_katapult","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_leaseweb": {"Name":"Provider_leaseweb","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_linode": {"Name":"Provider_linode","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"api_url","Docs":"","Typewords":["nullable","string"]},{"Name":"api_version","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_loopia": {"Name":"Provider_loopia","Docs":"","Fields":[{"Name":"username","Docs":"","Typewords":["nullable","string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]},{"Name":"customer","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_luadns": {"Name":"Provider_luadns","Docs":"","Fields":[{"Name":"email","Docs":"","Typewords":["nullable","string"]},{"Name":"api_key","Docs":"","Typewords":["nullable","string"]}]},
-	"Provider_mailinabox": {"Name":"Provider_mailinabox","Docs":"","Fields":[{"Name":"api_url","Docs":"","Typewords":["nullable","string"]},{"Name":"email_address","Docs":"","Typewords":["nullable","string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]},{"Name":"totp_secret","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_mailinabox": {"Name":"Provider_mailinabox","Docs":"","Fields":[{"Name":"api_url","Docs":"","Typewords":["nullable","string"]},{"Name":"email_address","Docs":"","Typewords":["nullable","string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_metaname": {"Name":"Provider_metaname","Docs":"","Fields":[{"Name":"api_key","Docs":"","Typewords":["nullable","string"]},{"Name":"account_reference","Docs":"","Typewords":["nullable","string"]},{"Name":"endpoint","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_mijnhost": {"Name":"Provider_mijnhost","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_mythicbeasts": {"Name":"Provider_mythicbeasts","Docs":"","Fields":[{"Name":"key_id","Docs":"","Typewords":["nullable","string"]},{"Name":"secret","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_namecheap": {"Name":"Provider_namecheap","Docs":"","Fields":[{"Name":"api_key","Docs":"","Typewords":["nullable","string"]},{"Name":"user","Docs":"","Typewords":["nullable","string"]},{"Name":"api_endpoint","Docs":"","Typewords":["nullable","string"]},{"Name":"client_ip","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_namedotcom": {"Name":"Provider_namedotcom","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"user","Docs":"","Typewords":["nullable","string"]},{"Name":"server","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_namesilo": {"Name":"Provider_namesilo","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_nanelo": {"Name":"Provider_nanelo","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_netcup": {"Name":"Provider_netcup","Docs":"","Fields":[{"Name":"customer_number","Docs":"","Typewords":["string"]},{"Name":"api_key","Docs":"","Typewords":["string"]},{"Name":"api_password","Docs":"","Typewords":["string"]}]},
 	"Provider_netlify": {"Name":"Provider_netlify","Docs":"","Fields":[{"Name":"personal_access_token","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_nfsn": {"Name":"Provider_nfsn","Docs":"","Fields":[{"Name":"login","Docs":"","Typewords":["nullable","string"]},{"Name":"api_key","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_njalla": {"Name":"Provider_njalla","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider": {"Name":"Provider","Docs":"","Fields":[{"Name":"auth_open_stack","Docs":"","Typewords":["AuthOpenStack"]}]},
+	"AuthOpenStack": {"Name":"AuthOpenStack","Docs":"","Fields":[{"Name":"region_name","Docs":"","Typewords":["string"]},{"Name":"tenant_id","Docs":"","Typewords":["string"]},{"Name":"identity_api_version","Docs":"","Typewords":["string"]},{"Name":"password","Docs":"","Typewords":["string"]},{"Name":"auth_url","Docs":"","Typewords":["string"]},{"Name":"username","Docs":"","Typewords":["string"]},{"Name":"tenant_name","Docs":"","Typewords":["string"]},{"Name":"endpoint_type","Docs":"","Typewords":["string"]}]},
 	"Provider_ovh": {"Name":"Provider_ovh","Docs":"","Fields":[{"Name":"endpoint","Docs":"","Typewords":["nullable","string"]},{"Name":"application_key","Docs":"","Typewords":["nullable","string"]},{"Name":"application_secret","Docs":"","Typewords":["nullable","string"]},{"Name":"consumer_key","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_porkbun": {"Name":"Provider_porkbun","Docs":"","Fields":[{"Name":"api_key","Docs":"","Typewords":["nullable","string"]},{"Name":"api_secret_key","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_powerdns": {"Name":"Provider_powerdns","Docs":"","Fields":[{"Name":"server_url","Docs":"","Typewords":["string"]},{"Name":"server_id","Docs":"","Typewords":["nullable","string"]},{"Name":"api_token","Docs":"","Typewords":["nullable","string"]},{"Name":"debug","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_rfc2136": {"Name":"Provider_rfc2136","Docs":"","Fields":[{"Name":"key_name","Docs":"","Typewords":["nullable","string"]},{"Name":"key_alg","Docs":"","Typewords":["nullable","string"]},{"Name":"key","Docs":"","Typewords":["nullable","string"]},{"Name":"server","Docs":"","Typewords":["nullable","string"]}]},
-	"Provider_route53": {"Name":"Provider_route53","Docs":"","Fields":[{"Name":"region","Docs":"","Typewords":["nullable","string"]},{"Name":"profile","Docs":"","Typewords":["nullable","string"]},{"Name":"access_key_id","Docs":"","Typewords":["nullable","string"]},{"Name":"secret_access_key","Docs":"","Typewords":["nullable","string"]},{"Name":"session_token","Docs":"","Typewords":["nullable","string"]},{"Name":"max_retries","Docs":"","Typewords":["nullable","int32"]},{"Name":"route53_max_wait","Docs":"","Typewords":["nullable","int64"]},{"Name":"wait_for_route53_sync","Docs":"","Typewords":["nullable","bool"]},{"Name":"skip_route53_sync_on_delete","Docs":"","Typewords":["nullable","bool"]},{"Name":"hosted_zone_id","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_route53": {"Name":"Provider_route53","Docs":"","Fields":[{"Name":"region","Docs":"","Typewords":["nullable","string"]},{"Name":"aws_profile","Docs":"","Typewords":["nullable","string"]},{"Name":"profile","Docs":"","Typewords":["nullable","string"]},{"Name":"access_key_id","Docs":"","Typewords":["nullable","string"]},{"Name":"secret_access_key","Docs":"","Typewords":["nullable","string"]},{"Name":"token","Docs":"","Typewords":["nullable","string"]},{"Name":"session_token","Docs":"","Typewords":["nullable","string"]},{"Name":"max_retries","Docs":"","Typewords":["nullable","int32"]},{"Name":"max_wait_dur","Docs":"","Typewords":["nullable","int64"]},{"Name":"wait_for_propagation","Docs":"","Typewords":["nullable","bool"]},{"Name":"hosted_zone_id","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_scaleway": {"Name":"Provider_scaleway","Docs":"","Fields":[{"Name":"secret_key","Docs":"","Typewords":["nullable","string"]},{"Name":"organization_id","Docs":"","Typewords":["nullable","string"]}]},
-	"Provider_tencentcloud": {"Name":"Provider_tencentcloud","Docs":"","Fields":[{"Name":"SecretId","Docs":"","Typewords":["string"]},{"Name":"SecretKey","Docs":"","Typewords":["string"]},{"Name":"SessionToken","Docs":"","Typewords":["string"]},{"Name":"Region","Docs":"","Typewords":["string"]}]},
+	"Provider_selectel": {"Name":"Provider_selectel","Docs":"","Fields":[{"Name":"user","Docs":"","Typewords":["nullable","string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]},{"Name":"account_id","Docs":"","Typewords":["nullable","string"]},{"Name":"project_name","Docs":"","Typewords":["nullable","string"]},{"Name":"KeystoneToken","Docs":"","Typewords":["string"]}]},
+	"Provider_tencentcloud": {"Name":"Provider_tencentcloud","Docs":"","Fields":[{"Name":"SecretId","Docs":"","Typewords":["string"]},{"Name":"SecretKey","Docs":"","Typewords":["string"]}]},
+	"Provider_timeweb": {"Name":"Provider_timeweb","Docs":"","Fields":[{"Name":"ApiURL","Docs":"","Typewords":["string"]},{"Name":"ApiToken","Docs":"","Typewords":["string"]}]},
+	"Provider_totaluptime": {"Name":"Provider_totaluptime","Docs":"","Fields":[{"Name":"username","Docs":"","Typewords":["nullable","string"]},{"Name":"password","Docs":"","Typewords":["nullable","string"]}]},
+	"Provider_vultr": {"Name":"Provider_vultr","Docs":"","Fields":[{"Name":"api_token","Docs":"","Typewords":["nullable","string"]}]},
 	"Provider_westcn": {"Name":"Provider_westcn","Docs":"","Fields":[{"Name":"username","Docs":"","Typewords":["nullable","string"]},{"Name":"api_password","Docs":"","Typewords":["nullable","string"]}]},
 	"sherpadocSection": {"Name":"sherpadocSection","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Docs","Docs":"","Typewords":["string"]},{"Name":"Functions","Docs":"","Typewords":["[]","nullable","sherpadocFunction"]},{"Name":"Sections","Docs":"","Typewords":["[]","nullable","sherpadocSection"]},{"Name":"Structs","Docs":"","Typewords":["[]","sherpadocStruct"]},{"Name":"Ints","Docs":"","Typewords":["[]","sherpadocInts"]},{"Name":"Strings","Docs":"","Typewords":["[]","sherpadocStrings"]},{"Name":"Version","Docs":"","Typewords":["nullable","string"]},{"Name":"SherpaVersion","Docs":"","Typewords":["int32"]},{"Name":"SherpadocVersion","Docs":"","Typewords":["nullable","int32"]}]},
 	"sherpadocFunction": {"Name":"sherpadocFunction","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Docs","Docs":"","Typewords":["string"]},{"Name":"Params","Docs":"","Typewords":["[]","sherpadocArg"]},{"Name":"Returns","Docs":"","Typewords":["[]","sherpadocArg"]}]},
@@ -567,6 +758,7 @@ export const types: TypenameMap = {
 	"IntValue": {"Name":"IntValue","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["int64"]},{"Name":"Docs","Docs":"","Typewords":["string"]}]},
 	"sherpadocStrings": {"Name":"sherpadocStrings","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Docs","Docs":"","Typewords":["string"]},{"Name":"Values","Docs":"","Typewords":["[]","StringValue"]}]},
 	"StringValue": {"Name":"StringValue","Docs":"","Fields":[{"Name":"Name","Docs":"","Typewords":["string"]},{"Name":"Value","Docs":"","Typewords":["string"]},{"Name":"Docs","Docs":"","Typewords":["string"]}]},
+	"BaseURL": {"Name":"BaseURL","Docs":"","Values":[{"Name":"Sandbox","Value":"https://api.sandbox.dnsmadeeasy.com/V2.0/","Docs":""},{"Name":"Prod","Value":"https://api.dnsmadeeasy.com/V2.0/","Docs":""}]},
 }
 
 export const parser = {
@@ -579,20 +771,28 @@ export const parser = {
 	PropagationState: (v: any) => parse("PropagationState", v) as PropagationState,
 	RecordSetChange: (v: any) => parse("RecordSetChange", v) as RecordSetChange,
 	KnownProviders: (v: any) => parse("KnownProviders", v) as KnownProviders,
+	Provider_alidns: (v: any) => parse("Provider_alidns", v) as Provider_alidns,
 	Provider_autodns: (v: any) => parse("Provider_autodns", v) as Provider_autodns,
 	Provider_azure: (v: any) => parse("Provider_azure", v) as Provider_azure,
 	Provider_bunny: (v: any) => parse("Provider_bunny", v) as Provider_bunny,
+	Provider_civo: (v: any) => parse("Provider_civo", v) as Provider_civo,
 	Provider_cloudflare: (v: any) => parse("Provider_cloudflare", v) as Provider_cloudflare,
 	Provider_cloudns: (v: any) => parse("Provider_cloudns", v) as Provider_cloudns,
+	Provider_ddnss: (v: any) => parse("Provider_ddnss", v) as Provider_ddnss,
 	Provider_desec: (v: any) => parse("Provider_desec", v) as Provider_desec,
 	Provider_digitalocean: (v: any) => parse("Provider_digitalocean", v) as Provider_digitalocean,
 	Provider_directadmin: (v: any) => parse("Provider_directadmin", v) as Provider_directadmin,
 	Provider_dnsimple: (v: any) => parse("Provider_dnsimple", v) as Provider_dnsimple,
+	Provider_dnsmadeeasy: (v: any) => parse("Provider_dnsmadeeasy", v) as Provider_dnsmadeeasy,
+	Provider_dnspod: (v: any) => parse("Provider_dnspod", v) as Provider_dnspod,
+	Provider_dnsupdate: (v: any) => parse("Provider_dnsupdate", v) as Provider_dnsupdate,
 	Provider_domainnameshop: (v: any) => parse("Provider_domainnameshop", v) as Provider_domainnameshop,
+	Provider_dreamhost: (v: any) => parse("Provider_dreamhost", v) as Provider_dreamhost,
 	Provider_duckdns: (v: any) => parse("Provider_duckdns", v) as Provider_duckdns,
 	Provider_dynu: (v: any) => parse("Provider_dynu", v) as Provider_dynu,
 	Provider_dynv6: (v: any) => parse("Provider_dynv6", v) as Provider_dynv6,
 	Provider_easydns: (v: any) => parse("Provider_easydns", v) as Provider_easydns,
+	Provider_exoscale: (v: any) => parse("Provider_exoscale", v) as Provider_exoscale,
 	Provider_gandi: (v: any) => parse("Provider_gandi", v) as Provider_gandi,
 	Provider_gcore: (v: any) => parse("Provider_gcore", v) as Provider_gcore,
 	Provider_glesys: (v: any) => parse("Provider_glesys", v) as Provider_glesys,
@@ -600,26 +800,42 @@ export const parser = {
 	Provider_googleclouddns: (v: any) => parse("Provider_googleclouddns", v) as Provider_googleclouddns,
 	Provider_he: (v: any) => parse("Provider_he", v) as Provider_he,
 	Provider_hetzner: (v: any) => parse("Provider_hetzner", v) as Provider_hetzner,
+	Provider_hexonet: (v: any) => parse("Provider_hexonet", v) as Provider_hexonet,
+	Provider_hosttech: (v: any) => parse("Provider_hosttech", v) as Provider_hosttech,
 	Provider_huaweicloud: (v: any) => parse("Provider_huaweicloud", v) as Provider_huaweicloud,
 	Provider_infomaniak: (v: any) => parse("Provider_infomaniak", v) as Provider_infomaniak,
 	Provider_inwx: (v: any) => parse("Provider_inwx", v) as Provider_inwx,
 	Provider_ionos: (v: any) => parse("Provider_ionos", v) as Provider_ionos,
+	Provider_katapult: (v: any) => parse("Provider_katapult", v) as Provider_katapult,
+	Provider_leaseweb: (v: any) => parse("Provider_leaseweb", v) as Provider_leaseweb,
 	Provider_linode: (v: any) => parse("Provider_linode", v) as Provider_linode,
 	Provider_loopia: (v: any) => parse("Provider_loopia", v) as Provider_loopia,
 	Provider_luadns: (v: any) => parse("Provider_luadns", v) as Provider_luadns,
 	Provider_mailinabox: (v: any) => parse("Provider_mailinabox", v) as Provider_mailinabox,
+	Provider_metaname: (v: any) => parse("Provider_metaname", v) as Provider_metaname,
+	Provider_mijnhost: (v: any) => parse("Provider_mijnhost", v) as Provider_mijnhost,
 	Provider_mythicbeasts: (v: any) => parse("Provider_mythicbeasts", v) as Provider_mythicbeasts,
+	Provider_namecheap: (v: any) => parse("Provider_namecheap", v) as Provider_namecheap,
+	Provider_namedotcom: (v: any) => parse("Provider_namedotcom", v) as Provider_namedotcom,
 	Provider_namesilo: (v: any) => parse("Provider_namesilo", v) as Provider_namesilo,
 	Provider_nanelo: (v: any) => parse("Provider_nanelo", v) as Provider_nanelo,
 	Provider_netcup: (v: any) => parse("Provider_netcup", v) as Provider_netcup,
 	Provider_netlify: (v: any) => parse("Provider_netlify", v) as Provider_netlify,
+	Provider_nfsn: (v: any) => parse("Provider_nfsn", v) as Provider_nfsn,
 	Provider_njalla: (v: any) => parse("Provider_njalla", v) as Provider_njalla,
+	Provider: (v: any) => parse("Provider", v) as Provider,
+	AuthOpenStack: (v: any) => parse("AuthOpenStack", v) as AuthOpenStack,
 	Provider_ovh: (v: any) => parse("Provider_ovh", v) as Provider_ovh,
+	Provider_porkbun: (v: any) => parse("Provider_porkbun", v) as Provider_porkbun,
 	Provider_powerdns: (v: any) => parse("Provider_powerdns", v) as Provider_powerdns,
 	Provider_rfc2136: (v: any) => parse("Provider_rfc2136", v) as Provider_rfc2136,
 	Provider_route53: (v: any) => parse("Provider_route53", v) as Provider_route53,
 	Provider_scaleway: (v: any) => parse("Provider_scaleway", v) as Provider_scaleway,
+	Provider_selectel: (v: any) => parse("Provider_selectel", v) as Provider_selectel,
 	Provider_tencentcloud: (v: any) => parse("Provider_tencentcloud", v) as Provider_tencentcloud,
+	Provider_timeweb: (v: any) => parse("Provider_timeweb", v) as Provider_timeweb,
+	Provider_totaluptime: (v: any) => parse("Provider_totaluptime", v) as Provider_totaluptime,
+	Provider_vultr: (v: any) => parse("Provider_vultr", v) as Provider_vultr,
 	Provider_westcn: (v: any) => parse("Provider_westcn", v) as Provider_westcn,
 	sherpadocSection: (v: any) => parse("sherpadocSection", v) as sherpadocSection,
 	sherpadocFunction: (v: any) => parse("sherpadocFunction", v) as sherpadocFunction,
@@ -630,6 +846,7 @@ export const parser = {
 	IntValue: (v: any) => parse("IntValue", v) as IntValue,
 	sherpadocStrings: (v: any) => parse("sherpadocStrings", v) as sherpadocStrings,
 	StringValue: (v: any) => parse("StringValue", v) as StringValue,
+	BaseURL: (v: any) => parse("BaseURL", v) as BaseURL,
 }
 
 // API is the webapi used by the admin frontend.

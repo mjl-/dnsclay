@@ -240,10 +240,11 @@ func TestAXFR(t *testing.T) {
 		// Add many large records, for testing multi-message axfr.
 		many := make([]libdns.Record, 64*4)
 		for i := range many {
-			many[i] = libdns.TXT{
-				Name: "bigtxt",
-				TTL:  time.Hour,
-				Text: fmt.Sprintf(`"%255d"`, i), // 4 of these are 1KB.
+			many[i] = libdns.Record{
+				Name:  "bigtxt",
+				Type:  "TXT",
+				TTL:   time.Hour,
+				Value: fmt.Sprintf(`"%255d"`, i), // 4 of these are 1KB.
 			}
 		}
 		l, err = te.z0.p.AppendRecords(ctxbg, z.Name, many)
@@ -547,7 +548,6 @@ func TestUpdate(t *testing.T) {
 		tc.checkRecordDelta(typecounts{"CNAME": 1}, typecounts{"CNAME": 1})
 	})
 
-	// Update a record, or replace it by remove+add.
 	testDNS(t, func(te testEnv, z Zone) {
 		om := msgUpdate(z.Name)
 
@@ -557,63 +557,6 @@ func TestUpdate(t *testing.T) {
 		})
 		// Two A records marked deleted, one created again.
 		tc.checkRecordDelta(typecounts{"A": 2}, typecounts{"A": 1})
-
-		tc = te.zoneChanged(func() {
-			om.Remove([]dns.RR{newRR(z, "bogussrv SRV 0 0 143 other.example.com.")})
-			om.Insert([]dns.RR{newRR(z, "bogussrv SRV 0 0 143 modified.example.com.")})
-			testUpdate(te, om, dns.RcodeSuccess)
-		})
-		tc.checkRecordDelta(typecounts{"SRV": 1}, typecounts{"SRV": 1})
-
-		tc = te.zoneChanged(func() {
-			om.Remove([]dns.RR{newRR(z, "@ SVCB 0 other.example.com.")})
-			om.Insert([]dns.RR{newRR(z, "@ SVCB 0 modified.example.com.")})
-			testUpdate(te, om, dns.RcodeSuccess)
-		})
-		tc.checkRecordDelta(typecounts{"SVCB": 1}, typecounts{"SVCB": 1})
-
-		tc = te.zoneChanged(func() {
-			om.Remove([]dns.RR{newRR(z, "@ MX 1 test.example.")})
-			om.Insert([]dns.RR{newRR(z, "@ MX 10 modified.example.")})
-			testUpdate(te, om, dns.RcodeSuccess)
-		})
-		tc.checkRecordDelta(typecounts{"MX": 1}, typecounts{"MX": 1})
-
-		tc = te.zoneChanged(func() {
-			om.Remove([]dns.RR{newRR(z, `testtxt TXT "test test"`)})
-			om.Insert([]dns.RR{newRR(z, `testtxt TXT "modified test test"`)})
-			testUpdate(te, om, dns.RcodeSuccess)
-		})
-		tc.checkRecordDelta(typecounts{"TXT": 1}, typecounts{"TXT": 1})
-	})
-
-	// Delete record sets.
-	testDNS(t, func(te testEnv, z Zone) {
-		om := msgUpdate(z.Name)
-
-		tc := te.zoneChanged(func() {
-			om.Remove([]dns.RR{newRR(z, "bogussrv SRV 0 0 143 other.example.com.")})
-			testUpdate(te, om, dns.RcodeSuccess)
-		})
-		tc.checkRecordDelta(typecounts{"SRV": 1}, typecounts{})
-
-		tc = te.zoneChanged(func() {
-			om.Remove([]dns.RR{newRR(z, "@ SVCB 0 other.example.com.")})
-			testUpdate(te, om, dns.RcodeSuccess)
-		})
-		tc.checkRecordDelta(typecounts{"SVCB": 1}, typecounts{})
-
-		tc = te.zoneChanged(func() {
-			om.Remove([]dns.RR{newRR(z, "@ MX 1 test.example.")})
-			testUpdate(te, om, dns.RcodeSuccess)
-		})
-		tc.checkRecordDelta(typecounts{"MX": 1}, typecounts{})
-
-		tc = te.zoneChanged(func() {
-			om.Remove([]dns.RR{newRR(z, `testtxt TXT "test test"`)})
-			testUpdate(te, om, dns.RcodeSuccess)
-		})
-		tc.checkRecordDelta(typecounts{"TXT": 1}, typecounts{})
 	})
 
 	testDNS(t, func(te testEnv, z Zone) {

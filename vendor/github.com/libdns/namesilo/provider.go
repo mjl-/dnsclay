@@ -4,10 +4,18 @@ package namesilo
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/libdns/libdns"
+)
+
+const (
+	apiEndpoint = "https://www.namesilo.com/api/"
 )
 
 // Provider facilitates DNS record manipulation with Namesilo.
@@ -15,38 +23,92 @@ type Provider struct {
 	APIToken string `json:"api_token,omitempty"`
 }
 
+type reply struct {
+	Code   int    `xml:"reply>code"`
+	Detail string `xml:"reply>detail"`
+}
+
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
-	namesiloRecords, err := p.getDNSRecords(ctx, zone)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiEndpoint+"dnsListRecords?version=1&type=xml&key="+p.APIToken+"&domain="+zoneToDomain(zone), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	libdnsRecords := make([]libdns.Record, 0, len(namesiloRecords))
-	for _, record := range namesiloRecords {
-		libdnsRecord, err := record.toLibDNS(zone)
-		if err != nil {
-			return libdnsRecords, fmt.Errorf("parsing Namesilo DNS record %+v: %v", record, err)
-		}
-		libdnsRecords = append(libdnsRecords, libdnsRecord)
+	client := &http.Client{}
+
+	var response struct {
+		reply
+		Records []struct {
+			ID       string `xml:"record_id"`
+			Type     string `xml:"type"`
+			Name     string `xml:"host"`
+			Value    string `xml:"value"`
+			TTL      int    `xml:"ttl"`
+			Priority int    `xml:"distance"`
+		} `xml:"reply>resource_record"`
 	}
 
-	return libdnsRecords, nil
+	if err := doHttpRequestWithXmlResponse(client, req, &response); err != nil {
+		return nil, fmt.Errorf("request failed: %s", err)
+	}
+
+	if response.Code != 300 {
+		return nil, fmt.Errorf("failed to get records for zone \"%s\": Namesilo API status code %v; %s", zone, response.Code, response.Detail)
+	}
+
+	var records []libdns.Record
+
+	for _, record := range response.Records {
+		records = append(records, libdns.Record{
+			ID:       record.ID,
+			Type:     record.Type,
+			Name:     record.Name,
+			Value:    record.Value,
+			TTL:      time.Duration(record.TTL) * time.Second,
+			Priority: uint(record.Priority),
+		})
+	}
+
+	return records, nil
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	appendedRecords := make([]libdns.Record, 0, len(records))
+	client := &http.Client{}
+
+	var appendedRecords []libdns.Record
 
 	for _, record := range records {
-		rec, err := namesiloRecord(zone, record)
+		rrttl := ""
+		if record.TTL != time.Duration(0) {
+			rrttl = fmt.Sprintf("&rrttl=%d", int64(record.TTL/time.Second))
+		}
+
+		rrdistance := ""
+		if record.Priority != 0 {
+			rrdistance = fmt.Sprintf("&rrdistance=%d", record.Priority)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiEndpoint+"dnsAddRecord?version=1&type=xml&key="+p.APIToken+"&domain="+zoneToDomain(zone)+"&rrtype="+record.Type+"&rrhost="+record.Name+"&rrvalue="+record.Value+rrttl+rrdistance, nil)
 		if err != nil {
 			return appendedRecords, err
 		}
 
-		if err := p.addDNSRecord(ctx, zone, rec); err != nil {
-			return appendedRecords, err
+		var response struct {
+			reply
+			ID string `xml:"reply>record_id"`
 		}
+
+		if err := doHttpRequestWithXmlResponse(client, req, &response); err != nil {
+			return appendedRecords, fmt.Errorf("request failed: %s", err)
+		}
+
+		if response.Code != 300 {
+			return appendedRecords, fmt.Errorf("failed to append record for zone \"%s\": Namesilo API status code %v; %s", zone, response.Code, response.Detail)
+		}
+
+		record.ID = response.ID
 
 		appendedRecords = append(appendedRecords, record)
 	}
@@ -57,53 +119,92 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
 // It returns the updated records.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	setRecords := make([]libdns.Record, 0, len(records))
-
-	for _, record := range records {
-		rr := record.RR()
-		recordId, err := p.findRecordId(ctx, zone, rr.Name, rr.Type)
-		if err != nil {
-			return setRecords, err
-		}
-
-		rec, err := namesiloRecord(zone, record)
-		if err != nil {
-			return setRecords, err
-		}
-
-		if recordId == "" {
-			if err := p.addDNSRecord(ctx, zone, rec); err != nil {
-				return setRecords, err
-			}
-		} else {
-			if err := p.updateDNSRecord(ctx, zone, recordId, rec); err != nil {
-				return setRecords, err
-			}
-		}
-
-		setRecords = append(setRecords, record)
+	existingRecords, err := p.GetRecords(ctx, zone)
+	if err != nil {
+		return nil, fmt.Errorf("error to retrieve existing records: %v", err)
 	}
 
-	return setRecords, nil
+	existingRecordsMap := make(map[string]libdns.Record)
+	for _, record := range existingRecords {
+		existingRecordsMap[record.ID] = record
+	}
+
+	var newRecords []libdns.Record
+	var changedRecords []libdns.Record
+	for _, record := range records {
+		if record.ID == "" {
+			newRecords = append(newRecords, record)
+		} else {
+			if _, exists := existingRecordsMap[record.ID]; !exists {
+				return nil, fmt.Errorf("record does not exits %v", record)
+			}
+			changedRecords = append(changedRecords, record)
+		}
+	}
+
+	resultRecords, err := p.AppendRecords(ctx, zone, newRecords)
+	if err != nil {
+		return resultRecords, err
+	}
+
+	client := &http.Client{}
+	for _, record := range changedRecords {
+		rrttl := ""
+		if record.TTL != time.Duration(0) {
+			rrttl = fmt.Sprintf("&rrttl=%d", int64(record.TTL/time.Second))
+		}
+
+		rrdistance := ""
+		if record.Priority != 0 {
+			rrdistance = fmt.Sprintf("&rrdistance=%d", record.Priority)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiEndpoint+"dnsUpdateRecord?version=1&type=xml&key="+p.APIToken+"&domain="+zoneToDomain(zone)+"&rrid="+record.ID+"&rrhost="+record.Name+"&rrvalue="+record.Value+rrttl+rrdistance, nil)
+		if err != nil {
+			return resultRecords, err
+		}
+
+		var response struct {
+			reply
+			ID string `xml:"reply>record_id"`
+		}
+
+		if err := doHttpRequestWithXmlResponse(client, req, &response); err != nil {
+			return resultRecords, fmt.Errorf("request failed: %s", err)
+		}
+
+		if response.Code != 300 {
+			return resultRecords, fmt.Errorf("failed to append record for zone \"%s\": Namesilo API status code %v; %s", zone, response.Code, response.Detail)
+		}
+
+		record.ID = response.ID
+
+		resultRecords = append(resultRecords, record)
+	}
+
+	return resultRecords, nil
 }
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	deletedRecords := make([]libdns.Record, 0, len(records))
+	client := &http.Client{}
+
+	var deletedRecords []libdns.Record
 
 	for _, record := range records {
-		rr := record.RR()
-		recordId, err := p.findRecordId(ctx, zone, rr.Name, rr.Type, rr.Data)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiEndpoint+"dnsDeleteRecord?version=1&type=xml&key="+p.APIToken+"&domain="+zoneToDomain(zone)+"&rrid="+record.ID, nil)
 		if err != nil {
 			return deletedRecords, err
 		}
 
-		if recordId == "" {
-			return deletedRecords, fmt.Errorf("record not found: %+v", rr)
+		var response reply
+
+		if err := doHttpRequestWithXmlResponse(client, req, &response); err != nil {
+			return deletedRecords, fmt.Errorf("request to delete record failed: %s", err)
 		}
 
-		if err := p.deleteDNSRecord(ctx, zone, recordId); err != nil {
-			return deletedRecords, err
+		if response.Code != 300 {
+			return deletedRecords, fmt.Errorf("failed to delete record for zone \"%s\": Namesilo API status code %v; %s", zone, response.Code, response.Detail)
 		}
 
 		deletedRecords = append(deletedRecords, record)
@@ -112,27 +213,28 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	return deletedRecords, nil
 }
 
-func (p *Provider) findRecordId(ctx context.Context, zone string, recordName string, recordType string, recordValue ...string) (string, error) {
-	records, err := p.getDNSRecords(ctx, zone)
+func doHttpRequestWithXmlResponse(client *http.Client, req *http.Request, resp interface{}) error {
+	response, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(response.Body)
+		return fmt.Errorf("response with unexpected status code %v; %s", response.StatusCode, string(respBody))
 	}
 
-	for _, rec := range records {
-		libdnsRec, err := rec.toLibDNS(zone)
-		if err != nil {
-			return "", err
-		}
-
-		if recordType == libdnsRec.RR().Type && recordName == libdnsRec.RR().Name {
-			if len(recordValue) > 0 && recordValue[0] != "" && recordValue[0] != libdnsRec.RR().Data {
-				continue
-			}
-			return rec.ID, nil
-		}
+	result, err := io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("reading response failed: %v", err)
 	}
 
-	return "", nil
+	if err := xml.Unmarshal(result, resp); err != nil {
+		return fmt.Errorf("unmarshaling of xml failed: %v", err)
+	}
+
+	return nil
 }
 
 func zoneToDomain(zone string) string {

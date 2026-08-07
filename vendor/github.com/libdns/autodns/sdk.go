@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 )
 
 // checkZone servers as a check if the zone exists and returns the required data
 // (origin and nameserver to retrieve the actual zone).
 func (p *Provider) checkZone(ctx context.Context, zone string) (*ResponseSearchItem, error) {
-	zone = strings.TrimSuffix(zone, ".")
-
 	filter := map[string]string{
 		"key":      "name",
 		"operator": "EQUAL",
@@ -33,12 +30,9 @@ func (p *Provider) checkZone(ctx context.Context, zone string) (*ResponseSearchI
 	}
 
 	var result ResponseSearch
+
 	if err := p.parseResponse(resp, &result); err != nil {
 		return nil, fmt.Errorf("checkZone: %s", err)
-	}
-
-	if err := check(resp.StatusCode, 200, result); err != nil {
-		return nil, err
 	}
 
 	if len(result.Data) == 0 {
@@ -67,8 +61,12 @@ func (p *Provider) getZone(ctx context.Context, origin, nameserver, zone string)
 		return nil, fmt.Errorf("getZone: %s", err)
 	}
 
-	if err := check(resp.StatusCode, 200, result); err != nil {
-		return nil, err
+	if result.Status.Type == "ERROR" {
+		if result.Messages == nil {
+			return nil, fmt.Errorf("unknown error: %#v", result)
+		}
+
+		return nil, NewError(result.AutoDNSResponse)
 	}
 
 	if len(result.Data) == 0 {
@@ -99,8 +97,8 @@ func (p *Provider) updateZone(ctx context.Context, origin, nameserver string, zo
 		return fmt.Errorf("updateZone: %s", err)
 	}
 
-	if err := check(resp.StatusCode, 200, result); err != nil {
-		return err
+	if result.Status.Type == "ERROR" {
+		return NewError(result)
 	}
 	return nil
 }

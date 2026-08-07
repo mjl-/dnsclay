@@ -35,22 +35,8 @@ func (err APIError) Error() string {
 		fmt.Fprint(&sb, err.Class, ": ")
 	}
 
-	// Catch missing IAM permissions, if any
-	var missingIAMActionsDetails []string
-	if missingAuthenticationActions, ok := err.Details["unauthorizedActionsByAuthentication"]; ok && missingAuthenticationActions != "" {
-		missingIAMActionsDetails = append(missingIAMActionsDetails, missingAuthenticationActions)
-	}
-	if missingIAMActions, ok := err.Details["unauthorizedActionsByIAM"]; ok && missingIAMActions != "" {
-		missingIAMActionsDetails = append(missingIAMActionsDetails, missingIAMActions)
-	}
-
-	message := err.Message
-	if len(missingIAMActionsDetails) > 0 {
-		message += fmt.Sprintf(" (missing IAM permissions: %s)", strings.Join(missingIAMActionsDetails, ", "))
-	}
-
 	// Real error message, quoted
-	fmt.Fprintf(&sb, "%q", message)
+	fmt.Fprintf(&sb, "%q", err.Message)
 
 	// QueryID if any
 	if err.QueryID != "" {

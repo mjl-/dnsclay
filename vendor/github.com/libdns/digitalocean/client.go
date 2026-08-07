@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/digitalocean/godo"
 	"github.com/libdns/libdns"
@@ -37,7 +38,13 @@ func (p *Provider) getDNSEntries(ctx context.Context, zone string) ([]libdns.Rec
 		}
 
 		for _, entry := range domains {
-			record := fromGodo(entry)
+			record := libdns.Record{
+				Name:  entry.Name,
+				Value: entry.Data,
+				Type:  entry.Type,
+				TTL:   time.Duration(entry.TTL) * time.Second,
+				ID:    strconv.Itoa(entry.ID),
+			}
 			records = append(records, record)
 		}
 
@@ -64,14 +71,20 @@ func (p *Provider) addDNSEntry(ctx context.Context, zone string, record libdns.R
 
 	p.getClient()
 
-	entry := recordToGoDo(record)
+	entry := godo.DomainRecordEditRequest{
+		Name: record.Name,
+		Data: record.Value,
+		Type: record.Type,
+		TTL:  int(record.TTL.Seconds()),
+	}
 
 	rec, _, err := p.client.Domains.CreateRecord(ctx, zone, &entry)
 	if err != nil {
 		return record, err
 	}
+	record.ID = strconv.Itoa(rec.ID)
 
-	return fromRecord(record, strconv.Itoa(rec.ID)), nil
+	return record, nil
 }
 
 func (p *Provider) removeDNSEntry(ctx context.Context, zone string, record libdns.Record) (libdns.Record, error) {
@@ -80,8 +93,7 @@ func (p *Provider) removeDNSEntry(ctx context.Context, zone string, record libdn
 
 	p.getClient()
 
-	// Get ID from dns record
-	id, err := idFromRecord(record)
+	id, err := strconv.Atoi(record.ID)
 	if err != nil {
 		return record, err
 	}
@@ -100,13 +112,17 @@ func (p *Provider) updateDNSEntry(ctx context.Context, zone string, record libdn
 
 	p.getClient()
 
-	// Get ID from dns record
-	id, err := idFromRecord(record)
+	id, err := strconv.Atoi(record.ID)
 	if err != nil {
 		return record, err
 	}
 
-	entry := recordToGoDo(record)
+	entry := godo.DomainRecordEditRequest{
+		Name: record.Name,
+		Data: record.Value,
+		Type: record.Type,
+		TTL:  int(record.TTL.Seconds()),
+	}
 
 	_, _, err = p.client.Domains.EditRecord(ctx, zone, id, &entry)
 	if err != nil {

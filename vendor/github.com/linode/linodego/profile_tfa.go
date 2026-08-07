@@ -29,7 +29,6 @@ func (s *TwoFactorSecret) UnmarshalJSON(b []byte) error {
 
 	p := struct {
 		*Mask
-
 		Expiry *parseabletime.ParseableTime `json:"expiry"`
 	}{
 		Mask: (*Mask)(s),
@@ -46,15 +45,36 @@ func (s *TwoFactorSecret) UnmarshalJSON(b []byte) error {
 
 // CreateTwoFactorSecret generates a Two Factor secret for your User.
 func (c *Client) CreateTwoFactorSecret(ctx context.Context) (*TwoFactorSecret, error) {
-	return doPOSTRequest[TwoFactorSecret, any](ctx, c, "profile/tfa-enable")
+	e := "profile/tfa-enable"
+	req := c.R(ctx).SetResult(&TwoFactorSecret{})
+	r, err := coupleAPIErrors(req.Post(e))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Result().(*TwoFactorSecret), nil
 }
 
 // DisableTwoFactor disables Two Factor Authentication for your User.
 func (c *Client) DisableTwoFactor(ctx context.Context) error {
-	return doPOSTRequestNoRequestResponseBody(ctx, c, "profile/tfa-disable")
+	e := "profile/tfa-disable"
+	_, err := coupleAPIErrors(c.R(ctx).Post(e))
+	return err
 }
 
 // ConfirmTwoFactor confirms that you can successfully generate Two Factor codes and enables TFA on your Account.
 func (c *Client) ConfirmTwoFactor(ctx context.Context, opts ConfirmTwoFactorOptions) (*ConfirmTwoFactorResponse, error) {
-	return doPOSTRequest[ConfirmTwoFactorResponse](ctx, c, "profile/tfa-enable-confirm", opts)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := "profile/tfa-enable-confirm"
+	req := c.R(ctx).SetResult(&ConfirmTwoFactorResponse{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Post(e))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Result().(*ConfirmTwoFactorResponse), nil
 }

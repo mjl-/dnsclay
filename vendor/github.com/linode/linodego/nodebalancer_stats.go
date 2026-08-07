@@ -2,6 +2,7 @@ package linodego
 
 import (
 	"context"
+	"fmt"
 )
 
 // NodeBalancerStats represents a nodebalancer stats object
@@ -24,6 +25,12 @@ type StatsTraffic struct {
 
 // GetNodeBalancerStats gets the template with the provided ID
 func (c *Client) GetNodeBalancerStats(ctx context.Context, nodebalancerID int) (*NodeBalancerStats, error) {
-	e := formatAPIPath("nodebalancers/%d/stats", nodebalancerID)
-	return doGETRequest[NodeBalancerStats](ctx, c, e)
+	e := fmt.Sprintf("nodebalancers/%d/stats", nodebalancerID)
+	req := c.R(ctx).SetResult(&NodeBalancerStats{})
+	r, err := coupleAPIErrors(req.Get(e))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Result().(*NodeBalancerStats), nil
 }

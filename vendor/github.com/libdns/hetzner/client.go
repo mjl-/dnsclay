@@ -6,42 +6,74 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+
+	"github.com/libdns/libdns"
 )
 
-// Client is a Hetzner DNS API client.
-type Client struct {
-	accessToken string
+type getAllRecordsResponse struct {
+	Records []record `json:"records"`
 }
 
-// NewClient returns a new Client.
-func NewClient(accessToken string) *Client {
-	return &Client{
-		accessToken: accessToken,
+type getAllZonesResponse struct {
+	Zones []zone `json:"zones"`
+}
+
+type createRecordResponse struct {
+	Record record `json:"record"`
+}
+
+type updateRecordResponse struct {
+	Record record `json:"record"`
+}
+
+type zone struct {
+	ID string `json:"id"`
+}
+
+type record struct {
+	ID     string `json:"id,omitempty"`
+	ZoneID string `json:"zone_id,omitempty"`
+	Type   string `json:"type"`
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	TTL    int    `json:"ttl"`
+}
+
+func doRequest(token string, request *http.Request) ([]byte, error) {
+	request.Header.Add("Auth-API-Token", token)
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
 	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, fmt.Errorf("%s (%d)", http.StatusText(response.StatusCode), response.StatusCode)
+	}
+
+	defer response.Body.Close()
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
-// GetZoneID returns the zone ID for the given zone name.
-func (c *Client) GetZoneID(ctx context.Context, zone string) (string, error) {
+func getZoneID(ctx context.Context, token string, zone string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://dns.hetzner.com/api/v1/zones?name=%s", url.QueryEscape(zone)), nil)
-
+	data, err := doRequest(token, req)
 	if err != nil {
 		return "", err
 	}
 
-	data, err := c.doRequest(req)
-
-	if err != nil {
-		return "", err
-	}
-
-	result := struct {
-		Zones []Zone `json:"zones"`
-	}{}
-
+	result := getAllZonesResponse{}
 	if err := json.Unmarshal(data, &result); err != nil {
 		return "", err
 	}
@@ -53,195 +85,137 @@ func (c *Client) GetZoneID(ctx context.Context, zone string) (string, error) {
 	return result.Zones[0].ID, nil
 }
 
-// GetAllRecords returns all records for the given zone.
-func (c *Client) GetAllRecords(ctx context.Context, zone string) ([]Record, error) {
-	zoneID, err := c.GetZoneID(ctx, zone)
-
+func getAllRecords(ctx context.Context, token string, zone string) ([]libdns.Record, error) {
+	zoneID, err := getZoneID(ctx, token, zone)
 	if err != nil {
 		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://dns.hetzner.com/api/v1/records?zone_id=%s", zoneID), nil)
-
+	data, err := doRequest(token, req)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := c.doRequest(req)
-
-	if err != nil {
-		return nil, err
-	}
-
-	result := struct {
-		Records []Record `json:"records"`
-	}{}
-
+	result := getAllRecordsResponse{}
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, err
 	}
 
-	records := make([]Record, 0, len(result.Records))
-
+	records := []libdns.Record{}
 	for _, r := range result.Records {
-		records = append(records, Record{
+		records = append(records, libdns.Record{
 			ID:    r.ID,
 			Type:  r.Type,
 			Name:  r.Name,
 			Value: r.Value,
-			TTL:   r.TTL,
+			TTL:   time.Duration(r.TTL) * time.Second,
 		})
 	}
 
 	return records, nil
 }
 
-// CreateRecord creates a record for the given zone.
-func (c *Client) CreateRecord(ctx context.Context, zone string, r Record) (Record, error) {
-	zoneID, err := c.GetZoneID(ctx, zone)
-
+func createRecord(ctx context.Context, token string, zone string, r libdns.Record) (libdns.Record, error) {
+	zoneID, err := getZoneID(ctx, token, zone)
 	if err != nil {
-		return Record{}, err
+		return libdns.Record{}, err
 	}
 
-	r.ZoneID = zoneID
-	r.Name = c.normalizeRecordName(r.Name, zone)
-	reqBuffer, err := json.Marshal(r)
+	reqData := record{
+		ZoneID: zoneID,
+		Type:   r.Type,
+		Name:   normalizeRecordName(r.Name, zone),
+		Value:  r.Value,
+		TTL:    int(r.TTL.Seconds()),
+	}
 
+	reqBuffer, err := json.Marshal(reqData)
 	if err != nil {
-		return Record{}, err
+		return libdns.Record{}, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://dns.hetzner.com/api/v1/records", bytes.NewBuffer(reqBuffer))
-
+	data, err := doRequest(token, req)
 	if err != nil {
-		return Record{}, err
+		return libdns.Record{}, err
 	}
 
-	data, err := c.doRequest(req)
-
-	if err != nil {
-		return Record{}, err
-	}
-
-	result := struct {
-		Record Record `json:"record"`
-	}{}
-
+	result := createRecordResponse{}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return Record{}, err
+		return libdns.Record{}, err
 	}
 
-	return Record{
+	return libdns.Record{
 		ID:    result.Record.ID,
 		Type:  result.Record.Type,
 		Name:  result.Record.Name,
 		Value: result.Record.Value,
-		TTL:   result.Record.TTL,
+		TTL:   time.Duration(result.Record.TTL) * time.Second,
 	}, nil
 }
 
-// DeleteRecord deletes a record for the given ID and zone.
-func (c *Client) DeleteRecord(ctx context.Context, id string) error {
-	req, err := http.NewRequestWithContext(ctx, "DELETE", fmt.Sprintf("https://dns.hetzner.com/api/v1/records/%s", id), nil)
-
+func deleteRecord(ctx context.Context, token string, record libdns.Record) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", fmt.Sprintf("https://dns.hetzner.com/api/v1/records/%s", record.ID), nil)
+	_, err = doRequest(token, req)
 	if err != nil {
-		return err
-	}
-
-	if _, err = c.doRequest(req); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// UpdateRecord updates a record for the given zone.
-func (c *Client) UpdateRecord(ctx context.Context, zone string, r Record) (Record, error) {
-	zoneID, err := c.GetZoneID(ctx, zone)
-
+func updateRecord(ctx context.Context, token string, zone string, r libdns.Record) (libdns.Record, error) {
+	zoneID, err := getZoneID(ctx, token, zone)
 	if err != nil {
-		return Record{}, err
+		return libdns.Record{}, err
 	}
 
-	reqData := Record{
+	reqData := record{
 		ZoneID: zoneID,
 		Type:   r.Type,
-		Name:   c.normalizeRecordName(r.Name, zone),
+		Name:   normalizeRecordName(r.Name, zone),
 		Value:  r.Value,
-		TTL:    r.TTL,
+		TTL:    int(r.TTL.Seconds()),
 	}
 
 	reqBuffer, err := json.Marshal(reqData)
-
 	if err != nil {
-		return Record{}, err
+		return libdns.Record{}, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", fmt.Sprintf("https://dns.hetzner.com/api/v1/records/%s", r.ID), bytes.NewBuffer(reqBuffer))
-
+	data, err := doRequest(token, req)
 	if err != nil {
-		return Record{}, err
+		return libdns.Record{}, err
 	}
 
-	data, err := c.doRequest(req)
-
-	if err != nil {
-		return Record{}, err
-	}
-
-	result := struct {
-		Record Record `json:"record"`
-	}{}
-
+	result := updateRecordResponse{}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return Record{}, err
+		return libdns.Record{}, err
 	}
 
-	return Record{
+	return libdns.Record{
 		ID:    result.Record.ID,
 		Type:  result.Record.Type,
 		Name:  result.Record.Name,
 		Value: result.Record.Value,
-		TTL:   result.Record.TTL,
+		TTL:   time.Duration(result.Record.TTL) * time.Second,
 	}, nil
 }
 
-func (c *Client) doRequest(request *http.Request) ([]byte, error) {
-	request.Header.Add("Auth-API-Token", c.accessToken)
-	client := &http.Client{}
-	response, err := client.Do(request)
-
-	if err != nil {
-		return nil, err
+func createOrUpdateRecord(ctx context.Context, token string, zone string, r libdns.Record) (libdns.Record, error) {
+	if len(r.ID) == 0 {
+		return createRecord(ctx, token, zone, r)
 	}
 
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("%s (%d)", http.StatusText(response.StatusCode), response.StatusCode)
-	}
-
-	defer func() {
-		_ = response.Body.Close()
-	}()
-	data, err := io.ReadAll(response.Body)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return updateRecord(ctx, token, zone, r)
 }
 
-func (c *Client) normalizeRecordName(recordName string, zone string) string {
-	// TODO
+func normalizeRecordName(recordName string, zone string) string {
 	// Workaround for https://github.com/caddy-dns/hetzner/issues/3
 	// Can be removed after https://github.com/libdns/libdns/issues/12
 	normalized := unFQDN(recordName)
 	normalized = strings.TrimSuffix(normalized, unFQDN(zone))
-
-	if normalized == "" {
-		normalized = "@"
-	}
-
 	return unFQDN(normalized)
 }

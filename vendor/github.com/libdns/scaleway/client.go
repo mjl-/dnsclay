@@ -49,15 +49,12 @@ func (p *Provider) getDNSEntries(ctx context.Context, zone string) ([]libdns.Rec
 	}
 
 	for _, entry := range zoneRecords.Records {
-		rr := libdns.RR{
-			Name: libdns.RelativeName(entry.Name, zone),
-			Type: string(entry.Type),
-			Data: entry.Data,
-			TTL:  time.Duration(entry.TTL) * time.Second,
-		}
-		record, err := rr.Parse()
-		if err != nil {
-			return records, err
+		record := libdns.Record{
+			Name:  libdns.RelativeName(entry.Name, zone),
+			Value: entry.Data,
+			Type:  string(entry.Type),
+			TTL:   time.Duration(entry.TTL) * time.Second,
+			ID:    entry.ID,
 		}
 		records = append(records, record)
 	}
@@ -73,20 +70,18 @@ func (p *Provider) addDNSEntry(ctx context.Context, zone string, record libdns.R
 		return record, err
 	}
 
-	rr := record.RR()
-
 	domainAPI := domain.NewAPI(p.client)
-	_, err = domainAPI.UpdateDNSZoneRecords(&domain.UpdateDNSZoneRecordsRequest{
+	records, err := domainAPI.UpdateDNSZoneRecords(&domain.UpdateDNSZoneRecordsRequest{
 		DNSZone: zone,
 		Changes: []*domain.RecordChange{
 			{
 				Add: &domain.RecordChangeAdd{
 					Records: []*domain.Record{
 						{
-							Name: libdns.AbsoluteName(rr.Name, zone),
-							Type: domain.RecordType(rr.Type),
-							Data: rr.Data,
-							TTL:  uint32(rr.TTL.Seconds()),
+							Name: libdns.AbsoluteName(record.Name, zone),
+							Data: record.Value,
+							Type: domain.RecordType(record.Type),
+							TTL:  uint32(record.TTL.Seconds()),
 						},
 					},
 				},
@@ -95,6 +90,9 @@ func (p *Provider) addDNSEntry(ctx context.Context, zone string, record libdns.R
 	})
 	if err != nil {
 		return record, err
+	}
+	if len(records.Records) > 0 {
+		record.ID = records.Records[0].ID
 	}
 	return record, nil
 }
@@ -107,21 +105,13 @@ func (p *Provider) removeDNSEntry(ctx context.Context, zone string, record libdn
 	if err != nil {
 		return record, err
 	}
-
-	rr := record.RR()
-
 	domainAPI := domain.NewAPI(p.client)
 	_, err = domainAPI.UpdateDNSZoneRecords(&domain.UpdateDNSZoneRecordsRequest{
 		DNSZone: zone,
 		Changes: []*domain.RecordChange{
 			{
 				Delete: &domain.RecordChangeDelete{
-					IDFields: &domain.RecordIdentifier{
-						Name: libdns.AbsoluteName(rr.Name, zone),
-						Type: domain.RecordType(rr.Type),
-						Data: &rr.Data,
-						TTL:  scw.Uint32Ptr(uint32(rr.TTL.Seconds())),
-					},
+					ID: &record.ID,
 				},
 			},
 		},
@@ -140,27 +130,19 @@ func (p *Provider) updateDNSEntry(ctx context.Context, zone string, record libdn
 	if err != nil {
 		return record, err
 	}
-
-	rr := record.RR()
-
 	domainAPI := domain.NewAPI(p.client)
 	_, err = domainAPI.UpdateDNSZoneRecords(&domain.UpdateDNSZoneRecordsRequest{
 		DNSZone: zone,
 		Changes: []*domain.RecordChange{
 			{
 				Set: &domain.RecordChangeSet{
-					IDFields: &domain.RecordIdentifier{
-						Name: libdns.AbsoluteName(rr.Name, zone),
-						Type: domain.RecordType(rr.Type),
-						Data: &rr.Data,
-						TTL:  scw.Uint32Ptr(uint32(rr.TTL.Seconds())),
-					},
+					ID: &record.ID,
 					Records: []*domain.Record{
 						{
-							Name: libdns.AbsoluteName(rr.Name, zone),
-							Type: domain.RecordType(rr.Type),
-							Data: rr.Data,
-							TTL:  uint32(rr.TTL.Seconds()),
+							Name: libdns.AbsoluteName(record.Name, zone),
+							Data: record.Value,
+							Type: domain.RecordType(record.Type),
+							TTL:  uint32(record.TTL.Seconds()),
 						},
 					},
 				},

@@ -1,12 +1,12 @@
 package scw
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/scaleway/scaleway-sdk-go/errors"
 	"github.com/scaleway/scaleway-sdk-go/internal/auth"
+	"github.com/scaleway/scaleway-sdk-go/internal/errors"
 	"github.com/scaleway/scaleway-sdk-go/internal/generic"
 	"github.com/scaleway/scaleway-sdk-go/logger"
 )
@@ -67,16 +67,16 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 	// insecure mode
 	if s.insecure {
-		logger.Debugf("client: using insecure mode\n")
+		logger.Debugf("client: using insecure mode")
 		setInsecureMode(s.httpClient)
 	}
 
 	if logger.ShouldLog(logger.LogLevelDebug) {
-		logger.Debugf("client: using request logger\n")
+		logger.Debugf("client: using request logger")
 		setRequestLogging(s.httpClient)
 	}
 
-	logger.Debugf("client: using sdk version " + getVersion() + "\n")
+	logger.Debugf("client: using sdk version " + version)
 
 	return &Client{
 		auth:                  s.token,
@@ -160,7 +160,7 @@ func (c *Client) GetDefaultPageSize() (pageSize uint32, exists bool) {
 
 // Do performs HTTP request(s) based on the ScalewayRequest object.
 // RequestOptions are applied prior to doing the request.
-func (c *Client) Do(req *ScalewayRequest, res any, opts ...RequestOption) (err error) {
+func (c *Client) Do(req *ScalewayRequest, res interface{}, opts ...RequestOption) (err error) {
 	// apply request options
 	req.apply(opts)
 
@@ -189,7 +189,8 @@ func (c *Client) Do(req *ScalewayRequest, res any, opts ...RequestOption) (err e
 }
 
 // do performs a single HTTP request based on the ScalewayRequest object.
-func (c *Client) do(req *ScalewayRequest, res any) (sdkErr error) {
+func (c *Client) do(req *ScalewayRequest, res interface{}) (sdkErr error) {
+
 	if req == nil {
 		return errors.New("request must be non-nil")
 	}
@@ -199,19 +200,19 @@ func (c *Client) do(req *ScalewayRequest, res any) (sdkErr error) {
 	if sdkErr != nil {
 		return sdkErr
 	}
-	logger.Debugf("creating %s request on %s\n", req.Method, url.String())
+	logger.Debugf("creating %s request on %s", req.Method, url.String())
 
 	// build request
-	ctx := req.ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	httpRequest, err := http.NewRequestWithContext(ctx, req.Method, url.String(), req.Body)
+	httpRequest, err := http.NewRequest(req.Method, url.String(), req.Body)
 	if err != nil {
 		return errors.Wrap(err, "could not create request")
 	}
 
 	httpRequest.Header = req.getAllHeaders(req.auth, c.userAgent, false)
+
+	if req.ctx != nil {
+		httpRequest = httpRequest.WithContext(req.ctx)
+	}
 
 	// execute request
 	httpResponse, err := c.httpClient.Do(httpRequest)
@@ -231,7 +232,7 @@ func (c *Client) do(req *ScalewayRequest, res any) (sdkErr error) {
 		return sdkErr
 	}
 
-	if res != nil && httpResponse.ContentLength != 0 {
+	if res != nil {
 		contentType := httpResponse.Header.Get("Content-Type")
 
 		if strings.HasPrefix(contentType, "application/json") {
@@ -267,21 +268,21 @@ func (c *Client) do(req *ScalewayRequest, res any) (sdkErr error) {
 
 type lister interface {
 	UnsafeGetTotalCount() uint64
-	UnsafeAppend(any) (uint64, error)
+	UnsafeAppend(interface{}) (uint64, error)
 }
 
 // Old lister for uint32
 // Used for retro-compatibility with response that use uint32
 type lister32 interface {
 	UnsafeGetTotalCount() uint32
-	UnsafeAppend(any) (uint32, error)
+	UnsafeAppend(interface{}) (uint32, error)
 }
 
 type legacyLister interface {
 	UnsafeSetTotalCount(totalCount int)
 }
 
-func listerGetTotalCount(i any) uint64 {
+func listerGetTotalCount(i interface{}) uint64 {
 	if l, isLister := i.(lister); isLister {
 		return l.UnsafeGetTotalCount()
 	}
@@ -291,7 +292,7 @@ func listerGetTotalCount(i any) uint64 {
 	panic(fmt.Errorf("%T does not support pagination but checks failed, should not happen", i))
 }
 
-func listerAppend(recv any, elems any) (uint64, error) {
+func listerAppend(recv interface{}, elems interface{}) (uint64, error) {
 	if l, isLister := recv.(lister); isLister {
 		return l.UnsafeAppend(elems)
 	} else if l32, isLister32 := recv.(lister32); isLister32 {
@@ -302,7 +303,7 @@ func listerAppend(recv any, elems any) (uint64, error) {
 	panic(fmt.Errorf("%T does not support pagination but checks failed, should not happen", recv))
 }
 
-func isLister(i any) bool {
+func isLister(i interface{}) bool {
 	switch i.(type) {
 	case lister:
 		return true
@@ -316,7 +317,7 @@ func isLister(i any) bool {
 const maxPageCount uint64 = math.MaxUint32
 
 // doListAll collects all pages of a List request and aggregate all results on a single response.
-func (c *Client) doListAll(req *ScalewayRequest, res any) (err error) {
+func (c *Client) doListAll(req *ScalewayRequest, res interface{}) (err error) {
 	// check for lister interface
 	if isLister(res) {
 		pageCount := maxPageCount
@@ -353,12 +354,12 @@ func (c *Client) doListAll(req *ScalewayRequest, res any) (err error) {
 	return errors.New("%T does not support pagination", res)
 }
 
-// doListLocalities collects all localities using multiple list requests and aggregate all results on a lister response
+// doListLocalities collects all localities using mutliple list requests and aggregate all results on a lister response
 // results is sorted by locality
-func (c *Client) doListLocalities(req *ScalewayRequest, res any, localities []string) (err error) {
+func (c *Client) doListLocalities(req *ScalewayRequest, res interface{}, localities []string) (err error) {
 	path := req.Path
 	if !strings.Contains(path, "%locality%") {
-		return errors.New("request is not a valid locality request")
+		return fmt.Errorf("request is not a valid locality request")
 	}
 	// Requests are parallelized
 	responseMutex := sync.Mutex{}
@@ -409,7 +410,7 @@ L: // We gather potential errors and return them all together
 
 // doListZones collects all zones using multiple list requests and aggregate all results on a single response.
 // result is sorted by zone
-func (c *Client) doListZones(req *ScalewayRequest, res any, zones []Zone) (err error) {
+func (c *Client) doListZones(req *ScalewayRequest, res interface{}, zones []Zone) (err error) {
 	if isLister(res) {
 		// Prepare request with %zone% that can be replaced with actual zone
 		for _, zone := range AllZones {
@@ -419,7 +420,7 @@ func (c *Client) doListZones(req *ScalewayRequest, res any, zones []Zone) (err e
 			}
 		}
 		if !strings.Contains(req.Path, "%locality%") {
-			return errors.New("request is not a valid zoned request")
+			return fmt.Errorf("request is not a valid zoned request")
 		}
 		localities := make([]string, 0, len(zones))
 		for _, zone := range zones {
@@ -440,7 +441,7 @@ func (c *Client) doListZones(req *ScalewayRequest, res any, zones []Zone) (err e
 
 // doListRegions collects all regions using multiple list requests and aggregate all results on a single response.
 // result is sorted by region
-func (c *Client) doListRegions(req *ScalewayRequest, res any, regions []Region) (err error) {
+func (c *Client) doListRegions(req *ScalewayRequest, res interface{}, regions []Region) (err error) {
 	if isLister(res) {
 		// Prepare request with %locality% that can be replaced with actual region
 		for _, region := range AllRegions {
@@ -450,7 +451,7 @@ func (c *Client) doListRegions(req *ScalewayRequest, res any, regions []Region) 
 			}
 		}
 		if !strings.Contains(req.Path, "%locality%") {
-			return errors.New("request is not a valid zoned request")
+			return fmt.Errorf("request is not a valid zoned request")
 		}
 		localities := make([]string, 0, len(regions))
 		for _, region := range regions {
@@ -470,7 +471,7 @@ func (c *Client) doListRegions(req *ScalewayRequest, res any, regions []Region) 
 }
 
 // sortSliceByZones sorts a slice of struct using a Zone field that should exist
-func sortSliceByZones(list any, zones []Zone) {
+func sortSliceByZones(list interface{}, zones []Zone) {
 	if !generic.HasField(list, "Zone") {
 		return
 	}
@@ -479,13 +480,13 @@ func sortSliceByZones(list any, zones []Zone) {
 	for i, zone := range zones {
 		zoneMap[zone] = i
 	}
-	generic.SortSliceByField(list, "Zone", func(i any, i2 any) bool {
+	generic.SortSliceByField(list, "Zone", func(i interface{}, i2 interface{}) bool {
 		return zoneMap[i.(Zone)] < zoneMap[i2.(Zone)]
 	})
 }
 
 // sortSliceByRegions sorts a slice of struct using a Region field that should exist
-func sortSliceByRegions(list any, regions []Region) {
+func sortSliceByRegions(list interface{}, regions []Region) {
 	if !generic.HasField(list, "Region") {
 		return
 	}
@@ -494,13 +495,13 @@ func sortSliceByRegions(list any, regions []Region) {
 	for i, region := range regions {
 		regionMap[region] = i
 	}
-	generic.SortSliceByField(list, "Region", func(i any, i2 any) bool {
+	generic.SortSliceByField(list, "Region", func(i interface{}, i2 interface{}) bool {
 		return regionMap[i.(Region)] < regionMap[i2.(Region)]
 	})
 }
 
 // sortResponseByZones find first field that is a slice in a struct and sort it by zone
-func sortResponseByZones(res any, zones []Zone) {
+func sortResponseByZones(res interface{}, zones []Zone) {
 	// res may be ListServersResponse
 	//
 	// type ListServersResponse struct {
@@ -519,7 +520,7 @@ func sortResponseByZones(res any, zones []Zone) {
 }
 
 // sortResponseByRegions find first field that is a slice in a struct and sort it by region
-func sortResponseByRegions(res any, regions []Region) {
+func sortResponseByRegions(res interface{}, regions []Region) {
 	// res may be ListServersResponse
 	//
 	// type ListServersResponse struct {
@@ -538,15 +539,20 @@ func sortResponseByRegions(res any, regions []Region) {
 }
 
 // newVariableFromType returns a variable set to the zero value of the given type
-func newVariableFromType(t any) any {
+func newVariableFromType(t interface{}) interface{} {
 	// reflect.New always create a pointer, that's why we use reflect.Indirect before
 	return reflect.New(reflect.Indirect(reflect.ValueOf(t)).Type()).Interface()
 }
 
 func newHTTPClient() *http.Client {
 	return &http.Client{
-		Timeout:   30 * time.Second,
-		Transport: http.DefaultTransport.(*http.Transport).Clone(),
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			DialContext:           (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+			TLSHandshakeTimeout:   5 * time.Second,
+			ResponseHeaderTimeout: 30 * time.Second,
+			MaxIdleConnsPerHost:   20,
+		},
 	}
 }
 

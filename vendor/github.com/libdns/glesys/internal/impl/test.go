@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: 2017 GleSYS Internet Services AB
 package impl
 
 import (

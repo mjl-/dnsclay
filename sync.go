@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -48,7 +47,7 @@ func serial(tm time.Time) Serial {
 
 // syncRecords syncs the records in the database with the latest records from the
 // provider. If changed is true, the caller must queue a dns notify for the zone.
-func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (changed bool, latestSOA *Record, inserted, deleted []Record, rerr error) {
+func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdns.Record) (changed bool, latestSOA *Record, inserted, deleted []Record, rerr error) {
 	// note: for dns xfr, the first and last records are the SOA records. for SOA, we only keep the last.
 
 	now := time.Now()
@@ -65,13 +64,13 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (ch
 
 	var knownSOA, prevSOA *Record
 
-	type xlibdnsRR struct {
-		Key   recordKey
-		RR    libdnsRR
-		Value string // In proper DNS zone form, not libdns with its TXT format exception.
+	type xlibdnsRecord struct {
+		Key    recordKey
+		Record libdns.Record
+		Value  string
 	}
 
-	rrsetLatest := map[rrsetKey][]xlibdnsRR{}
+	rrsetLatest := map[rrsetKey][]xlibdnsRecord{}
 	rrsetKnown := map[rrsetKey][]Record{}
 
 	q := bstore.QueryTx[Record](tx)
@@ -109,19 +108,7 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (ch
 		} else {
 			name = libdns.AbsoluteName(name, z.Name)
 		}
-		value := lr.Data
-		// In libdns, the value of TXT records are not in zone syntax, but a single string
-		// without quoting, compensate, any original breaks were not preserved.
-		if lr.Type == "TXT" {
-			var s string
-			for value != "" {
-				e := min(255, len(value))
-				s += fmt.Sprintf("%q ", value[:e])
-				value = value[e:]
-			}
-			value = s
-		}
-		text := fmt.Sprintf("$ORIGIN %s\n%s %d %s %s", z.Name, name, lr.TTL/time.Second, lr.Type, value)
+		text := fmt.Sprintf("%s %d %s %s", name, lr.TTL/time.Second, lr.Type, lr.Value)
 		rr, err := dns.NewRR(text)
 		if err != nil {
 			return false, nil, nil, nil, fmt.Errorf("parsing record %q from remote: %v", text, err)
@@ -140,20 +127,12 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (ch
 		// For AXFR, we will be getting two SOA records, at the start and end. The rfc2136
 		// passes both of them on.
 		if x, ok := rr.(*dns.SOA); ok && name == z.Name {
-			var providerDataJSON string
-			if lr.ProviderData != nil {
-				if buf, err := json.Marshal(lr.ProviderData); err != nil {
-					log.Error("marshal providerdata as json (ignoring, continuing without providerdata)", "err", err)
-				} else {
-					providerDataJSON = string(buf)
-				}
-			}
-			latestSOA = &Record{0, z.Name, Serial(x.Serial), 0, now, nil, name, Type(h.Rrtype), Class(h.Class), TTL(h.Ttl), hex, value, providerDataJSON}
+			latestSOA = &Record{0, z.Name, Serial(x.Serial), 0, now, nil, name, Type(h.Rrtype), Class(h.Class), TTL(h.Ttl), hex, value, lr.ID}
 			continue
 		}
 
 		k := recordKey{h.Name, Type(h.Rrtype), Class(h.Class), TTL(h.Ttl), hex}
-		xlr := xlibdnsRR{k, lr, value}
+		xlr := xlibdnsRecord{k, lr, value}
 		rk := rrsetKey{k.Name, k.Type, k.Class}
 		rrsetLatest[rk] = append(rrsetLatest[rk], xlr)
 	}
@@ -211,7 +190,7 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (ch
 		}
 	}
 
-	rrsetEqual := func(ll []xlibdnsRR, kl []Record) bool {
+	rrsetEqual := func(ll []xlibdnsRecord, kl []Record) bool {
 		if len(ll) != len(kl) {
 			return false
 		}
@@ -249,21 +228,13 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (ch
 		return nil
 	}
 
-	rrsetAdd := func(ll []xlibdnsRR) error {
+	rrsetAdd := func(ll []xlibdnsRecord) error {
 		if err := ensureSOA(); err != nil {
 			return err
 		}
 		for _, lr := range ll {
 			k := lr.Key
-			var providerDataJSON string
-			if lr.RR.ProviderData != nil {
-				if buf, err := json.Marshal(lr.RR.ProviderData); err != nil {
-					slog.Error("marshal providerdata as json (ignoring, continuing without providerdata)", "err", err)
-				} else {
-					providerDataJSON = string(buf)
-				}
-			}
-			r := Record{0, z.Name, latestSOA.SerialFirst, 0, now, nil, k.Name, k.Type, k.Class, k.TTL, k.DataHex, lr.Value, providerDataJSON}
+			r := Record{0, z.Name, latestSOA.SerialFirst, 0, now, nil, k.Name, k.Type, k.Class, k.TTL, k.DataHex, lr.Value, lr.Record.ID}
 			if err := tx.Insert(&r); err != nil {
 				return fmt.Errorf("insert record: %v", err)
 			}
@@ -307,7 +278,7 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (ch
 		// Check whether any SOA values other than the serial changed.
 
 		parseSOA := func(r Record) (*dns.SOA, error) {
-			text := fmt.Sprintf("$ORIGIN %s\n%s %d %s %s", z.Name, z.Name, r.TTL, dns.TypeToString[uint16(r.Type)], r.Value)
+			text := fmt.Sprintf("%s %d %s %s", z.Name, r.TTL, dns.TypeToString[uint16(r.Type)], r.Value)
 			rr, err := dns.NewRR(text)
 			if err != nil {
 				return nil, fmt.Errorf("parsing record %q from remote: %v", text, err)
@@ -370,7 +341,7 @@ func syncRecords(log *slog.Logger, tx *bstore.Tx, z Zone, latest []libdnsRR) (ch
 // database updated, and compared against the expected changes. Once all changes
 // are seen, this function returns.
 //
-// Records in expDel may or may not be existing records (with ID nonzero). If their
+// Records in expDel may or may not be existing records (with ID nonzero). if their
 // ID is nonzero, those exact records are checked for deletion.
 //
 // Must be called with zone lock held.

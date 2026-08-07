@@ -2,6 +2,10 @@ package linodego
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/go-resty/resty/v2"
 )
 
 // Domain represents a Domain object
@@ -165,15 +169,6 @@ const (
 	DomainStatusHasErrors DomainStatus = "has_errors"
 )
 
-type DomainCloneOptions struct {
-	Domain string `json:"domain"`
-}
-
-type DomainImportOptions struct {
-	Domain           string `json:"domain"`
-	RemoteNameserver string `json:"remove_nameserver"`
-}
-
 // GetUpdateOptions converts a Domain to DomainUpdateOptions for use in UpdateDomain
 func (d Domain) GetUpdateOptions() (du DomainUpdateOptions) {
 	du.Domain = d.Domain
@@ -193,47 +188,99 @@ func (d Domain) GetUpdateOptions() (du DomainUpdateOptions) {
 	return
 }
 
+// DomainsPagedResponse represents a paginated Domain API response
+type DomainsPagedResponse struct {
+	*PageOptions
+	Data []Domain `json:"data"`
+}
+
+// endpoint gets the endpoint URL for Domain
+func (DomainsPagedResponse) endpoint(_ ...any) string {
+	return "domains"
+}
+
+func (resp *DomainsPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
+	res, err := coupleAPIErrors(r.SetResult(DomainsPagedResponse{}).Get(e))
+	if err != nil {
+		return 0, 0, err
+	}
+	castedRes := res.Result().(*DomainsPagedResponse)
+	resp.Data = append(resp.Data, castedRes.Data...)
+	return castedRes.Pages, castedRes.Results, nil
+}
+
 // ListDomains lists Domains
 func (c *Client) ListDomains(ctx context.Context, opts *ListOptions) ([]Domain, error) {
-	return getPaginatedResults[Domain](ctx, c, "domains", opts)
+	response := DomainsPagedResponse{}
+	err := c.listHelper(ctx, &response, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Data, nil
 }
 
 // GetDomain gets the domain with the provided ID
 func (c *Client) GetDomain(ctx context.Context, domainID int) (*Domain, error) {
-	e := formatAPIPath("domains/%d", domainID)
-	return doGETRequest[Domain](ctx, c, e)
+	req := c.R(ctx).SetResult(&Domain{})
+	e := fmt.Sprintf("domains/%d", domainID)
+	r, err := coupleAPIErrors(req.Get(e))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Result().(*Domain), nil
 }
 
 // CreateDomain creates a Domain
 func (c *Client) CreateDomain(ctx context.Context, opts DomainCreateOptions) (*Domain, error) {
-	return doPOSTRequest[Domain](ctx, c, "domains", opts)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	req := c.R(ctx).SetResult(&Domain{}).SetBody(string(body))
+	e := "domains"
+	r, err := coupleAPIErrors(req.Post(e))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Result().(*Domain), nil
 }
 
 // UpdateDomain updates the Domain with the specified id
 func (c *Client) UpdateDomain(ctx context.Context, domainID int, opts DomainUpdateOptions) (*Domain, error) {
-	e := formatAPIPath("domains/%d", domainID)
-	return doPUTRequest[Domain](ctx, c, e, opts)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := fmt.Sprintf("domains/%d", domainID)
+	req := c.R(ctx).SetResult(&Domain{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Put(e))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Result().(*Domain), nil
 }
 
 // DeleteDomain deletes the Domain with the specified id
 func (c *Client) DeleteDomain(ctx context.Context, domainID int) error {
-	e := formatAPIPath("domains/%d", domainID)
-	return doDELETERequest(ctx, c, e)
+	e := fmt.Sprintf("domains/%d", domainID)
+	_, err := coupleAPIErrors(c.R(ctx).Delete(e))
+	return err
 }
 
 // GetDomainZoneFile gets the zone file for the last rendered zone for the specified domain.
 func (c *Client) GetDomainZoneFile(ctx context.Context, domainID int) (*DomainZoneFile, error) {
-	e := formatAPIPath("domains/%d/zone-file", domainID)
-	return doGETRequest[DomainZoneFile](ctx, c, e)
-}
+	e := fmt.Sprintf("domains/%d/zone-file", domainID)
+	req := c.R(ctx).SetResult(&DomainZoneFile{})
+	resp, err := coupleAPIErrors(req.Get(e))
+	if err != nil {
+		return nil, err
+	}
 
-// CloneDomain clones a Domain and all associated DNS records from a Domain that is registered in Linode's DNS manager.
-func (c *Client) CloneDomain(ctx context.Context, domainID int, opts DomainCloneOptions) (*Domain, error) {
-	e := formatAPIPath("domains/%d/clone", domainID)
-	return doPOSTRequest[Domain](ctx, c, e, opts)
-}
-
-// ImportDomain imports a domain zone from a remote nameserver.
-func (c *Client) ImportDomain(ctx context.Context, opts DomainImportOptions) (*Domain, error) {
-	return doPOSTRequest[Domain](ctx, c, "domains/import", opts)
+	return resp.Result().(*DomainZoneFile), nil
 }

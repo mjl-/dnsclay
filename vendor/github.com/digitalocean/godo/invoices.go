@@ -12,7 +12,7 @@ const invoicesBasePath = "v2/customers/my/invoices"
 
 // InvoicesService is an interface for interfacing with the Invoice
 // endpoints of the DigitalOcean API
-// See: https://docs.digitalocean.com/reference/api/api-reference/#tag/Billing
+// See: https://developers.digitalocean.com/documentation/v2/#invoices
 type InvoicesService interface {
 	Get(context.Context, string, *ListOptions) (*Invoice, *Response, error)
 	GetPDF(context.Context, string) ([]byte, *Response, error)
@@ -49,7 +49,6 @@ type InvoiceItem struct {
 	StartTime        time.Time `json:"start_time"`
 	EndTime          time.Time `json:"end_time"`
 	ProjectName      string    `json:"project_name"`
-	Category         string    `json:"category"`
 }
 
 // InvoiceList contains a paginated list of all of a customer's invoices.
@@ -171,7 +170,7 @@ func (s *InvoicesServiceOp) List(ctx context.Context, opt *ListOptions) (*Invoic
 	return root, resp, err
 }
 
-// GetSummary returns a summary of metadata and summarized usage for an Invoice
+// Get a summary of metadata and summarized usage for an Invoice
 func (s *InvoicesServiceOp) GetSummary(ctx context.Context, invoiceUUID string) (*InvoiceSummary, *Response, error) {
 	path := fmt.Sprintf("%s/%s/summary", invoicesBasePath, invoiceUUID)
 
@@ -189,7 +188,7 @@ func (s *InvoicesServiceOp) GetSummary(ctx context.Context, invoiceUUID string) 
 	return root, resp, err
 }
 
-// GetPDF returns the pdf for an Invoice
+// Get the pdf for an Invoice
 func (s *InvoicesServiceOp) GetPDF(ctx context.Context, invoiceUUID string) ([]byte, *Response, error) {
 	path := fmt.Sprintf("%s/%s/pdf", invoicesBasePath, invoiceUUID)
 
@@ -207,7 +206,7 @@ func (s *InvoicesServiceOp) GetPDF(ctx context.Context, invoiceUUID string) ([]b
 	return root.Bytes(), resp, err
 }
 
-// GetCSV returns the csv for an Invoice
+// Get the csv for an Invoice
 func (s *InvoicesServiceOp) GetCSV(ctx context.Context, invoiceUUID string) ([]byte, *Response, error) {
 	path := fmt.Sprintf("%s/%s/csv", invoicesBasePath, invoiceUUID)
 

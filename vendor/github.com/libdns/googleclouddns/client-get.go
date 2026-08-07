@@ -2,7 +2,6 @@ package googleclouddns
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/libdns/libdns"
 	"google.golang.org/api/dns/v1"
@@ -23,11 +22,7 @@ func (p *Provider) getCloudDNSRecords(ctx context.Context, zone string) ([]libdn
 	records := make([]libdns.Record, 0)
 	if err := rrsReq.Pages(ctx, func(page *dns.ResourceRecordSetsListResponse) error {
 		for _, googleRecord := range page.Rrsets {
-			convertedRecords, err := convertToLibDNS(googleRecord, zone)
-			if err != nil {
-				return fmt.Errorf("error converting to libdns records: %w", err)
-			}
-			records = append(records, convertedRecords...)
+			records = append(records, convertToLibDNS(googleRecord, zone)...)
 		}
 		return nil
 	}); err != nil {
@@ -51,5 +46,5 @@ func (p *Provider) getCloudDNSRecord(ctx context.Context, zone, name, recordType
 	if err != nil {
 		return nil, err
 	}
-	return convertToLibDNS(rrs, zone)
+	return convertToLibDNS(rrs, zone), nil
 }

@@ -3,8 +3,10 @@ package linodego
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/linode/linodego/internal/parseabletime"
 )
 
@@ -49,42 +51,110 @@ type LongviewPlanUpdateOptions struct {
 	LongviewSubscription string `json:"longview_subscription"`
 }
 
+// LongviewClientsPagedResponse represents a paginated LongviewClient API response
+type LongviewClientsPagedResponse struct {
+	*PageOptions
+	Data []LongviewClient `json:"data"`
+}
+
+// endpoint gets the endpoint URL for LongviewClient
+func (LongviewClientsPagedResponse) endpoint(_ ...any) string {
+	return "longview/clients"
+}
+
+func (resp *LongviewClientsPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
+	res, err := coupleAPIErrors(r.SetResult(LongviewClientsPagedResponse{}).Get(e))
+	if err != nil {
+		return 0, 0, err
+	}
+	castedRes := res.Result().(*LongviewClientsPagedResponse)
+	resp.Data = append(resp.Data, castedRes.Data...)
+	return castedRes.Pages, castedRes.Results, nil
+}
+
 // ListLongviewClients lists LongviewClients
 func (c *Client) ListLongviewClients(ctx context.Context, opts *ListOptions) ([]LongviewClient, error) {
-	return getPaginatedResults[LongviewClient](ctx, c, "longview/clients", opts)
+	response := LongviewClientsPagedResponse{}
+	err := c.listHelper(ctx, &response, opts)
+	if err != nil {
+		return nil, err
+	}
+	return response.Data, nil
 }
 
 // GetLongviewClient gets the template with the provided ID
 func (c *Client) GetLongviewClient(ctx context.Context, clientID int) (*LongviewClient, error) {
-	e := formatAPIPath("longview/clients/%d", clientID)
-	return doGETRequest[LongviewClient](ctx, c, e)
+	e := fmt.Sprintf("longview/clients/%d", clientID)
+	r, err := c.R(ctx).SetResult(&LongviewClient{}).Get(e)
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*LongviewClient), nil
 }
 
 // CreateLongviewClient creates a Longview Client
 func (c *Client) CreateLongviewClient(ctx context.Context, opts LongviewClientCreateOptions) (*LongviewClient, error) {
-	return doPOSTRequest[LongviewClient](ctx, c, "longview/clients", opts)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := "longview/clients"
+	req := c.R(ctx).SetResult(&LongviewClient{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Post(e))
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*LongviewClient), nil
 }
 
 // DeleteLongviewClient deletes a Longview Client
 func (c *Client) DeleteLongviewClient(ctx context.Context, clientID int) error {
-	e := formatAPIPath("longview/clients/%d", clientID)
-	return doDELETERequest(ctx, c, e)
+	e := fmt.Sprintf("longview/clients/%d", clientID)
+	_, err := coupleAPIErrors(c.R(ctx).Delete(e))
+	return err
 }
 
 // UpdateLongviewClient updates a Longview Client
 func (c *Client) UpdateLongviewClient(ctx context.Context, clientID int, opts LongviewClientUpdateOptions) (*LongviewClient, error) {
-	e := formatAPIPath("longview/clients/%d", clientID)
-	return doPUTRequest[LongviewClient](ctx, c, e, opts)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := fmt.Sprintf("longview/clients/%d", clientID)
+	req := c.R(ctx).SetResult(&LongviewClient{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Put(e))
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*LongviewClient), nil
 }
 
 // GetLongviewPlan gets the template with the provided ID
 func (c *Client) GetLongviewPlan(ctx context.Context) (*LongviewPlan, error) {
-	return doGETRequest[LongviewPlan](ctx, c, "longview/plan")
+	e := "longview/plan"
+	r, err := c.R(ctx).SetResult(&LongviewPlan{}).Get(e)
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*LongviewPlan), nil
 }
 
 // UpdateLongviewPlan updates a Longview Plan
 func (c *Client) UpdateLongviewPlan(ctx context.Context, opts LongviewPlanUpdateOptions) (*LongviewPlan, error) {
-	return doPUTRequest[LongviewPlan](ctx, c, "longview/plan", opts)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := "longview/plan"
+	req := c.R(ctx).SetResult(&LongviewPlan{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Put(e))
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*LongviewPlan), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface
@@ -93,7 +163,6 @@ func (i *LongviewClient) UnmarshalJSON(b []byte) error {
 
 	p := struct {
 		*Mask
-
 		Created *parseabletime.ParseableTime `json:"created"`
 		Updated *parseabletime.ParseableTime `json:"updated"`
 	}{

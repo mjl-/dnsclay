@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/scaleway/scaleway-sdk-go/marshaler"
+	"github.com/scaleway/scaleway-sdk-go/internal/marshaler"
+	"github.com/scaleway/scaleway-sdk-go/internal/parameter"
 	"github.com/scaleway/scaleway-sdk-go/namegenerator"
-	"github.com/scaleway/scaleway-sdk-go/parameter"
 	"github.com/scaleway/scaleway-sdk-go/scw"
 )
 
@@ -50,18 +50,9 @@ const (
 func (enum LanguageCode) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(LanguageCodeUnknownLanguageCode)
+		return "unknown_language_code"
 	}
 	return string(enum)
-}
-
-func (enum LanguageCode) Values() []LanguageCode {
-	return []LanguageCode{
-		"unknown_language_code",
-		"en_US",
-		"fr_FR",
-		"de_DE",
-	}
 }
 
 func (enum LanguageCode) MarshalJSON() ([]byte, error) {

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dnsimple/dnsimple-go/v7/dnsimple"
+	"github.com/dnsimple/dnsimple-go/dnsimple"
 	"github.com/libdns/libdns"
 )
 
@@ -31,7 +31,6 @@ func (p *Provider) initClient(ctx context.Context) {
 		// Create new DNSimple client using the provided access token.
 		tc := dnsimple.StaticTokenHTTPClient(ctx, p.APIAccessToken)
 		c := dnsimple.NewClient(tc)
-		c.UserAgent = "libdns"
 		// Set the API URL if using a non-default API hostname (e.g. sandbox).
 		if p.APIURL != "" {
 			c.BaseURL = p.APIURL
@@ -50,37 +49,26 @@ func (p *Provider) initClient(ctx context.Context) {
 
 // Internal helper function to fetch records from the provider, note that this function assumes
 // the called is holding a lock on the mutex and has already initialized the client.
-func (p *Provider) getRecordsFromProvider(ctx context.Context, zone string) ([]dnsimple.ZoneRecord, error) {
+func (p *Provider) getRecordsFromProvider(ctx context.Context, zone string) ([]libdns.Record, error) {
+	var records []libdns.Record
+
 	resp, err := p.client.Zones.ListRecords(ctx, p.AccountID, unFQDN(zone), &dnsimple.ZoneRecordListOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if resp.Data == nil {
-		return nil, fmt.Errorf("no data returned from DNSimple API")
+	for _, r := range resp.Data {
+		record := libdns.Record{
+			ID:       strconv.FormatInt(r.ID, 10),
+			Type:     r.Type,
+			Name:     r.Name,
+			Value:    r.Content,
+			TTL:      time.Duration(r.TTL * int(time.Second)),
+			Priority: uint(r.Priority),
+		}
+		records = append(records, record)
 	}
-	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("no records found for zone %s", zone)
-	}
-	return resp.Data, nil
-}
 
-// zoneRecordToRR converts a dnsimple.ZoneRecord to a libdns.RR.
-func (p *Provider) zoneRecordToRR(r dnsimple.ZoneRecord) libdns.RR {
-	return libdns.RR{
-		Name: r.Name,
-		TTL:  time.Duration(r.TTL * int(time.Second)),
-		Type: r.Type,
-		Data: r.Content,
-	}
-}
-
-// zoneRecordToRecord converts a dnsimple.ZoneRecord to a libdns.Record.
-func (p *Provider) zoneRecordToRecord(r dnsimple.ZoneRecord) libdns.Record {
-	record, err := libdns.RR.Parse(p.zoneRecordToRR(r))
-	if err != nil {
-		return nil
-	}
-	return record
+	return records, nil
 }
 
 // GetRecords lists all the records in the zone.
@@ -89,17 +77,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	defer p.mutex.Unlock()
 	p.initClient(ctx)
 
-	records := []libdns.Record{}
-
-	resp, err := p.client.Zones.ListRecords(ctx, p.AccountID, unFQDN(zone), nil)
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range resp.Data {
-		records = append(records, p.zoneRecordToRecord(r))
-	}
-
-	return records, nil
+	return p.getRecordsFromProvider(ctx, zone)
 }
 
 // Internal helper function that actually creates the records, does not hold a lock since the called is
@@ -115,13 +93,13 @@ func (p *Provider) createRecords(ctx context.Context, zone string, records []lib
 	zoneID := strconv.FormatInt(resp.Data.ID, 10)
 
 	for _, r := range records {
-		rr := r.RR()
 		attrs := dnsimple.ZoneRecordAttributes{
-			ZoneID:  zoneID,
-			Type:    rr.Type,
-			Name:    &rr.Name,
-			Content: rr.Data,
-			TTL:     int(rr.TTL.Seconds()),
+			ZoneID:   zoneID,
+			Type:     r.Type,
+			Name:     &r.Name,
+			Content:  r.Value,
+			TTL:      int(r.TTL.Seconds()),
+			Priority: int(r.Priority),
 		}
 		resp, err := p.client.Zones.CreateRecord(ctx, p.AccountID, unFQDN(zone), attrs)
 		if err != nil {
@@ -129,9 +107,10 @@ func (p *Provider) createRecords(ctx context.Context, zone string, records []lib
 		}
 		// See https://developer.dnsimple.com/v2/zones/records/#createZoneRecord
 		if resp.HTTPResponse.StatusCode == http.StatusCreated {
+			r.ID = strconv.FormatInt(resp.Data.ID, 10)
 			createdRecords = append(createdRecords, r)
 		} else {
-			return nil, fmt.Errorf("error creating record: %s, error: %s", rr.Name, resp.HTTPResponse.Status)
+			return nil, fmt.Errorf("error creating record: %s, error: %s", r.Name, resp.HTTPResponse.Status)
 		}
 	}
 	return createdRecords, nil
@@ -161,11 +140,14 @@ func (p *Provider) getRecordsToCreateAndUpdate(ctx context.Context, zone string,
 	for _, r := range records {
 		updateMap[r] = true
 		for _, er := range existingRecords {
-			exrr := p.zoneRecordToRR(er)
-			if r.RR().Name == exrr.Name && r.RR().Type == exrr.Type {
-				recordsToUpdate = append(recordsToUpdate, r)
-				updateMap[r] = false
+			if r.Name != er.Name {
+				continue
 			}
+			if r.ID == "0" || r.ID == "" {
+				r.ID = er.ID
+			}
+			recordsToUpdate = append(recordsToUpdate, r)
+			updateMap[r] = false
 		}
 	}
 	// If the record is not updating an existing record, we want to create it
@@ -176,25 +158,6 @@ func (p *Provider) getRecordsToCreateAndUpdate(ctx context.Context, zone string,
 	}
 
 	return recordsToCreate, recordsToUpdate, nil
-}
-
-// FetchRecordID fetches the ID of a record in the zone, matching both the name and the type.
-func (p *Provider) getRecordID(ctx context.Context, zone string, recordType string, name string) (int64, error) {
-	// resp, err := p.getRecordsFromProvider(ctx, zone)
-	opts := &dnsimple.ZoneRecordListOptions{
-		NameLike: &name,
-		Type:     &recordType,
-	}
-	resp, err := p.client.Zones.ListRecords(ctx, p.AccountID, zone, opts)
-	if err != nil {
-		return 0, err
-	}
-	if len(resp.Data) == 0 {
-		return 0, fmt.Errorf("record not found")
-	}
-	rid := resp.Data[0].ID
-
-	return rid, nil
 }
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
@@ -229,27 +192,25 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 
 	// Update existing records and append them to 'SetRecords'
 	for _, r := range recordsToUpdate {
-		rr := r.RR()
 		attrs := dnsimple.ZoneRecordAttributes{
-			ZoneID:  zoneID,
-			Type:    rr.Type,
-			Name:    &rr.Name,
-			Content: rr.Data,
+			ZoneID:   zoneID,
+			Type:     r.Type,
+			Name:     &r.Name,
+			Content:  r.Value,
+			TTL:      int(r.TTL.Seconds()),
+			Priority: int(r.Priority),
 		}
-		rid, err := p.getRecordID(ctx, zoneID, rr.Type, rr.Name)
+		id, err := strconv.ParseInt(r.ID, 10, 64)
 		if err != nil {
 			return nil, err
 		}
-		if rid == -1 {
-			return nil, fmt.Errorf("record not found")
-		}
-
-		resp, err := p.client.Zones.UpdateRecord(ctx, p.AccountID, unFQDN(zone), rid, attrs)
+		resp, err := p.client.Zones.UpdateRecord(ctx, p.AccountID, unFQDN(zone), id, attrs)
 		if err != nil {
 			return nil, err
 		}
 		// https://developer.dnsimple.com/v2/zones/records/#updateZoneRecord
 		if resp.HTTPResponse.StatusCode == http.StatusOK {
+			r.ID = strconv.FormatInt(resp.Data.ID, 10)
 			setRecords = append(setRecords, r)
 		} else {
 			return nil, fmt.Errorf("error updating record: %s", resp.HTTPResponse.Status)
@@ -265,15 +226,22 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	p.initClient(ctx)
 
 	var deleted []libdns.Record
+	var noID []libdns.Record
 
 	for _, r := range records {
-		rr := r.RR()
-		rid, err := p.getRecordID(ctx, unFQDN(zone), rr.Type, rr.Name)
+		// If the record does not have an ID, we'll try to find it by calling the API later
+		// and extrapolating its ID based on the record name, but continue for now.
+		if r.ID == "0" || r.ID == "" {
+			noID = append(noID, r)
+			continue
+		}
+
+		id, err := strconv.ParseInt(r.ID, 10, 64)
 		if err != nil {
 			return deleted, err
 		}
 
-		resp, err := p.client.Zones.DeleteRecord(ctx, p.AccountID, unFQDN(zone), rid)
+		resp, err := p.client.Zones.DeleteRecord(ctx, p.AccountID, unFQDN(zone), id)
 		if err != nil {
 			return deleted, err
 		}
@@ -281,7 +249,42 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		if resp.HTTPResponse.StatusCode == http.StatusNoContent {
 			deleted = append(deleted, r)
 		} else {
-			return nil, fmt.Errorf("error deleting record: %s, error: %s", rr.Name, resp.HTTPResponse.Status)
+			return nil, fmt.Errorf("error deleting record: %s, error: %s", r.Name, resp.HTTPResponse.Status)
+		}
+	}
+
+	// Return early if there are no records we need to try and find IDs for
+	if len(noID) == 0 {
+		return deleted, nil
+	}
+
+	// If we received records without an ID earlier, we're going to try and figure out the ID by calling
+	// GetRecords and comparing the record name. If we're able to find it, we'll delete it, otherwise
+	// we'll append it to our list of failed to delete records.
+	existingRecords, err := p.getRecordsFromProvider(ctx, zone)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing records: %s", err.Error())
+	}
+	for _, r := range noID {
+		for _, fr := range existingRecords {
+			if r.Name != fr.Name {
+				continue
+			}
+			id, err := strconv.ParseInt(fr.ID, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := p.client.Zones.DeleteRecord(ctx, p.AccountID, unFQDN(zone), id)
+			if err != nil {
+				return nil, err
+			}
+			// See https://developer.dnsimple.com/v2/zones/records/#deleteZoneRecord for API response codes
+			if resp.HTTPResponse.StatusCode == http.StatusNoContent {
+				deleted = append(deleted, r)
+			} else {
+				return nil, fmt.Errorf("error deleting record: %s, error: %s", r.Name, resp.HTTPResponse.Status)
+			}
+			break
 		}
 	}
 	return deleted, nil

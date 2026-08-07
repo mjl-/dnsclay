@@ -26,6 +26,5 @@ _testmain.go
 coverage.out
 coverage.txt
 
-# Exclude IDE folders
+# Exclude intellij IDE folders
 .idea/*
-.vscode/*

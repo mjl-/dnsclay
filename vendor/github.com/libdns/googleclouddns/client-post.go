@@ -22,14 +22,13 @@ func (p *Provider) postCloudDNSRecord(ctx context.Context, zone string, recordsT
 	if len(recordsToSend) == 0 {
 		return nil, fmt.Errorf("no records available to add to zone %s", zone)
 	}
-	recordToSend := recordsToSend[0].RR()
-	name := recordToSend.Name
+	name := recordsToSend[0].Name
 	fullName := libdns.AbsoluteName(name, zone)
 	rrs := dns.ResourceRecordSet{
 		Name:    fullName,
 		Rrdatas: make([]string, 0),
-		Ttl:     int64(recordToSend.TTL / time.Second),
-		Type:    recordToSend.Type,
+		Ttl:     int64(recordsToSend[0].TTL / time.Second),
+		Type:    recordsToSend[0].Type,
 	}
 	rrs.Rrdatas = recordsToSend.prepValuesForCloudDNS()
 	googleRecord, err := p.service.ResourceRecordSets.Create(p.Project, gcdZone, &rrs).Context(ctx).Do()
@@ -43,5 +42,5 @@ func (p *Provider) postCloudDNSRecord(ctx context.Context, zone string, recordsT
 			return nil, err
 		}
 	}
-	return convertToLibDNS(googleRecord, zone)
+	return convertToLibDNS(googleRecord, zone), nil
 }

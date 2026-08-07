@@ -1,33 +1,22 @@
-NOTE: modified version of github.com/libdns/libdns: RR.Parse returns the RR in
-its generic form, not actually parsing it into a SRV/SVCB/TXT/etc record, since
-that may mangle the record name (!) and/or return an error if the name isn't to
-the liking of libdns. For use with github.com/mjl-/dnsclay.
-
-
 libdns - Universal DNS provider APIs for Go
 ===========================================
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/libdns/libdns)](https://pkg.go.dev/github.com/libdns/libdns)
+<a href="https://pkg.go.dev/github.com/libdns/libdns"><img src="https://img.shields.io/badge/godoc-reference-blue.svg"></a>
+
+**⚠️ Work-in-progress. Exported APIs are subject to change.**
 
 `libdns` is a collection of free-range DNS provider client implementations written in Go! With libdns packages, your Go program can manage DNS records across any supported providers. A "provider" is a service or program that manages a DNS zone.
 
-This repository defines the core APIs that provider packages should implement. They are small and idiomatic Go interfaces with well-defined semantics for managing DNS records.
+This repository defines the core interfaces that provider packages should implement. They are small and idiomatic Go interfaces with well-defined semantics.
 
 The interfaces include:
 
 - [`RecordGetter`](https://pkg.go.dev/github.com/libdns/libdns#RecordGetter) to list records.
-- [`RecordAppender`](https://pkg.go.dev/github.com/libdns/libdns#RecordAppender) to create new records.
-- [`RecordSetter`](https://pkg.go.dev/github.com/libdns/libdns#RecordSetter) to set (create or update) records.
+- [`RecordAppender`](https://pkg.go.dev/github.com/libdns/libdns#RecordAppender) to append new records.
+- [`RecordSetter`](https://pkg.go.dev/github.com/libdns/libdns#RecordSetter) to set (create or change existing) records.
 - [`RecordDeleter`](https://pkg.go.dev/github.com/libdns/libdns#RecordDeleter) to delete records.
-- [`ZoneLister`](https://pkg.go.dev/github.com/libdns/libdns#ZoneLister) to list zones.
 
-**[See full godoc for detailed information.](https://pkg.go.dev/github.com/libdns/libdns)**
-
-## Implementations
-
-This package only defines standardized APIs described above. To actually manipulate DNS records/zones, you will need [a package specific to your provider](https://github.com/orgs/libdns/repositories?type=all) that implements these interfaces.
-
-You can choose from over 80 packages at [https://github.com/libdns](https://github.com/orgs/libdns/repositories?type=all).
+[See full godoc for detailed documentation.](https://pkg.go.dev/github.com/libdns/libdns)
 
 
 ## Example
@@ -50,19 +39,19 @@ provider := cloudflare.Provider{APIToken: "topsecret"}
 // list records
 recs, err := provider.GetRecords(ctx, zone)
 
-// create records (AppendRecords is similar, with different semantics)
+// create records (AppendRecords is similar)
 newRecs, err := provider.SetRecords(ctx, zone, []libdns.Record{
-	libdns.Address{
-		Name:  "@",
-		Value: netip.MustParseAddr("1.2.3.4"),
+	{
+		Type:  "A",
+		Name:  "sub",
+		Value: "1.2.3.4",
 	},
 })
 
-// delete records
+// delete records (this example uses provider-assigned ID)
 deletedRecs, err := provider.DeleteRecords(ctx, zone, []libdns.Record{
-	libdns.TXT{
-		Name: "subdomain",
-		Text: "txt value I want to delete"
+	{
+		ID: "foobar",
 	},
 })
 
@@ -73,9 +62,9 @@ deletedRecs, err := provider.DeleteRecords(ctx, zone, []libdns.Record{
 
 ## Implementing new provider packages
 
-Provider packages are 100% written and maintained by the community! Collectively, we as members of the community each maintain the packages for providers we personally use.
+Provider packages are 100% written and maintained by the community! Collectively, we all maintain the packages for providers we individually use.
 
-**[Instructions for adding new libdns packages](https://github.com/libdns/libdns/wiki/Implementing-a-libdns-package)** are on this repo's wiki. Please feel free to contribute a package for your provider!
+**[Instructions for adding new libdns packages](https://github.com/libdns/libdns/wiki/Implementing-a-libdns-package)** are on this repo's wiki. Please feel free to contribute yours!
 
 
 ## Similar projects
@@ -88,14 +77,15 @@ This is incredibly useful when you are maintaining your own zone file, but risky
 
 **[StackExchange/dnscontrol](https://github.com/StackExchange/dnscontrol)** is written in Go, but is similar to OctoDNS in that it tends to obliterate your entire zone and replace it with your input. Again, this is very useful if you are maintaining your own master list of records, but doesn't do well for simply adding or removing records.
 
-**[go-acme/lego](https://github.com/go-acme/lego)** supports many DNS providers, but their APIs are only capable of setting and deleting TXT records for ACME challenges.
+**[go-acme/lego](https://github.com/go-acme/lego)** has support for a huge number of DNS providers (75+!), but their APIs are only capable of setting and deleting TXT records for ACME challenges.
 
-**[miekg/dns](https://github.com/miekg/dns)** is a comprehensive, low-level DNS library for Go programs. It is well-maintained and extremely thorough, but also too low-level to be effective for our use cases.
-
-**`libdns`** takes inspiration from the above projects but aims for a more generally-useful set of high-level APIs that homogenize pretty well across providers. In contrast to most of the above projects, libdns can add, set, delete, and get arbitrary records from a zone without obliterating it (although syncing up an entire zone is also possible!). Its APIs also include context so long-running calls can be cancelled early, for example to accommodate on-line config changes downstream. libdns interfaces are also smaller and more composable. Additionally, libdns can grow to support a nearly infinite number of DNS providers without added bloat, because each provider implementation is a separate Go module, which keeps your builds lean and fast.
+**`libdns`** takes inspiration from the above projects but aims for a more generally-useful set of APIs that homogenize pretty well across providers. In contrast to the above projects, libdns can add, set, delete, and get arbitrary records from a zone without obliterating it (although syncing up an entire zone is also possible!). Its APIs also include context so long-running calls can be cancelled early, for example to accommodate on-line config changes downstream. libdns interfaces are also smaller and more composable. Additionally, libdns can grow to support a nearly infinite number of DNS providers without added bloat, because each provider implementation is a separate Go module, which keeps your builds lean and fast.
 
 In summary, the goal is that libdns providers can do what the above libraries/tools can do, but with more flexibility: they can create and delete TXT records for ACME challenges, they can replace entire zones, but they can also do incremental changes or simply read records.
 
-**Whatever libdns is used for with your DNS zone, it is presumed that only your libdns code is manipulating that (part of your) zone.** This package does not provide synchronization primitives, but your own code can do that if necessary.
 
-Realistically, libdns should enable most common record manipulations, but may not be able to fit absolutely 100% of all possibilities with DNS in a provider-agnostic way. That is probably OK; and given the wide varieties in DNS record types and provider APIs, it would be unreasonable to expect otherwise. **Our goal is 100% fulfillment of ~99% of use cases / user requirements, not 100% fulfillment of 100% of use cases.**
+## Record abstraction
+
+How records are represented across providers varies widely, and each kind of record has different fields and semantics. In time, our goal is for the `libdns.Record` type to be able to represent most of them as concisely and simply as possible, with the interface methods able to deliver on most of the possible zone operations.
+
+Realistically, libdns should enable most common record manipulations, but may not be able to fit absolutely 100% of all possibilities with DNS in a provider-agnostic way. That is probably OK; and given the wide varieties in DNS record types and provider APIs, it would be unreasonable to expect otherwise. We are not aiming for 100% fulfillment of 100% of users' requirements; more like 100% fulfillment of ~90% of users' requirements.

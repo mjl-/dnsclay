@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: 2024 Peter Magnusson <me@kmpm.se>
-#
-# SPDX-License-Identifier: CC0-1.0
 
 .PHONY: all tidy test audit
 
@@ -27,9 +24,4 @@ audit:
 	go run honnef.co/go/tools/cmd/staticcheck@latest -checks=all,-ST1000,-U1000 ./...
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
-
-no-dirty:
-	@echo "checking for uncommitted changes..."
-	git diff --exit-code
-	git diff --cached --exit-code
 

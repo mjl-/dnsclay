@@ -2,30 +2,27 @@ package linodego
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/go-resty/resty/v2"
 )
 
 // NodeBalancerConfig objects allow a NodeBalancer to accept traffic on a new port
 type NodeBalancerConfig struct {
-	ID            int                 `json:"id"`
-	Port          int                 `json:"port"`
-	Protocol      ConfigProtocol      `json:"protocol"`
-	ProxyProtocol ConfigProxyProtocol `json:"proxy_protocol"`
-	Algorithm     ConfigAlgorithm     `json:"algorithm"`
-	Stickiness    ConfigStickiness    `json:"stickiness"`
-	Check         ConfigCheck         `json:"check"`
-	CheckInterval int                 `json:"check_interval"`
-	CheckAttempts int                 `json:"check_attempts"`
-	CheckPath     string              `json:"check_path"`
-	CheckBody     string              `json:"check_body"`
-	CheckPassive  bool                `json:"check_passive"`
-	CheckTimeout  int                 `json:"check_timeout"`
-
-	// NOTE: UDPCheckPort may not currently be available to all users.
-	UDPCheckPort int `json:"udp_check_port"`
-
-	// NOTE: UDPSessionTimeout may not currently be available to all users.
-	UDPSessionTimeout int `json:"udp_session_timeout"`
-
+	ID             int                     `json:"id"`
+	Port           int                     `json:"port"`
+	Protocol       ConfigProtocol          `json:"protocol"`
+	ProxyProtocol  ConfigProxyProtocol     `json:"proxy_protocol"`
+	Algorithm      ConfigAlgorithm         `json:"algorithm"`
+	Stickiness     ConfigStickiness        `json:"stickiness"`
+	Check          ConfigCheck             `json:"check"`
+	CheckInterval  int                     `json:"check_interval"`
+	CheckAttempts  int                     `json:"check_attempts"`
+	CheckPath      string                  `json:"check_path"`
+	CheckBody      string                  `json:"check_body"`
+	CheckPassive   bool                    `json:"check_passive"`
+	CheckTimeout   int                     `json:"check_timeout"`
 	CipherSuite    ConfigCipher            `json:"cipher_suite"`
 	NodeBalancerID int                     `json:"nodebalancer_id"`
 	SSLCommonName  string                  `json:"ssl_commonname"`
@@ -43,7 +40,6 @@ const (
 	AlgorithmRoundRobin ConfigAlgorithm = "roundrobin"
 	AlgorithmLeastConn  ConfigAlgorithm = "leastconn"
 	AlgorithmSource     ConfigAlgorithm = "source"
-	AlgorithmRingHash   ConfigAlgorithm = "ring_hash"
 )
 
 // ConfigStickiness constants start with Stickiness and include Linode API NodeBalancer Config Stickiness
@@ -52,10 +48,8 @@ type ConfigStickiness string
 // ConfigStickiness constants reflect the node stickiness method for a NodeBalancer Config
 const (
 	StickinessNone       ConfigStickiness = "none"
-	StickinessSession    ConfigStickiness = "session"
 	StickinessTable      ConfigStickiness = "table"
 	StickinessHTTPCookie ConfigStickiness = "http_cookie"
-	StickinessSourceIP   ConfigStickiness = "source_ip"
 )
 
 // ConfigCheck constants start with Check and include Linode API NodeBalancer Config Check methods
@@ -77,13 +71,12 @@ const (
 	ProtocolHTTP  ConfigProtocol = "http"
 	ProtocolHTTPS ConfigProtocol = "https"
 	ProtocolTCP   ConfigProtocol = "tcp"
-	ProtocolUDP   ConfigProtocol = "udp"
 )
 
 // ConfigProxyProtocol constants start with ProxyProtocol and include Linode API NodeBalancer Config proxy protocol versions
 type ConfigProxyProtocol string
 
-// ConfigProxyProtocol constants reflect the proxy protocol version used by a NodeBalancer Config
+// ConfigProxyProtocol constatns reflect the proxy protocol version used by a NodeBalancer Config
 const (
 	ProxyProtocolNone ConfigProxyProtocol = "none"
 	ProxyProtocolV1   ConfigProxyProtocol = "v1"
@@ -107,58 +100,42 @@ type NodeBalancerNodeStatus struct {
 
 // NodeBalancerConfigCreateOptions are permitted by CreateNodeBalancerConfig
 type NodeBalancerConfigCreateOptions struct {
-	Port          int                 `json:"port"`
-	Protocol      ConfigProtocol      `json:"protocol,omitempty"`
-	ProxyProtocol ConfigProxyProtocol `json:"proxy_protocol,omitempty"`
-	Algorithm     ConfigAlgorithm     `json:"algorithm,omitempty"`
-	Stickiness    ConfigStickiness    `json:"stickiness,omitempty"`
-	Check         ConfigCheck         `json:"check,omitempty"`
-	CheckInterval int                 `json:"check_interval,omitempty"`
-	CheckAttempts int                 `json:"check_attempts,omitempty"`
-	CheckPath     string              `json:"check_path,omitempty"`
-	CheckBody     string              `json:"check_body,omitempty"`
-	CheckPassive  *bool               `json:"check_passive,omitempty"`
-	CheckTimeout  int                 `json:"check_timeout,omitempty"`
-
-	// NOTE: UDPCheckPort may not currently be available to all users.
-	UDPCheckPort *int `json:"udp_check_port,omitempty"`
-
-	CipherSuite ConfigCipher                    `json:"cipher_suite,omitempty"`
-	SSLCert     string                          `json:"ssl_cert,omitempty"`
-	SSLKey      string                          `json:"ssl_key,omitempty"`
-	Nodes       []NodeBalancerNodeCreateOptions `json:"nodes,omitempty"`
+	Port          int                             `json:"port"`
+	Protocol      ConfigProtocol                  `json:"protocol,omitempty"`
+	ProxyProtocol ConfigProxyProtocol             `json:"proxy_protocol,omitempty"`
+	Algorithm     ConfigAlgorithm                 `json:"algorithm,omitempty"`
+	Stickiness    ConfigStickiness                `json:"stickiness,omitempty"`
+	Check         ConfigCheck                     `json:"check,omitempty"`
+	CheckInterval int                             `json:"check_interval,omitempty"`
+	CheckAttempts int                             `json:"check_attempts,omitempty"`
+	CheckPath     string                          `json:"check_path,omitempty"`
+	CheckBody     string                          `json:"check_body,omitempty"`
+	CheckPassive  *bool                           `json:"check_passive,omitempty"`
+	CheckTimeout  int                             `json:"check_timeout,omitempty"`
+	CipherSuite   ConfigCipher                    `json:"cipher_suite,omitempty"`
+	SSLCert       string                          `json:"ssl_cert,omitempty"`
+	SSLKey        string                          `json:"ssl_key,omitempty"`
+	Nodes         []NodeBalancerNodeCreateOptions `json:"nodes,omitempty"`
 }
 
 // NodeBalancerConfigRebuildOptions used by RebuildNodeBalancerConfig
 type NodeBalancerConfigRebuildOptions struct {
-	Port          int                 `json:"port"`
-	Protocol      ConfigProtocol      `json:"protocol,omitempty"`
-	ProxyProtocol ConfigProxyProtocol `json:"proxy_protocol,omitempty"`
-	Algorithm     ConfigAlgorithm     `json:"algorithm,omitempty"`
-	Stickiness    ConfigStickiness    `json:"stickiness,omitempty"`
-	Check         ConfigCheck         `json:"check,omitempty"`
-	CheckInterval int                 `json:"check_interval,omitempty"`
-	CheckAttempts int                 `json:"check_attempts,omitempty"`
-	CheckPath     string              `json:"check_path,omitempty"`
-	CheckBody     string              `json:"check_body,omitempty"`
-	CheckPassive  *bool               `json:"check_passive,omitempty"`
-	CheckTimeout  int                 `json:"check_timeout,omitempty"`
-
-	// NOTE: UDPCheckPort may not currently be available to all users.
-	UDPCheckPort *int `json:"udp_check_port,omitempty"`
-
-	CipherSuite ConfigCipher                           `json:"cipher_suite,omitempty"`
-	SSLCert     string                                 `json:"ssl_cert,omitempty"`
-	SSLKey      string                                 `json:"ssl_key,omitempty"`
-	Nodes       []NodeBalancerConfigRebuildNodeOptions `json:"nodes"`
-}
-
-// NodeBalancerConfigRebuildNodeOptions represents a node defined when rebuilding a
-// NodeBalancer config.
-type NodeBalancerConfigRebuildNodeOptions struct {
-	NodeBalancerNodeCreateOptions
-
-	ID int `json:"id,omitempty"`
+	Port          int                             `json:"port"`
+	Protocol      ConfigProtocol                  `json:"protocol,omitempty"`
+	ProxyProtocol ConfigProxyProtocol             `json:"proxy_protocol,omitempty"`
+	Algorithm     ConfigAlgorithm                 `json:"algorithm,omitempty"`
+	Stickiness    ConfigStickiness                `json:"stickiness,omitempty"`
+	Check         ConfigCheck                     `json:"check,omitempty"`
+	CheckInterval int                             `json:"check_interval,omitempty"`
+	CheckAttempts int                             `json:"check_attempts,omitempty"`
+	CheckPath     string                          `json:"check_path,omitempty"`
+	CheckBody     string                          `json:"check_body,omitempty"`
+	CheckPassive  *bool                           `json:"check_passive,omitempty"`
+	CheckTimeout  int                             `json:"check_timeout,omitempty"`
+	CipherSuite   ConfigCipher                    `json:"cipher_suite,omitempty"`
+	SSLCert       string                          `json:"ssl_cert,omitempty"`
+	SSLKey        string                          `json:"ssl_key,omitempty"`
+	Nodes         []NodeBalancerNodeCreateOptions `json:"nodes"`
 }
 
 // NodeBalancerConfigUpdateOptions are permitted by UpdateNodeBalancerConfig
@@ -166,11 +143,6 @@ type NodeBalancerConfigUpdateOptions NodeBalancerConfigCreateOptions
 
 // GetCreateOptions converts a NodeBalancerConfig to NodeBalancerConfigCreateOptions for use in CreateNodeBalancerConfig
 func (i NodeBalancerConfig) GetCreateOptions() NodeBalancerConfigCreateOptions {
-	var udpCheckPort *int
-	if i.UDPCheckPort != 0 {
-		udpCheckPort = &i.UDPCheckPort
-	}
-
 	return NodeBalancerConfigCreateOptions{
 		Port:          i.Port,
 		Protocol:      i.Protocol,
@@ -184,7 +156,6 @@ func (i NodeBalancerConfig) GetCreateOptions() NodeBalancerConfigCreateOptions {
 		CheckPath:     i.CheckPath,
 		CheckBody:     i.CheckBody,
 		CheckPassive:  copyBool(&i.CheckPassive),
-		UDPCheckPort:  udpCheckPort,
 		CipherSuite:   i.CipherSuite,
 		SSLCert:       i.SSLCert,
 		SSLKey:        i.SSLKey,
@@ -193,11 +164,6 @@ func (i NodeBalancerConfig) GetCreateOptions() NodeBalancerConfigCreateOptions {
 
 // GetUpdateOptions converts a NodeBalancerConfig to NodeBalancerConfigUpdateOptions for use in UpdateNodeBalancerConfig
 func (i NodeBalancerConfig) GetUpdateOptions() NodeBalancerConfigUpdateOptions {
-	var udpCheckPort *int
-	if i.UDPCheckPort != 0 {
-		udpCheckPort = &i.UDPCheckPort
-	}
-
 	return NodeBalancerConfigUpdateOptions{
 		Port:          i.Port,
 		Protocol:      i.Protocol,
@@ -211,7 +177,6 @@ func (i NodeBalancerConfig) GetUpdateOptions() NodeBalancerConfigUpdateOptions {
 		CheckBody:     i.CheckBody,
 		CheckPassive:  copyBool(&i.CheckPassive),
 		CheckTimeout:  i.CheckTimeout,
-		UDPCheckPort:  udpCheckPort,
 		CipherSuite:   i.CipherSuite,
 		SSLCert:       i.SSLCert,
 		SSLKey:        i.SSLKey,
@@ -220,11 +185,6 @@ func (i NodeBalancerConfig) GetUpdateOptions() NodeBalancerConfigUpdateOptions {
 
 // GetRebuildOptions converts a NodeBalancerConfig to NodeBalancerConfigRebuildOptions for use in RebuildNodeBalancerConfig
 func (i NodeBalancerConfig) GetRebuildOptions() NodeBalancerConfigRebuildOptions {
-	var udpCheckPort *int
-	if i.UDPCheckPort != 0 {
-		udpCheckPort = &i.UDPCheckPort
-	}
-
 	return NodeBalancerConfigRebuildOptions{
 		Port:          i.Port,
 		Protocol:      i.Protocol,
@@ -238,55 +198,107 @@ func (i NodeBalancerConfig) GetRebuildOptions() NodeBalancerConfigRebuildOptions
 		CheckPath:     i.CheckPath,
 		CheckBody:     i.CheckBody,
 		CheckPassive:  copyBool(&i.CheckPassive),
-		UDPCheckPort:  udpCheckPort,
 		CipherSuite:   i.CipherSuite,
 		SSLCert:       i.SSLCert,
 		SSLKey:        i.SSLKey,
-		Nodes:         make([]NodeBalancerConfigRebuildNodeOptions, 0),
+		Nodes:         make([]NodeBalancerNodeCreateOptions, 0),
 	}
+}
+
+// NodeBalancerConfigsPagedResponse represents a paginated NodeBalancerConfig API response
+type NodeBalancerConfigsPagedResponse struct {
+	*PageOptions
+	Data []NodeBalancerConfig `json:"data"`
+}
+
+// endpoint gets the endpoint URL for NodeBalancerConfig
+func (NodeBalancerConfigsPagedResponse) endpoint(ids ...any) string {
+	id := ids[0].(int)
+	return fmt.Sprintf("nodebalancers/%d/configs", id)
+}
+
+func (resp *NodeBalancerConfigsPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
+	res, err := coupleAPIErrors(r.SetResult(NodeBalancerConfigsPagedResponse{}).Get(e))
+	if err != nil {
+		return 0, 0, err
+	}
+	castedRes := res.Result().(*NodeBalancerConfigsPagedResponse)
+	resp.Data = append(resp.Data, castedRes.Data...)
+	return castedRes.Pages, castedRes.Results, nil
 }
 
 // ListNodeBalancerConfigs lists NodeBalancerConfigs
 func (c *Client) ListNodeBalancerConfigs(ctx context.Context, nodebalancerID int, opts *ListOptions) ([]NodeBalancerConfig, error) {
-	return getPaginatedResults[NodeBalancerConfig](ctx, c, formatAPIPath("nodebalancers/%d/configs", nodebalancerID), opts)
+	response := NodeBalancerConfigsPagedResponse{}
+	err := c.listHelper(ctx, &response, opts, nodebalancerID)
+	if err != nil {
+		return nil, err
+	}
+	return response.Data, nil
 }
 
 // GetNodeBalancerConfig gets the template with the provided ID
 func (c *Client) GetNodeBalancerConfig(ctx context.Context, nodebalancerID int, configID int) (*NodeBalancerConfig, error) {
-	e := formatAPIPath("nodebalancers/%d/configs/%d", nodebalancerID, configID)
-	return doGETRequest[NodeBalancerConfig](ctx, c, e)
+	e := fmt.Sprintf("nodebalancers/%d/configs/%d", nodebalancerID, configID)
+	req := c.R(ctx).SetResult(&NodeBalancerConfig{})
+	r, err := coupleAPIErrors(req.Get(e))
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*NodeBalancerConfig), nil
 }
 
 // CreateNodeBalancerConfig creates a NodeBalancerConfig
 func (c *Client) CreateNodeBalancerConfig(ctx context.Context, nodebalancerID int, opts NodeBalancerConfigCreateOptions) (*NodeBalancerConfig, error) {
-	e := formatAPIPath("nodebalancers/%d/configs", nodebalancerID)
-	return doPOSTRequest[NodeBalancerConfig](ctx, c, e, opts)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := fmt.Sprintf("nodebalancers/%d/configs", nodebalancerID)
+	req := c.R(ctx).SetResult(&NodeBalancerConfig{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Post(e))
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*NodeBalancerConfig), nil
 }
 
 // UpdateNodeBalancerConfig updates the NodeBalancerConfig with the specified id
-func (c *Client) UpdateNodeBalancerConfig(
-	ctx context.Context,
-	nodebalancerID int,
-	configID int,
-	opts NodeBalancerConfigUpdateOptions,
-) (*NodeBalancerConfig, error) {
-	e := formatAPIPath("nodebalancers/%d/configs/%d", nodebalancerID, configID)
-	return doPUTRequest[NodeBalancerConfig](ctx, c, e, opts)
+func (c *Client) UpdateNodeBalancerConfig(ctx context.Context, nodebalancerID int, configID int, opts NodeBalancerConfigUpdateOptions) (*NodeBalancerConfig, error) {
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := fmt.Sprintf("nodebalancers/%d/configs/%d", nodebalancerID, configID)
+	req := c.R(ctx).SetResult(&NodeBalancerConfig{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Put(e))
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*NodeBalancerConfig), nil
 }
 
 // DeleteNodeBalancerConfig deletes the NodeBalancerConfig with the specified id
 func (c *Client) DeleteNodeBalancerConfig(ctx context.Context, nodebalancerID int, configID int) error {
-	e := formatAPIPath("nodebalancers/%d/configs/%d", nodebalancerID, configID)
-	return doDELETERequest(ctx, c, e)
+	e := fmt.Sprintf("nodebalancers/%d/configs/%d", nodebalancerID, configID)
+	_, err := coupleAPIErrors(c.R(ctx).Delete(e))
+	return err
 }
 
 // RebuildNodeBalancerConfig updates the NodeBalancer with the specified id
-func (c *Client) RebuildNodeBalancerConfig(
-	ctx context.Context,
-	nodeBalancerID int,
-	configID int,
-	opts NodeBalancerConfigRebuildOptions,
-) (*NodeBalancerConfig, error) {
-	e := formatAPIPath("nodebalancers/%d/configs/%d/rebuild", nodeBalancerID, configID)
-	return doPOSTRequest[NodeBalancerConfig](ctx, c, e, opts)
+func (c *Client) RebuildNodeBalancerConfig(ctx context.Context, nodeBalancerID int, configID int, opts NodeBalancerConfigRebuildOptions) (*NodeBalancerConfig, error) {
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := fmt.Sprintf("nodebalancers/%d/configs/%d/rebuild", nodeBalancerID, configID)
+	req := c.R(ctx).SetResult(&NodeBalancerConfig{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Post(e))
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*NodeBalancerConfig), nil
 }

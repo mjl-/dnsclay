@@ -413,23 +413,10 @@ func (c *Client) ZoneNameservers(ctx context.Context, name string) ([]string, er
 
 // RRSet gets RRSet item.
 // https://apidocs.gcore.com/dns#tag/rrsets/operation/RRSet
-func (c *Client) RRSet(ctx context.Context, zone, name, recordType string, limit, offset int) (RRSet, error) {
+func (c *Client) RRSet(ctx context.Context, zone, name, recordType string) (RRSet, error) {
 	zone, name = strings.Trim(zone, "."), strings.Trim(name, ".")
 	var result RRSet
 	uri := path.Join("/v2/zones", zone, name, recordType)
-
-	form := url.Values{}
-	if limit > 0 {
-		form.Add("limit", fmt.Sprint(limit))
-	}
-
-	if offset > 0 {
-		form.Add("offset", fmt.Sprint(offset))
-	}
-
-	if len(form) > 0 {
-		uri += "?" + form.Encode()
-	}
 
 	err := c.do(ctx, http.MethodGet, uri, nil, &result)
 	if err != nil {
@@ -462,7 +449,7 @@ func (c *Client) DeleteRRSet(ctx context.Context, zone, name, recordType string)
 // DeleteRRSetRecord removes RRSet record.
 func (c *Client) DeleteRRSetRecord(ctx context.Context, zone, name, recordType string, contents ...string) error {
 	// get current records info
-	rrSet, err := c.RRSet(ctx, zone, name, recordType, 0, 0)
+	rrSet, err := c.RRSet(ctx, zone, name, recordType)
 	if err != nil {
 		errAPI := new(APIError)
 		if errors.As(err, errAPI) && errAPI.StatusCode == http.StatusNotFound {
@@ -524,7 +511,7 @@ func (c *Client) AddZoneRRSet(ctx context.Context,
 		op(&record)
 	}
 
-	records, err := c.RRSet(ctx, zone, recordName, recordType, 0, 0)
+	records, err := c.RRSet(ctx, zone, recordName, recordType)
 	if err == nil && len(records.Records) > 0 {
 		record.Records = append(record.Records, records.Records...)
 		return c.UpdateRRSet(ctx, zone, recordName, recordType, record)

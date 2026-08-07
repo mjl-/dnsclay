@@ -3,6 +3,7 @@ package inwx
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,22 +38,16 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		return nil, err
 	}
 
-	inwxRecords, err := client.getRecords(ctx, getDomain(zone))
+	records, err := client.getRecords(ctx, getDomain(zone))
 
 	if err != nil {
 		return nil, err
 	}
 
-	results := make([]libdns.Record, 0, len(inwxRecords))
+	results := make([]libdns.Record, 0, len(records))
 
-	for _, inwxRecord := range inwxRecords {
-		result, err := libdnsRecord(inwxRecord, zone)
-
-		if err != nil {
-			return nil, fmt.Errorf("parsing INWX DNS record %+v: %v", inwxRecord, err)
-		}
-
-		results = append(results, result)
+	for _, inwxRecord := range records {
+		results = append(results, libdnsRecord(inwxRecord, zone))
 	}
 
 	return results, nil
@@ -70,11 +65,13 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	var results []libdns.Record
 
 	for _, record := range records {
-		var _, err = client.createRecord(ctx, inwxRecord(record), getDomain(zone))
+		var recordId, err = client.createRecord(ctx, inwxRecord(record), getDomain(zone))
 
 		if err != nil {
 			return nil, err
 		}
+
+		record.ID = strconv.Itoa(recordId)
 
 		results = append(results, record)
 	}
@@ -95,32 +92,37 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	var results []libdns.Record
 
 	for _, record := range records {
-		matches, err := p.client.findRecords(ctx, inwxRecord(record), getDomain(zone), false)
-
-		if err != nil {
-			return nil, err
-		}
-
-		if len(matches) == 0 {
-			_, err := client.createRecord(ctx, inwxRecord(record), getDomain(zone))
+		if record.ID == "" {
+			matches, err := p.client.findRecords(ctx, inwxRecord(record), getDomain(zone), false)
 
 			if err != nil {
 				return nil, err
 			}
 
-			results = append(results, record)
+			if len(matches) == 1 {
+				record.ID = strconv.Itoa(matches[0].ID)
+			}
 
-			continue
+			if len(matches) == 0 {
+				recordId, err := client.createRecord(ctx, inwxRecord(record), getDomain(zone))
+
+				if err != nil {
+					return nil, err
+				}
+
+				record.ID = strconv.Itoa(recordId)
+
+				results = append(results, record)
+
+				continue
+			}
+
+			if len(matches) > 1 {
+				return nil, fmt.Errorf("found more than one DNS record for %v", record)
+			}
 		}
 
-		if len(matches) > 1 {
-			return nil, fmt.Errorf("unexpectedly found more than 1 record for %v", record)
-		}
-
-		inwxRecord := inwxRecord(record)
-		inwxRecord.ID = matches[0].ID
-
-		err = client.updateRecord(ctx, inwxRecord)
+		err := client.updateRecord(ctx, inwxRecord(record))
 
 		if err != nil {
 			return nil, err
@@ -145,21 +147,31 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	var results []libdns.Record
 
 	for _, record := range records {
-		exactMatches, err := p.client.findRecords(ctx, inwxRecord(record), getDomain(zone), true)
+		delRecord := record
 
-		if err != nil {
-			return nil, err
-		}
-
-		for _, inwxRecord := range exactMatches {
-			err := client.deleteRecord(ctx, inwxRecord)
+		if record.ID == "" {
+			matches, err := p.client.findRecords(ctx, inwxRecord(record), getDomain(zone), true)
 
 			if err != nil {
 				return nil, err
 			}
 
-			results = append(results, record)
+			if len(matches) == 1 {
+				delRecord = libdnsRecord(matches[0], zone)
+			}
+
+			if len(matches) > 1 {
+				return nil, fmt.Errorf("found more than one DNS record for %v", record)
+			}
 		}
+
+		err := client.deleteRecord(ctx, inwxRecord(delRecord))
+
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, delRecord)
 	}
 
 	return results, nil
@@ -212,43 +224,28 @@ func getDomain(zone string) string {
 	return strings.TrimSuffix(zone, ".")
 }
 
-func libdnsRecord(record nameserverRecord, zone string) (libdns.Record, error) {
-	name := libdns.RelativeName(record.Name, getDomain(zone))
-	ttl := time.Duration(record.TTL) * time.Second
-	data := record.Content
-
-	if record.Type == "MX" || record.Type == "SRV" {
-		data = fmt.Sprintf("%d %s", record.Priority, record.Content)
+func libdnsRecord(record nameserverRecord, zone string) libdns.Record {
+	return libdns.Record{
+		ID:       strconv.Itoa(record.ID),
+		Type:     record.Type,
+		Name:     libdns.RelativeName(record.Name, getDomain(zone)),
+		Value:    record.Content,
+		TTL:      time.Duration(record.TTL) * time.Second,
+		Priority: record.Priority,
 	}
-
-	return libdns.RR{
-		Type: record.Type,
-		Name: name,
-		Data: data,
-		TTL:  ttl,
-	}.Parse()
 }
 
 func inwxRecord(record libdns.Record) nameserverRecord {
-	rr := record.RR()
+	recordId, _ := strconv.Atoi(record.ID)
 
-	inwxRecord := nameserverRecord{
-		Name:    rr.Name,
-		Type:    rr.Type,
-		Content: rr.Data,
-		TTL:     int(rr.TTL.Seconds()),
+	return nameserverRecord{
+		ID:       recordId,
+		Name:     record.Name,
+		Type:     record.Type,
+		Content:  record.Value,
+		TTL:      int(record.TTL.Seconds()),
+		Priority: record.Priority,
 	}
-
-	switch rec := record.(type) {
-	case libdns.MX:
-		inwxRecord.Content = rec.Target
-		inwxRecord.Priority = uint(rec.Preference)
-	case libdns.SRV:
-		inwxRecord.Content = fmt.Sprintf("%d %d %s", rec.Weight, rec.Port, rec.Target)
-		inwxRecord.Priority = uint(rec.Priority)
-	}
-
-	return inwxRecord
 }
 
 // Interface guards

@@ -3,12 +3,11 @@ package powerdns
 import (
 	"context"
 	"fmt"
+	"github.com/libdns/powerdns/txtsanitize"
 	"io"
 	"strings"
 
 	"github.com/libdns/libdns"
-	"github.com/libdns/powerdns/txtsanitize"
-
 	pdns "github.com/mittwald/go-powerdns"
 	"github.com/mittwald/go-powerdns/apis/zones"
 )
@@ -46,7 +45,7 @@ func (c *client) updateRRs(ctx context.Context, zoneID string, recs []zones.Reso
 	return nil
 }
 
-func mergeRRecs(fullZone *zones.Zone, records []libdns.RR) ([]zones.ResourceRecordSet, error) {
+func mergeRRecs(fullZone *zones.Zone, records []libdns.Record) ([]zones.ResourceRecordSet, error) {
 	// pdns doesn't really have an append functionality, so we have to fake it by
 	// fetching existing rrsets for the zone and see if any already exist.  If so,
 	// merge those with the existing data.  Otherwise just add the record.
@@ -72,11 +71,11 @@ func mergeRRecs(fullZone *zones.Zone, records []libdns.RR) ([]zones.ResourceReco
 			}
 			// now for our additions
 			for _, rec := range recs {
-				if !dupes[rec.Data] {
+				if !dupes[rec.Value] {
 					rr.Records = append(rr.Records, zones.Record{
-						Content: rec.Data,
+						Content: rec.Value,
 					})
-					dupes[rec.Data] = true
+					dupes[rec.Value] = true
 				}
 			}
 			rrsets = append(rrsets, rr)
@@ -89,7 +88,7 @@ func mergeRRecs(fullZone *zones.Zone, records []libdns.RR) ([]zones.ResourceReco
 }
 
 // generate RessourceRecordSets that will delete records from zone
-func cullRRecs(fullZone *zones.Zone, records []libdns.RR) []zones.ResourceRecordSet {
+func cullRRecs(fullZone *zones.Zone, records []libdns.Record) []zones.ResourceRecordSet {
 	inHash := makeLDRecHash(records)
 	var rRSets []zones.ResourceRecordSet
 	for _, t := range fullZone.ResourceRecordSets {
@@ -109,23 +108,24 @@ func cullRRecs(fullZone *zones.Zone, records []libdns.RR) []zones.ResourceRecord
 }
 
 // remove culls from rRSet record values
-func removeRecords(rRSet zones.ResourceRecordSet, culls []libdns.RR) zones.ResourceRecordSet {
+func removeRecords(rRSet zones.ResourceRecordSet, culls []libdns.Record) zones.ResourceRecordSet {
 	deleteItem := func(item string) []zones.Record {
 		recs := rRSet.Records
 		for i := len(recs) - 1; i >= 0; i-- {
 			if recs[i].Content == item {
-				recs = append(recs[:i], recs[i+1:]...)
+				copy(recs[i:], recs[:i+1])
+				recs = recs[:len(recs)-1]
 			}
 		}
 		return recs
 	}
 	for _, c := range culls {
-		rRSet.Records = deleteItem(c.Data)
+		rRSet.Records = deleteItem(c.Value)
 	}
 	return rRSet
 }
 
-func convertLDHash(inHash map[string][]libdns.RR) []zones.ResourceRecordSet {
+func convertLDHash(inHash map[string][]libdns.Record) []zones.ResourceRecordSet {
 	var rrsets []zones.ResourceRecordSet
 	for _, recs := range inHash {
 		if len(recs) == 0 {
@@ -140,7 +140,7 @@ func convertLDHash(inHash map[string][]libdns.RR) []zones.ResourceRecordSet {
 		}
 		for _, rec := range recs {
 			rr.Records = append(rr.Records, zones.Record{
-				Content: rec.Data,
+				Content: rec.Value,
 			})
 		}
 		rrsets = append(rrsets, rr)
@@ -152,9 +152,9 @@ func key(Name, Type string) string {
 	return Name + ":" + Type
 }
 
-func makeLDRecHash(records []libdns.RR) map[string][]libdns.RR {
+func makeLDRecHash(records []libdns.Record) map[string][]libdns.Record {
 	// Keep track of records grouped by name + type
-	inHash := make(map[string][]libdns.RR)
+	inHash := make(map[string][]libdns.Record)
 
 	for _, r := range records {
 		k := key(r.Name, r.Type)
@@ -196,16 +196,9 @@ func (c *client) zoneID(ctx context.Context, zoneName string) (string, error) {
 	return shortZone.ID, nil
 }
 
-func convertNamesToAbsolute(zone string, records []libdns.Record) []libdns.RR {
-	out := make([]libdns.RR, len(records))
-	for i, r := range records {
-		svcb, ok := r.(libdns.ServiceBinding)
-		if ok {
-			out[i] = svcbToRr(svcb)
-		} else {
-			out[i] = r.RR()
-		}
-	}
+func convertNamesToAbsolute(zone string, records []libdns.Record) []libdns.Record {
+	out := make([]libdns.Record, len(records))
+	copy(out, records)
 	for i := range out {
 		name := libdns.AbsoluteName(out[i].Name, zone)
 		if !strings.HasSuffix(name, ".") {
@@ -213,89 +206,8 @@ func convertNamesToAbsolute(zone string, records []libdns.Record) []libdns.RR {
 		}
 		out[i].Name = name
 		if out[i].Type == "TXT" {
-			out[i].Data = txtsanitize.TXTSanitize(out[i].Data)
+			out[i].Value = txtsanitize.TXTSanitize(out[i].Value)
 		}
 	}
 	return out
-}
-
-// This function is taken from libdns itself.
-func svcbToRr(s libdns.ServiceBinding) libdns.RR {
-	var name string
-	var recType string
-	if s.Scheme == "https" || s.Scheme == "http" || s.Scheme == "wss" || s.Scheme == "ws" {
-		recType = "HTTPS"
-		name = s.Name
-		if s.URLSchemePort == 443 || s.URLSchemePort == 80 {
-			// Ok, we'll correct your mistake for you.
-			s.URLSchemePort = 0
-		}
-	} else {
-		recType = "SVCB"
-		name = fmt.Sprintf("_%s.%s", s.Scheme, s.Name)
-	}
-
-	if s.URLSchemePort != 0 {
-		name = fmt.Sprintf("_%d.%s", s.URLSchemePort, name)
-	}
-
-	var params string
-	if s.Priority == 0 && len(s.Params) != 0 {
-		// The SvcParams should be empty in AliasMode, so we'll fix that for
-		// you.
-		params = ""
-	} else {
-		params = paramsToString(s.Params)
-	}
-
-	return libdns.RR{
-		Name: name,
-		TTL:  s.TTL,
-		Type: recType,
-		Data: fmt.Sprintf("%d %s %s", s.Priority, s.Target, params),
-	}
-}
-
-// This function is taken from libdns itself and modified to quote ECH params.
-func paramsToString(params libdns.SvcParams) string {
-	var sb strings.Builder
-	for key, vals := range params {
-		if sb.Len() > 0 {
-			sb.WriteRune(' ')
-		}
-		sb.WriteString(key)
-		var hasVal, needsQuotes bool
-		if key == "ech" {
-			needsQuotes = true
-		}
-		for _, val := range vals {
-			if len(val) > 0 {
-				hasVal = true
-			}
-			if strings.ContainsAny(val, `" `) {
-				needsQuotes = true
-			}
-			if hasVal && needsQuotes {
-				break
-			}
-		}
-		if hasVal {
-			sb.WriteRune('=')
-		}
-		if needsQuotes {
-			sb.WriteRune('"')
-		}
-		for i, val := range vals {
-			if i > 0 {
-				sb.WriteRune(',')
-			}
-			val = strings.ReplaceAll(val, `"`, `\"`)
-			val = strings.ReplaceAll(val, `,`, `\,`)
-			sb.WriteString(val)
-		}
-		if needsQuotes {
-			sb.WriteRune('"')
-		}
-	}
-	return sb.String()
 }

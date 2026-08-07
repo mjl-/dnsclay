@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	std "github.com/scaleway/scaleway-sdk-go/api/std"
-	"github.com/scaleway/scaleway-sdk-go/errors"
-	"github.com/scaleway/scaleway-sdk-go/marshaler"
+	"github.com/scaleway/scaleway-sdk-go/internal/errors"
+	"github.com/scaleway/scaleway-sdk-go/internal/marshaler"
+	"github.com/scaleway/scaleway-sdk-go/internal/parameter"
 	"github.com/scaleway/scaleway-sdk-go/namegenerator"
-	"github.com/scaleway/scaleway-sdk-go/parameter"
 	"github.com/scaleway/scaleway-sdk-go/scw"
+	std "github.com/scaleway/scaleway-sdk-go/api/std"
 )
 
 // always import dependencies
@@ -56,18 +56,9 @@ const (
 func (enum ContactEmailStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ContactEmailStatusEmailStatusUnknown)
+		return "email_status_unknown"
 	}
 	return string(enum)
-}
-
-func (enum ContactEmailStatus) Values() []ContactEmailStatus {
-	return []ContactEmailStatus{
-		"email_status_unknown",
-		"validated",
-		"not_validated",
-		"invalid_email",
-	}
 }
 
 func (enum ContactEmailStatus) MarshalJSON() ([]byte, error) {
@@ -109,22 +100,9 @@ const (
 func (enum ContactExtensionFRMode) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ContactExtensionFRModeModeUnknown)
+		return "mode_unknown"
 	}
 	return string(enum)
-}
-
-func (enum ContactExtensionFRMode) Values() []ContactExtensionFRMode {
-	return []ContactExtensionFRMode{
-		"mode_unknown",
-		"individual",
-		"company_identification_code",
-		"duns",
-		"local",
-		"association",
-		"trademark",
-		"code_auth_afnic",
-	}
 }
 
 func (enum ContactExtensionFRMode) MarshalJSON() ([]byte, error) {
@@ -190,34 +168,9 @@ const (
 func (enum ContactExtensionNLLegalForm) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ContactExtensionNLLegalFormLegalFormUnknown)
+		return "legal_form_unknown"
 	}
 	return string(enum)
-}
-
-func (enum ContactExtensionNLLegalForm) Values() []ContactExtensionNLLegalForm {
-	return []ContactExtensionNLLegalForm{
-		"legal_form_unknown",
-		"other",
-		"non_dutch_eu_company",
-		"non_dutch_legal_form_enterprise_subsidiary",
-		"limited_company",
-		"limited_company_in_formation",
-		"cooperative",
-		"limited_partnership",
-		"sole_company",
-		"european_economic_interest_group",
-		"religious_entity",
-		"partnership",
-		"public_company",
-		"mutual_benefit_company",
-		"residential",
-		"shipping_company",
-		"foundation",
-		"association",
-		"trading_partnership",
-		"natural_person",
-	}
 }
 
 func (enum ContactExtensionNLLegalForm) MarshalJSON() ([]byte, error) {
@@ -253,19 +206,9 @@ const (
 func (enum ContactLegalForm) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ContactLegalFormLegalFormUnknown)
+		return "legal_form_unknown"
 	}
 	return string(enum)
-}
-
-func (enum ContactLegalForm) Values() []ContactLegalForm {
-	return []ContactLegalForm{
-		"legal_form_unknown",
-		"individual",
-		"corporate",
-		"association",
-		"other",
-	}
 }
 
 func (enum ContactLegalForm) MarshalJSON() ([]byte, error) {
@@ -280,48 +223,6 @@ func (enum *ContactLegalForm) UnmarshalJSON(data []byte) error {
 	}
 
 	*enum = ContactLegalForm(ContactLegalForm(tmp).String())
-	return nil
-}
-
-type ContactStatus string
-
-const (
-	// If unspecified, the status is unknown by default.
-	ContactStatusStatusUnknown = ContactStatus("status_unknown")
-	// The contact is active and can be edited.
-	ContactStatusActive = ContactStatus("active")
-	// The contact is temporarily locked (ie. while being edited).
-	ContactStatusPending = ContactStatus("pending")
-)
-
-func (enum ContactStatus) String() string {
-	if enum == "" {
-		// return default value if empty
-		return string(ContactStatusStatusUnknown)
-	}
-	return string(enum)
-}
-
-func (enum ContactStatus) Values() []ContactStatus {
-	return []ContactStatus{
-		"status_unknown",
-		"active",
-		"pending",
-	}
-}
-
-func (enum ContactStatus) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s"`, enum)), nil
-}
-
-func (enum *ContactStatus) UnmarshalJSON(data []byte) error {
-	tmp := ""
-
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-
-	*enum = ContactStatus(ContactStatus(tmp).String())
 	return nil
 }
 
@@ -343,19 +244,9 @@ const (
 func (enum DNSZoneStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(DNSZoneStatusUnknown)
+		return "unknown"
 	}
 	return string(enum)
-}
-
-func (enum DNSZoneStatus) Values() []DNSZoneStatus {
-	return []DNSZoneStatus{
-		"unknown",
-		"active",
-		"pending",
-		"error",
-		"locked",
-	}
 }
 
 func (enum DNSZoneStatus) MarshalJSON() ([]byte, error) {
@@ -407,27 +298,9 @@ const (
 func (enum DSRecordAlgorithm) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(DSRecordAlgorithmRsamd5)
+		return "rsamd5"
 	}
 	return string(enum)
-}
-
-func (enum DSRecordAlgorithm) Values() []DSRecordAlgorithm {
-	return []DSRecordAlgorithm{
-		"rsamd5",
-		"dh",
-		"dsa",
-		"rsasha1",
-		"dsa_nsec3_sha1",
-		"rsasha1_nsec3_sha1",
-		"rsasha256",
-		"rsasha512",
-		"ecc_gost",
-		"ecdsap256sha256",
-		"ecdsap384sha384",
-		"ed25519",
-		"ed448",
-	}
 }
 
 func (enum DSRecordAlgorithm) MarshalJSON() ([]byte, error) {
@@ -461,18 +334,9 @@ const (
 func (enum DSRecordDigestType) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(DSRecordDigestTypeSha1)
+		return "sha_1"
 	}
 	return string(enum)
-}
-
-func (enum DSRecordDigestType) Values() []DSRecordDigestType {
-	return []DSRecordDigestType{
-		"sha_1",
-		"sha_256",
-		"gost_r_34_11_94",
-		"sha_384",
-	}
 }
 
 func (enum DSRecordDigestType) MarshalJSON() ([]byte, error) {
@@ -508,19 +372,9 @@ const (
 func (enum DomainFeatureStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(DomainFeatureStatusFeatureStatusUnknown)
+		return "feature_status_unknown"
 	}
 	return string(enum)
-}
-
-func (enum DomainFeatureStatus) Values() []DomainFeatureStatus {
-	return []DomainFeatureStatus{
-		"feature_status_unknown",
-		"enabling",
-		"enabled",
-		"disabling",
-		"disabled",
-	}
 }
 
 func (enum DomainFeatureStatus) MarshalJSON() ([]byte, error) {
@@ -558,20 +412,9 @@ const (
 func (enum DomainRegistrationStatusTransferStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(DomainRegistrationStatusTransferStatusStatusUnknown)
+		return "status_unknown"
 	}
 	return string(enum)
-}
-
-func (enum DomainRegistrationStatusTransferStatus) Values() []DomainRegistrationStatusTransferStatus {
-	return []DomainRegistrationStatusTransferStatus{
-		"status_unknown",
-		"pending",
-		"waiting_vote",
-		"rejected",
-		"processing",
-		"done",
-	}
 }
 
 func (enum DomainRegistrationStatusTransferStatus) MarshalJSON() ([]byte, error) {
@@ -625,28 +468,9 @@ const (
 func (enum DomainStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(DomainStatusStatusUnknown)
+		return "status_unknown"
 	}
 	return string(enum)
-}
-
-func (enum DomainStatus) Values() []DomainStatus {
-	return []DomainStatus{
-		"status_unknown",
-		"active",
-		"creating",
-		"create_error",
-		"renewing",
-		"renew_error",
-		"xfering",
-		"xfer_error",
-		"expired",
-		"expiring",
-		"updating",
-		"checking",
-		"locked",
-		"deleting",
-	}
 }
 
 func (enum DomainStatus) MarshalJSON() ([]byte, error) {
@@ -680,18 +504,9 @@ const (
 func (enum HostStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(HostStatusUnknownStatus)
+		return "unknown_status"
 	}
 	return string(enum)
-}
-
-func (enum HostStatus) Values() []HostStatus {
-	return []HostStatus{
-		"unknown_status",
-		"active",
-		"updating",
-		"deleting",
-	}
 }
 
 func (enum HostStatus) MarshalJSON() ([]byte, error) {
@@ -721,16 +536,9 @@ const (
 func (enum LinkedProduct) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(LinkedProductUnknownProduct)
+		return "unknown_product"
 	}
 	return string(enum)
-}
-
-func (enum LinkedProduct) Values() []LinkedProduct {
-	return []LinkedProduct{
-		"unknown_product",
-		"vpc",
-	}
 }
 
 func (enum LinkedProduct) MarshalJSON() ([]byte, error) {
@@ -763,18 +571,9 @@ const (
 func (enum ListContactsRequestRole) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ListContactsRequestRoleUnknownRole)
+		return "unknown_role"
 	}
 	return string(enum)
-}
-
-func (enum ListContactsRequestRole) Values() []ListContactsRequestRole {
-	return []ListContactsRequestRole{
-		"unknown_role",
-		"owner",
-		"administrative",
-		"technical",
-	}
 }
 
 func (enum ListContactsRequestRole) MarshalJSON() ([]byte, error) {
@@ -804,16 +603,9 @@ const (
 func (enum ListDNSZoneRecordsRequestOrderBy) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ListDNSZoneRecordsRequestOrderByNameAsc)
+		return "name_asc"
 	}
 	return string(enum)
-}
-
-func (enum ListDNSZoneRecordsRequestOrderBy) Values() []ListDNSZoneRecordsRequestOrderBy {
-	return []ListDNSZoneRecordsRequestOrderBy{
-		"name_asc",
-		"name_desc",
-	}
 }
 
 func (enum ListDNSZoneRecordsRequestOrderBy) MarshalJSON() ([]byte, error) {
@@ -855,22 +647,9 @@ const (
 func (enum ListDNSZonesRequestOrderBy) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ListDNSZonesRequestOrderByDomainAsc)
+		return "domain_asc"
 	}
 	return string(enum)
-}
-
-func (enum ListDNSZonesRequestOrderBy) Values() []ListDNSZonesRequestOrderBy {
-	return []ListDNSZonesRequestOrderBy{
-		"domain_asc",
-		"domain_desc",
-		"subdomain_asc",
-		"subdomain_desc",
-		"created_at_asc",
-		"created_at_desc",
-		"updated_at_asc",
-		"updated_at_desc",
-	}
 }
 
 func (enum ListDNSZonesRequestOrderBy) MarshalJSON() ([]byte, error) {
@@ -900,16 +679,9 @@ const (
 func (enum ListDomainsRequestOrderBy) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ListDomainsRequestOrderByDomainAsc)
+		return "domain_asc"
 	}
 	return string(enum)
-}
-
-func (enum ListDomainsRequestOrderBy) Values() []ListDomainsRequestOrderBy {
-	return []ListDomainsRequestOrderBy{
-		"domain_asc",
-		"domain_desc",
-	}
 }
 
 func (enum ListDomainsRequestOrderBy) MarshalJSON() ([]byte, error) {
@@ -939,16 +711,9 @@ const (
 func (enum ListRenewableDomainsRequestOrderBy) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ListRenewableDomainsRequestOrderByDomainAsc)
+		return "domain_asc"
 	}
 	return string(enum)
-}
-
-func (enum ListRenewableDomainsRequestOrderBy) Values() []ListRenewableDomainsRequestOrderBy {
-	return []ListRenewableDomainsRequestOrderBy{
-		"domain_asc",
-		"domain_desc",
-	}
 }
 
 func (enum ListRenewableDomainsRequestOrderBy) MarshalJSON() ([]byte, error) {
@@ -990,22 +755,9 @@ const (
 func (enum ListTasksRequestOrderBy) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ListTasksRequestOrderByDomainDesc)
+		return "domain_desc"
 	}
 	return string(enum)
-}
-
-func (enum ListTasksRequestOrderBy) Values() []ListTasksRequestOrderBy {
-	return []ListTasksRequestOrderBy{
-		"domain_desc",
-		"domain_asc",
-		"type_asc",
-		"type_desc",
-		"status_asc",
-		"status_desc",
-		"updated_at_asc",
-		"updated_at_desc",
-	}
 }
 
 func (enum ListTasksRequestOrderBy) MarshalJSON() ([]byte, error) {
@@ -1035,16 +787,9 @@ const (
 func (enum ListTldsRequestOrderBy) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(ListTldsRequestOrderByNameAsc)
+		return "name_asc"
 	}
 	return string(enum)
-}
-
-func (enum ListTldsRequestOrderBy) Values() []ListTldsRequestOrderBy {
-	return []ListTldsRequestOrderBy{
-		"name_asc",
-		"name_desc",
-	}
 }
 
 func (enum ListTldsRequestOrderBy) MarshalJSON() ([]byte, error) {
@@ -1074,16 +819,9 @@ const (
 func (enum RawFormat) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(RawFormatUnknownRawFormat)
+		return "unknown_raw_format"
 	}
 	return string(enum)
-}
-
-func (enum RawFormat) Values() []RawFormat {
-	return []RawFormat{
-		"unknown_raw_format",
-		"bind",
-	}
 }
 
 func (enum RawFormat) MarshalJSON() ([]byte, error) {
@@ -1115,17 +853,9 @@ const (
 func (enum RecordHTTPServiceConfigStrategy) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(RecordHTTPServiceConfigStrategyRandom)
+		return "random"
 	}
 	return string(enum)
-}
-
-func (enum RecordHTTPServiceConfigStrategy) Values() []RecordHTTPServiceConfigStrategy {
-	return []RecordHTTPServiceConfigStrategy{
-		"random",
-		"hashed",
-		"all",
-	}
 }
 
 func (enum RecordHTTPServiceConfigStrategy) MarshalJSON() ([]byte, error) {
@@ -1186,45 +916,14 @@ const (
 	RecordTypeNAPTR = RecordType("NAPTR")
 	// A DNAME record provides redirection from one part of the DNS name tree to another part of the DNS name tree. DNAME and CNAME records both cause a lookup to (potentially) return data corresponding to a different domain name from the queried domain name. Example: 'yourcompany.com'.
 	RecordTypeDNAME = RecordType("DNAME")
-	// A SVCB (Service Binding) record provides information about a service endpoint associated with a domain name.
-	RecordTypeSVCB = RecordType("SVCB")
-	// An HTTPS record is a special type of SVCB record for HTTPS service endpoints.
-	RecordTypeHTTPS = RecordType("HTTPS")
 )
 
 func (enum RecordType) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(RecordTypeUnknown)
+		return "unknown"
 	}
 	return string(enum)
-}
-
-func (enum RecordType) Values() []RecordType {
-	return []RecordType{
-		"unknown",
-		"A",
-		"AAAA",
-		"CNAME",
-		"TXT",
-		"SRV",
-		"TLSA",
-		"MX",
-		"NS",
-		"PTR",
-		"CAA",
-		"ALIAS",
-		"LOC",
-		"SSHFP",
-		"HINFO",
-		"RP",
-		"URI",
-		"DS",
-		"NAPTR",
-		"DNAME",
-		"SVCB",
-		"HTTPS",
-	}
 }
 
 func (enum RecordType) MarshalJSON() ([]byte, error) {
@@ -1258,18 +957,9 @@ const (
 func (enum RenewableDomainStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(RenewableDomainStatusUnknown)
+		return "unknown"
 	}
 	return string(enum)
-}
-
-func (enum RenewableDomainStatus) Values() []RenewableDomainStatus {
-	return []RenewableDomainStatus{
-		"unknown",
-		"renewable",
-		"late_reneweable",
-		"not_renewable",
-	}
 }
 
 func (enum RenewableDomainStatus) MarshalJSON() ([]byte, error) {
@@ -1305,19 +995,9 @@ const (
 func (enum SSLCertificateStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(SSLCertificateStatusUnknown)
+		return "unknown"
 	}
 	return string(enum)
-}
-
-func (enum SSLCertificateStatus) Values() []SSLCertificateStatus {
-	return []SSLCertificateStatus{
-		"unknown",
-		"new",
-		"pending",
-		"success",
-		"error",
-	}
 }
 
 func (enum SSLCertificateStatus) MarshalJSON() ([]byte, error) {
@@ -1355,20 +1035,9 @@ const (
 func (enum TaskStatus) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(TaskStatusUnavailable)
+		return "unavailable"
 	}
 	return string(enum)
-}
-
-func (enum TaskStatus) Values() []TaskStatus {
-	return []TaskStatus{
-		"unavailable",
-		"new",
-		"waiting_payment",
-		"pending",
-		"success",
-		"error",
-	}
 }
 
 func (enum TaskStatus) MarshalJSON() ([]byte, error) {
@@ -1442,38 +1111,9 @@ const (
 func (enum TaskType) String() string {
 	if enum == "" {
 		// return default value if empty
-		return string(TaskTypeUnknown)
+		return "unknown"
 	}
 	return string(enum)
-}
-
-func (enum TaskType) Values() []TaskType {
-	return []TaskType{
-		"unknown",
-		"create_domain",
-		"create_external_domain",
-		"renew_domain",
-		"transfer_domain",
-		"trade_domain",
-		"lock_domain_transfer",
-		"unlock_domain_transfer",
-		"enable_dnssec",
-		"disable_dnssec",
-		"update_domain",
-		"update_contact",
-		"delete_domain",
-		"cancel_task",
-		"generate_ssl_certificate",
-		"renew_ssl_certificate",
-		"send_message",
-		"delete_domain_expired",
-		"delete_external_domain",
-		"create_host",
-		"update_host",
-		"delete_host",
-		"move_project",
-		"transfer_online_domain",
-	}
 }
 
 func (enum TaskType) MarshalJSON() ([]byte, error) {
@@ -1701,7 +1341,8 @@ type RecordChangeAdd struct {
 }
 
 // RecordChangeClear: record change clear.
-type RecordChangeClear struct{}
+type RecordChangeClear struct {
+}
 
 // RecordChangeDelete: record change delete.
 type RecordChangeDelete struct {
@@ -1787,9 +1428,6 @@ type Contact struct {
 	State string `json:"state"`
 
 	ExtensionNl *ContactExtensionNL `json:"extension_nl"`
-
-	// Status: default value: status_unknown
-	Status ContactStatus `json:"status"`
 }
 
 // ContactRolesRoles: contact roles roles.
@@ -2021,10 +1659,6 @@ type DomainSummary struct {
 	TransferRegistrationStatus *DomainRegistrationStatusTransfer `json:"transfer_registration_status,omitempty"`
 
 	OrganizationID string `json:"organization_id"`
-
-	CreatedAt *time.Time `json:"created_at"`
-
-	PendingTrade bool `json:"pending_trade"`
 }
 
 // RenewableDomain: renewable domain.
@@ -2071,37 +1705,25 @@ type SSLCertificate struct {
 
 // Task: task.
 type Task struct {
-	// ID: the unique identifier of the task.
 	ID string `json:"id"`
 
-	// ProjectID: the project ID associated to the task.
 	ProjectID string `json:"project_id"`
 
-	// OrganizationID: the organization ID associated to the task.
 	OrganizationID string `json:"organization_id"`
 
-	// Domain: the domain name associated to the task.
 	Domain *string `json:"domain"`
 
-	// Type: the type of the task.
-	// Default value: unknown
+	// Type: default value: unknown
 	Type TaskType `json:"type"`
 
-	// Status: the status of the task.
-	// Default value: unavailable
+	// Status: default value: unavailable
 	Status TaskStatus `json:"status"`
 
-	// StartedAt: start date of the task.
 	StartedAt *time.Time `json:"started_at"`
 
-	// UpdatedAt: last update of the task.
 	UpdatedAt *time.Time `json:"updated_at"`
 
-	// Message: error message associated to the task.
 	Message *string `json:"message"`
-
-	// ContactIDentifier: human-friendly contact identifier used when the task concerns a contact.
-	ContactIDentifier *string `json:"contact_identifier"`
 }
 
 // TransferInDomainRequestTransferRequest: transfer in domain request transfer request.
@@ -2145,7 +1767,8 @@ type ClearDNSZoneRecordsRequest struct {
 }
 
 // ClearDNSZoneRecordsResponse: clear dns zone records response.
-type ClearDNSZoneRecordsResponse struct{}
+type ClearDNSZoneRecordsResponse struct {
+}
 
 // CloneDNSZoneRequest: clone dns zone request.
 type CloneDNSZoneRequest struct {
@@ -2191,7 +1814,8 @@ type DeleteDNSZoneRequest struct {
 }
 
 // DeleteDNSZoneResponse: delete dns zone response.
-type DeleteDNSZoneResponse struct{}
+type DeleteDNSZoneResponse struct {
+}
 
 // DeleteDNSZoneTsigKeyRequest: delete dns zone tsig key request.
 type DeleteDNSZoneTsigKeyRequest struct {
@@ -2199,7 +1823,8 @@ type DeleteDNSZoneTsigKeyRequest struct {
 }
 
 // DeleteExternalDomainResponse: delete external domain response.
-type DeleteExternalDomainResponse struct{}
+type DeleteExternalDomainResponse struct {
+}
 
 // DeleteSSLCertificateRequest: delete ssl certificate request.
 type DeleteSSLCertificateRequest struct {
@@ -2207,7 +1832,8 @@ type DeleteSSLCertificateRequest struct {
 }
 
 // DeleteSSLCertificateResponse: delete ssl certificate response.
-type DeleteSSLCertificateResponse struct{}
+type DeleteSSLCertificateResponse struct {
+}
 
 // Domain: domain.
 type Domain struct {
@@ -2217,59 +1843,41 @@ type Domain struct {
 
 	ProjectID string `json:"project_id"`
 
-	// AutoRenewStatus: status of the automatic renewal of the domain.
-	// Default value: feature_status_unknown
+	// AutoRenewStatus: default value: feature_status_unknown
 	AutoRenewStatus DomainFeatureStatus `json:"auto_renew_status"`
 
-	// Dnssec: status of the DNSSEC configuration of the domain.
 	Dnssec *DomainDNSSEC `json:"dnssec"`
 
-	// EppCode: list of the domain's EPP codes.
 	EppCode []string `json:"epp_code"`
 
-	// ExpiredAt: date of expiration of the domain.
 	ExpiredAt *time.Time `json:"expired_at"`
 
-	// UpdatedAt: domain's last modification date.
 	UpdatedAt *time.Time `json:"updated_at"`
 
 	Registrar string `json:"registrar"`
 
-	// IsExternal: indicates whether Scaleway is the domain's registrar.
 	IsExternal bool `json:"is_external"`
 
-	// Status: status of the domain.
-	// Default value: status_unknown
+	// Status: default value: status_unknown
 	Status DomainStatus `json:"status"`
 
-	// DNSZones: list of the domain's DNS zones.
 	DNSZones []*DNSZone `json:"dns_zones"`
 
-	// OwnerContact: contact information of the domain's owner.
 	OwnerContact *Contact `json:"owner_contact"`
 
-	// TechnicalContact: contact information of the domain's technical contact.
 	TechnicalContact *Contact `json:"technical_contact"`
 
-	// AdministrativeContact: contact information of the domain's administrative contact.
 	AdministrativeContact *Contact `json:"administrative_contact"`
 
-	// ExternalDomainRegistrationStatus: registration status of an external domain, if available.
 	// Precisely one of ExternalDomainRegistrationStatus, TransferRegistrationStatus must be set.
 	ExternalDomainRegistrationStatus *DomainRegistrationStatusExternalDomain `json:"external_domain_registration_status,omitempty"`
 
-	// TransferRegistrationStatus: status of a domain, when available for transfer.
 	// Precisely one of ExternalDomainRegistrationStatus, TransferRegistrationStatus must be set.
 	TransferRegistrationStatus *DomainRegistrationStatusTransfer `json:"transfer_registration_status,omitempty"`
 
-	// Tld: domain's TLD information.
 	Tld *Tld `json:"tld"`
 
-	// LinkedProducts: list of Scaleway resources linked to the domain.
 	LinkedProducts []LinkedProduct `json:"linked_products"`
-
-	// PendingTrade: indicates if a trade is ongoing.
-	PendingTrade bool `json:"pending_trade"`
 }
 
 // ExportRawDNSZoneRequest: export raw dns zone request.
@@ -2371,7 +1979,7 @@ func (r *ListContactsResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListContactsResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListContactsResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListContactsResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2443,7 +2051,7 @@ func (r *ListDNSZoneRecordsResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListDNSZoneRecordsResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListDNSZoneRecordsResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListDNSZoneRecordsResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2481,7 +2089,7 @@ func (r *ListDNSZoneVersionRecordsResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListDNSZoneVersionRecordsResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListDNSZoneVersionRecordsResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListDNSZoneVersionRecordsResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2519,7 +2127,7 @@ func (r *ListDNSZoneVersionsResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListDNSZoneVersionsResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListDNSZoneVersionsResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListDNSZoneVersionsResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2587,7 +2195,7 @@ func (r *ListDNSZonesResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListDNSZonesResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListDNSZonesResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListDNSZonesResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2613,7 +2221,7 @@ func (r *ListDomainHostsResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListDomainHostsResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListDomainHostsResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListDomainHostsResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2639,7 +2247,7 @@ func (r *ListDomainsResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListDomainsResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListDomainsResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListDomainsResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2665,7 +2273,7 @@ func (r *ListRenewableDomainsResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListRenewableDomainsResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListRenewableDomainsResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListRenewableDomainsResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2702,7 +2310,7 @@ func (r *ListSSLCertificatesResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListSSLCertificatesResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListSSLCertificatesResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListSSLCertificatesResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2728,7 +2336,7 @@ func (r *ListTasksResponse) UnsafeGetTotalCount() uint32 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListTasksResponse) UnsafeAppend(res any) (uint32, error) {
+func (r *ListTasksResponse) UnsafeAppend(res interface{}) (uint32, error) {
 	results, ok := res.(*ListTasksResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -2756,7 +2364,7 @@ func (r *ListTldsResponse) UnsafeGetTotalCount() uint64 {
 
 // UnsafeAppend should not be used
 // Internal usage only
-func (r *ListTldsResponse) UnsafeAppend(res any) (uint64, error) {
+func (r *ListTldsResponse) UnsafeAppend(res interface{}) (uint64, error) {
 	results, ok := res.(*ListTldsResponse)
 	if !ok {
 		return 0, errors.New("%T type cannot be appended to type %T", res, r)
@@ -3183,7 +2791,8 @@ type RestoreDNSZoneVersionRequest struct {
 }
 
 // RestoreDNSZoneVersionResponse: restore dns zone version response.
-type RestoreDNSZoneVersionResponse struct{}
+type RestoreDNSZoneVersionResponse struct {
+}
 
 // SearchAvailableDomainsResponse: search available domains response.
 type SearchAvailableDomainsResponse struct {
@@ -3242,7 +2851,7 @@ type UpdateDNSZoneRequest struct {
 	ProjectID string `json:"project_id"`
 }
 
-// This API allows you to manage your domains, DNS zones and records.
+// Manage your domains, DNS zones and records with the Domains and DNS API.
 type API struct {
 	client *scw.Client
 }
@@ -4486,7 +4095,7 @@ func (s *RegistrarAPI) GetDomainAuthCode(req *RegistrarAPIGetDomainAuthCodeReque
 	return &resp, nil
 }
 
-// EnableDomainDNSSEC: If your domain uses another registrar and has the default Scaleway NS, you have to **update the DS record at your registrar**.
+// EnableDomainDNSSEC: If your domain has the default Scaleway NS and uses another registrar, you have to update the DS record manually.
 func (s *RegistrarAPI) EnableDomainDNSSEC(req *RegistrarAPIEnableDomainDNSSECRequest, opts ...scw.RequestOption) (*Domain, error) {
 	var err error
 

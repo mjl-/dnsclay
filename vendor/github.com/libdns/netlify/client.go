@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,11 +15,7 @@ import (
 
 // createRecord creates a DNS record in the specified zone. It returns the DNS
 // record created
-func (p *Provider) createRecord(
-	ctx context.Context,
-	zoneInfo netlifyZone,
-	record libdns.Record,
-) (netlifyDNSRecord, error) {
+func (p *Provider) createRecord(ctx context.Context, zoneInfo netlifyZone, record libdns.Record) (netlifyDNSRecord, error) {
 	jsonBytes, err := json.Marshal(netlifyRecord(record))
 	if err != nil {
 		return netlifyDNSRecord{}, err
@@ -42,11 +38,7 @@ func (p *Provider) createRecord(
 
 // updateRecord updates a DNS record. oldRec must have both an ID and zone ID.
 // Only the non-empty fields in newRec will be changed.
-func (p *Provider) updateRecord(
-	ctx context.Context,
-	oldRec netlifyDNSRecord,
-	newRec netlifyDNSRecord,
-) (netlifyDNSRecord, error) {
+func (p *Provider) updateRecord(ctx context.Context, oldRec netlifyDNSRecord, newRec netlifyDNSRecord) (netlifyDNSRecord, error) {
 	zoneID := oldRec.DNSZoneID
 	// Temporary fix as currently the only way to update a dns record is to delete the previous one and to recreate one with the new specifications
 	reqURL := fmt.Sprintf("%s/dns_zones/%s/dns_records/%s", baseURL, zoneID, oldRec.ID)
@@ -55,12 +47,7 @@ func (p *Provider) updateRecord(
 		return netlifyDNSRecord{}, err
 	}
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodDelete,
-		reqURL,
-		bytes.NewReader(jsonBytes),
-	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, reqURL, bytes.NewReader(jsonBytes))
 	if err != nil {
 		return netlifyDNSRecord{}, err
 	}
@@ -77,12 +64,7 @@ func (p *Provider) updateRecord(
 		return netlifyDNSRecord{}, err
 	}
 	reqEditURL := fmt.Sprintf("%s/dns_zones/%s/dns_records", baseURL, zoneID)
-	reqEdit, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		reqEditURL,
-		bytes.NewReader(jsonEditBytes),
-	)
+	reqEdit, err := http.NewRequestWithContext(ctx, http.MethodPost, reqEditURL, bytes.NewReader(jsonEditBytes))
 	if err != nil {
 		return netlifyDNSRecord{}, err
 	}
@@ -99,19 +81,12 @@ func (p *Provider) updateRecord(
 
 // getDNSRecords gets all record in a zone. It returns an array of the records
 // in the zone. It may return an empty slice and a nil error.
-func (p *Provider) getDNSRecords(
-	ctx context.Context,
-	zoneInfo netlifyZone,
-	rec libdns.Record,
-	matchContent bool,
-) ([]netlifyDNSRecord, error) {
-	rr := rec.RR()
-
+func (p *Provider) getDNSRecords(ctx context.Context, zoneInfo netlifyZone, rec libdns.Record, matchContent bool) ([]netlifyDNSRecord, error) {
 	qs := make(url.Values)
-	qs.Set("type", rr.Type)
-	qs.Set("name", libdns.AbsoluteName(rr.Name, zoneInfo.Name))
+	qs.Set("type", rec.Type)
+	qs.Set("name", libdns.AbsoluteName(rec.Name, zoneInfo.Name))
 	if matchContent {
-		qs.Set("content", rr.Data)
+		qs.Set("content", rec.Value)
 	}
 
 	reqURL := fmt.Sprintf("%s/dns_zones/%s/dns_records", baseURL, zoneInfo.ID)
@@ -124,8 +99,7 @@ func (p *Provider) getDNSRecords(
 	err = p.doAPIRequest(req, false, false, true, false, &results)
 	var rest_to_return []netlifyDNSRecord
 	for _, res := range results {
-		if res.Hostname == libdns.AbsoluteName(rr.Name, zoneInfo.Name) &&
-			res.Type == rr.Type {
+		if res.Hostname == libdns.AbsoluteName(rec.Name, zoneInfo.Name) && res.Type == rec.Type {
 			rest_to_return = append(rest_to_return, res)
 		}
 	}
@@ -177,14 +151,7 @@ func (p *Provider) getZoneInfo(ctx context.Context, zoneName string) (netlifyZon
 // doAPIRequest authenticates the request req and does the round trip. It returns
 // nil if there was no error, the error otherwise. The decoded content is passed
 // to the calling function by the result variable
-func (p *Provider) doAPIRequest(
-	req *http.Request,
-	isZone bool,
-	isDel bool,
-	isGet bool,
-	isSolo bool,
-	result any,
-) error {
+func (p *Provider) doAPIRequest(req *http.Request, isZone bool, isDel bool, isGet bool, isSolo bool, result interface{}) error {
 	req.Header.Set("Authorization", "Bearer "+p.PersonalAccessToken)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -192,7 +159,7 @@ func (p *Provider) doAPIRequest(
 		return err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("got error status: HTTP %d: %+v", resp.StatusCode, string(body))

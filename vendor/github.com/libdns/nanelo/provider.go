@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"net/url"
 	"net/http"
-	"time"
 
 	"github.com/libdns/libdns"
 )
@@ -19,30 +18,30 @@ type Provider struct {
 }
 
 type APIResponse struct {
-	OK     bool                    `json:"ok"`
-	Error  *string                 `json:"error"`
-	Result *map[string]interface{} `json:"result"`
+	OK  bool `json:"ok"`
+	Error   *string `json:"error"`
+	Result  *map[string]interface{} `json:"result"`
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	baseURL, _ := url.Parse("https://api.nanelo.com/v1")
-	baseURL = baseURL.JoinPath(p.APIToken, "dns", "addrecord")
-
-	var added []libdns.Record
+	baseURL = baseURL.JoinPath(p.APIToken)
+	baseURL = baseURL.JoinPath("dns")
+	baseURL = baseURL.JoinPath("addrecord")
 
 	for _, rec := range records {
-		rr := rec.RR()
-
 		endpoint := baseURL
 		query := endpoint.Query()
 		query.Set("domain", zone)
-		query.Set("name", rr.Name)
-		query.Set("type", rr.Type)
-		query.Set("value", rr.Data)
-		query.Set("ttl", fmt.Sprintf("%f", rr.TTL.Seconds()))
+		query.Set("name", rec.Name)
+		query.Set("type", rec.Type)
+		query.Set("value", rec.Value)
+		query.Set("ttl", fmt.Sprintf("%f", rec.TTL.Seconds()))
 
-		// TODO: support setting the "priority"
+		if rec.Priority > 0 {
+			query.Set("priority", fmt.Sprintf("%d", rec.Priority))
+		}
 
 		endpoint.RawQuery = query.Encode()
 
@@ -55,7 +54,6 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
 
 		var apiResponse APIResponse
 		err = json.NewDecoder(resp.Body).Decode(&apiResponse)
@@ -66,38 +64,31 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		if apiResponse.Error != nil {
 			return nil, fmt.Errorf(*apiResponse.Error)
 		}
-		if !apiResponse.OK {
-			return nil, fmt.Errorf("unknown error when trying to create the DNS record")
+		if apiResponse.OK == false {
+			return nil, fmt.Errorf("Unknown Error when trying to create the DNS Record")
 		}
-
-		if rr.TTL == 0 {
-			rr.TTL = time.Minute // Default TTL if not set
-		}
-		added = append(added, rr)
 	}
-
-	return added, nil
+	return records, nil
 }
-
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	baseURL, _ := url.Parse("https://api.nanelo.com/v1")
-	baseURL = baseURL.JoinPath(p.APIToken, "dns", "deleterecord")
-
-	var deleted []libdns.Record
-
+	baseURL = baseURL.JoinPath(p.APIToken)
+	baseURL = baseURL.JoinPath("dns")
+	baseURL = baseURL.JoinPath("deleterecord")
+	
 	for _, rec := range records {
-		rr := rec.RR()
-
 		endpoint := baseURL
 		query := endpoint.Query()
 		query.Set("domain", zone)
-		query.Set("name", rr.Name)
-		query.Set("type", rr.Type)
-		query.Set("value", rr.Data)
-		query.Set("ttl", fmt.Sprintf("%f", rr.TTL.Seconds()))
+		query.Set("name", rec.Name)
+		query.Set("type", rec.Type)
+		query.Set("value", rec.Value)
+		query.Set("ttl", fmt.Sprintf("%f", rec.TTL.Seconds()))
 
-		// TODO: support setting the "priority"
+		if rec.Priority > 0 {
+			query.Set("priority", fmt.Sprintf("%d", rec.Priority))
+		}
 
 		endpoint.RawQuery = query.Encode()
 
@@ -110,7 +101,6 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
 
 		var apiResponse APIResponse
 		err = json.NewDecoder(resp.Body).Decode(&apiResponse)
@@ -121,14 +111,11 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		if apiResponse.Error != nil {
 			return nil, fmt.Errorf(*apiResponse.Error)
 		}
-		if !apiResponse.OK {
-			return nil, fmt.Errorf("unknown error when trying to delete the DNS record")
+		if apiResponse.OK == false {
+			return nil, fmt.Errorf("Unknown Error when trying to create the DNS Record")
 		}
-
-		deleted = append(deleted, rec)
 	}
-
-	return deleted, nil
+	return records, nil
 }
 
 // Interface guards

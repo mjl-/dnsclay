@@ -2,25 +2,27 @@ package linodego
 
 import (
 	"context"
+	"fmt"
 	"net/url"
+
+	"github.com/go-resty/resty/v2"
 )
 
 // LinodeType represents a linode type object
 type LinodeType struct {
-	ID                 string              `json:"id"`
-	Disk               int                 `json:"disk"`
-	Class              LinodeTypeClass     `json:"class"` // enum: nanode, standard, highmem, dedicated, gpu
-	Price              *LinodePrice        `json:"price"`
-	Label              string              `json:"label"`
-	Addons             *LinodeAddons       `json:"addons"`
-	RegionPrices       []LinodeRegionPrice `json:"region_prices"`
-	NetworkOut         int                 `json:"network_out"`
-	Memory             int                 `json:"memory"`
-	Transfer           int                 `json:"transfer"`
-	VCPUs              int                 `json:"vcpus"`
-	GPUs               int                 `json:"gpus"`
-	Successor          string              `json:"successor"`
-	AcceleratedDevices int                 `json:"accelerated_devices"`
+	ID           string              `json:"id"`
+	Disk         int                 `json:"disk"`
+	Class        LinodeTypeClass     `json:"class"` // enum: nanode, standard, highmem, dedicated, gpu
+	Price        *LinodePrice        `json:"price"`
+	Label        string              `json:"label"`
+	Addons       *LinodeAddons       `json:"addons"`
+	RegionPrices []LinodeRegionPrice `json:"region_prices"`
+	NetworkOut   int                 `json:"network_out"`
+	Memory       int                 `json:"memory"`
+	Transfer     int                 `json:"transfer"`
+	VCPUs        int                 `json:"vcpus"`
+	GPUs         int                 `json:"gpus"`
+	Successor    string              `json:"successor"`
 }
 
 // LinodePrice represents a linode type price object
@@ -51,7 +53,7 @@ type LinodeRegionPrice struct {
 // LinodeTypeClass constants start with Class and include Linode API Instance Type Classes
 type LinodeTypeClass string
 
-// LinodeTypeClass constants are the Instance Type Classes that an Instance Type can be assigned
+// LinodeTypeClass contants are the Instance Type Classes that an Instance Type can be assigned
 const (
 	ClassNanode    LinodeTypeClass = "nanode"
 	ClassStandard  LinodeTypeClass = "standard"
@@ -60,11 +62,31 @@ const (
 	ClassGPU       LinodeTypeClass = "gpu"
 )
 
+// LinodeTypesPagedResponse represents a linode types API response for listing
+type LinodeTypesPagedResponse struct {
+	*PageOptions
+	Data []LinodeType `json:"data"`
+}
+
+func (*LinodeTypesPagedResponse) endpoint(_ ...any) string {
+	return "linode/types"
+}
+
+func (resp *LinodeTypesPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
+	res, err := coupleAPIErrors(r.SetResult(LinodeTypesPagedResponse{}).Get(e))
+	if err != nil {
+		return 0, 0, err
+	}
+	castedRes := res.Result().(*LinodeTypesPagedResponse)
+	resp.Data = append(resp.Data, castedRes.Data...)
+	return castedRes.Pages, castedRes.Results, nil
+}
+
 // ListTypes lists linode types. This endpoint is cached by default.
 func (c *Client) ListTypes(ctx context.Context, opts *ListOptions) ([]LinodeType, error) {
-	e := "linode/types"
+	response := LinodeTypesPagedResponse{}
 
-	endpoint, err := generateListCacheURL(e, opts)
+	endpoint, err := generateListCacheURL(response.endpoint(), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -73,31 +95,32 @@ func (c *Client) ListTypes(ctx context.Context, opts *ListOptions) ([]LinodeType
 		return result.([]LinodeType), nil
 	}
 
-	response, err := getPaginatedResults[LinodeType](ctx, c, e, opts)
+	err = c.listHelper(ctx, &response, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	c.addCachedResponse(endpoint, response, &cacheExpiryTime)
+	c.addCachedResponse(endpoint, response.Data, &cacheExpiryTime)
 
-	return response, nil
+	return response.Data, nil
 }
 
 // GetType gets the type with the provided ID. This endpoint is cached by default.
 func (c *Client) GetType(ctx context.Context, typeID string) (*LinodeType, error) {
-	e := formatAPIPath("linode/types/%s", url.PathEscape(typeID))
+	e := fmt.Sprintf("linode/types/%s", url.PathEscape(typeID))
 
 	if result := c.getCachedResponse(e); result != nil {
 		result := result.(LinodeType)
 		return &result, nil
 	}
 
-	response, err := doGETRequest[LinodeType](ctx, c, e)
+	req := c.R(ctx).SetResult(LinodeType{})
+	r, err := coupleAPIErrors(req.Get(e))
 	if err != nil {
 		return nil, err
 	}
 
-	c.addCachedResponse(e, response, &cacheExpiryTime)
+	c.addCachedResponse(e, r.Result(), &cacheExpiryTime)
 
-	return response, nil
+	return r.Result().(*LinodeType), nil
 }

@@ -21,7 +21,7 @@ import (
 
 const (
 	// User agent to use for API requests
-	userAgent = "libdns-he/1.2.0"
+	userAgent = "libdns-he/1.0.2"
 	// API URL to POST updates to
 	updateURL = "https://dyn.dns.he.net/nic/update"
 
@@ -30,7 +30,7 @@ const (
 
 	// API rate limit configuration
 	rateLimit = 0.125
-	rateBurst = 1
+	rateBurst = 100
 
 	// API error response codes
 	codeGood     = "good"
@@ -41,12 +41,11 @@ const (
 	codeInterval = "interval"
 	codeNoHost   = "nohost"
 	codeNotFqdn  = "notfqdn"
-	codeNoTXT    = "notxt"
 )
 
 var (
 	// Set environment variable to "TRUE" to enable debug logging
-	debug = (os.Getenv("LIBDNS_HE_DEBUG") == "TRUE")
+	debug = os.Getenv("LIBDNS_HE_DEBUG")
 )
 
 // Query Google DNS for A/AAAA/TXT record for a given DNS name
@@ -59,7 +58,13 @@ func (p *Provider) getDomain(ctx context.Context, zone string) ([]libdns.Record,
 	// The HE API only has an `/update` endpoint and no way
 	// to get current records. So instead, we just make
 	// simple DNS queries to get the A, AAAA, and TXT records.
-	r := net.DefaultResolver
+	r := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{Timeout: 10 * time.Second}
+			return d.DialContext(ctx, network, "8.8.8.8:53")
+		},
+	}
 
 	ips, err := r.LookupHost(ctx, zone)
 	if err != nil {
@@ -76,10 +81,19 @@ func (p *Provider) getDomain(ctx context.Context, zone string) ([]libdns.Record,
 			return libRecords, errors.Wrapf(err, "error parsing ip")
 		}
 
-		libRecords = append(libRecords, libdns.Address{
-			Name: "@",
-			IP:   parsed,
-		})
+		if parsed.Is4() {
+			libRecords = append(libRecords, libdns.Record{
+				Type:  "A",
+				Name:  "@",
+				Value: ip,
+			})
+		} else {
+			libRecords = append(libRecords, libdns.Record{
+				Type:  "AAAA",
+				Name:  "@",
+				Value: ip,
+			})
+		}
 	}
 
 	txt, err := r.LookupTXT(ctx, zone)
@@ -94,9 +108,10 @@ func (p *Provider) getDomain(ctx context.Context, zone string) ([]libdns.Record,
 		if t == "" {
 			continue
 		}
-		libRecords = append(libRecords, libdns.TXT{
-			Name: "@",
-			Text: t,
+		libRecords = append(libRecords, libdns.Record{
+			Type:  "TXT",
+			Name:  "@",
+			Value: t,
 		})
 	}
 
@@ -104,51 +119,37 @@ func (p *Provider) getDomain(ctx context.Context, zone string) ([]libdns.Record,
 }
 
 // Set or clear the value of a DNS entry
-func (p *Provider) setRecord(
-	ctx context.Context,
-	zone string,
-	record libdns.Record,
-	clear bool,
-) error {
+func (p *Provider) setRecord(ctx context.Context, zone string, record libdns.Record, clear bool) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
 	// Sanitize the domain, combines the zone and record names
 	// the record name should typically be relative to the zone
-	domain := libdns.AbsoluteName(record.RR().Name, zone)
+	domain := libdns.AbsoluteName(record.Name, zone)
 
 	params := map[string]string{}
 
-	rr := record.RR()
-
-	if !clear {
-		parsedRR, err := rr.Parse()
-		if err != nil {
-			return errors.Wrapf(err, "error parsing record")
-		}
-
-		switch rr := parsedRR.(type) {
-		case libdns.TXT:
-			params["txt"] = rr.Text
-		case libdns.Address:
-			params["myip"] = rr.IP.String()
-		case libdns.RR:
-			return fmt.Errorf("unsupported record type: %s", rr.Type)
-		default:
-			return fmt.Errorf("unsupported record type: %T", rr)
-		}
-	} else {
-		// When deleting we don't care about the RR data, just the RR type
-		switch rr.Type {
-		case "TXT":
+	switch record.Type {
+	case "TXT":
+		if clear {
 			params["txt"] = "\"\""
-		case "A":
-			params["myip"] = "127.0.0.1"
-		case "AAAA":
-			params["myip"] = "::1"
-		default:
-			return fmt.Errorf("unsupported record type: %s", rr.Type)
+		} else {
+			params["txt"] = record.Value
 		}
+	case "A":
+		if clear {
+			params["myip"] = "127.0.0.1"
+		} else {
+			params["myip"] = record.Value
+		}
+	case "AAAA":
+		if clear {
+			params["myip"] = "::1"
+		} else {
+			params["myip"] = record.Value
+		}
+	default:
+		return fmt.Errorf("unsupported record type: %s", record.Type)
 	}
 
 	retries := 0
@@ -229,12 +230,14 @@ func (p *Provider) doRequest(ctx context.Context, domain string, params map[stri
 
 	respBody := string(bodyBytes)
 	if err := checkResponse(u, respBody); err != nil {
-		if !debug {
-			delete(query, "password")
+		if debug == "TRUE" {
+			return errors.Wrapf(err,
+				"HE api request failed, query=%s, response=%s", query, respBody,
+			)
 		}
 
 		return errors.Wrapf(err,
-			"HE api request failed, query=%s, response=%s", query, respBody,
+			"HE api request failed, response=%s", respBody,
 		)
 	}
 
@@ -272,8 +275,6 @@ func checkResponse(uri *url.URL, body string) error {
 		return fmt.Errorf("the record provided does not exist in this account")
 	case codeNotFqdn:
 		return fmt.Errorf("the record provided isn't an FQDN")
-	case codeNoTXT:
-		return fmt.Errorf("no dynamic TXT record to update")
 	default:
 		// This is basically only server errors.
 		return fmt.Errorf("unknown server error")

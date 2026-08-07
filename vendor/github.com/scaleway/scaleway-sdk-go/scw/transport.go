@@ -1,7 +1,6 @@
 package scw
 
 import (
-	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"sync/atomic"
@@ -25,19 +24,16 @@ func (l *requestLoggerTransport) RoundTrip(request *http.Request) (*http.Respons
 	// Get anonymized headers
 	request.Header = auth.AnonymizeHeaders(request.Header.Clone())
 
-	// Add a pseudo random request identifier, this can be used to identify request and response in large logs
-	requestIdentifier := rand.Uint32()
-
 	dump, err := httputil.DumpRequestOut(request, true)
 	if err != nil {
 		logger.Warningf("cannot dump outgoing request: %s", err)
 	} else {
 		var logString string
-		logString += "\n---------- Scaleway SDK REQUEST %d (%x) : ----------\n"
+		logString += "\n--------------- Scaleway SDK REQUEST %d : ---------------\n"
 		logString += "%s\n"
-		logString += "---------------------------------------------------------\n"
+		logString += "---------------------------------------------------------"
 
-		logger.Debugf(logString, currentRequestNumber, requestIdentifier, dump)
+		logger.Debugf(logString, currentRequestNumber, dump)
 	}
 
 	// Restore original headers before sending the request
@@ -55,11 +51,11 @@ func (l *requestLoggerTransport) RoundTrip(request *http.Request) (*http.Respons
 		logger.Warningf("cannot dump ingoing response: %s", err)
 	} else {
 		var logString string
-		logString += "\n---------- Scaleway SDK RESPONSE %d (%x) : ----------\n"
+		logString += "\n--------------- Scaleway SDK RESPONSE %d : ---------------\n"
 		logString += "%s\n"
-		logString += "----------------------------------------------------------\n"
+		logString += "----------------------------------------------------------"
 
-		logger.Debugf(logString, currentRequestNumber, requestIdentifier, dump)
+		logger.Debugf(logString, currentRequestNumber, dump)
 	}
 
 	return response, requestError

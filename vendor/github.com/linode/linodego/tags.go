@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/url"
+
+	"github.com/go-resty/resty/v2"
 )
 
 // Tag represents a Tag object
@@ -50,9 +54,57 @@ func (i Tag) GetCreateOptions() (o TagCreateOptions) {
 	return
 }
 
+// TagsPagedResponse represents a paginated Tag API response
+type TagsPagedResponse struct {
+	*PageOptions
+	Data []Tag `json:"data"`
+}
+
+// endpoint gets the endpoint URL for Tag
+func (TagsPagedResponse) endpoint(_ ...any) string {
+	return "tags"
+}
+
+func (resp *TagsPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
+	res, err := coupleAPIErrors(r.SetResult(TagsPagedResponse{}).Get(e))
+	if err != nil {
+		return 0, 0, err
+	}
+	castedRes := res.Result().(*TagsPagedResponse)
+	resp.Data = append(resp.Data, castedRes.Data...)
+	return castedRes.Pages, castedRes.Results, nil
+}
+
+// TaggedObjectsPagedResponse represents a paginated Tag API response
+type TaggedObjectsPagedResponse struct {
+	*PageOptions
+	Data []TaggedObject `json:"data"`
+}
+
+// endpoint gets the endpoint URL for Tag
+func (TaggedObjectsPagedResponse) endpoint(ids ...any) string {
+	id := url.PathEscape(ids[0].(string))
+	return fmt.Sprintf("tags/%s", id)
+}
+
+func (resp *TaggedObjectsPagedResponse) castResult(r *resty.Request, e string) (int, int, error) {
+	res, err := coupleAPIErrors(r.SetResult(TaggedObjectsPagedResponse{}).Get(e))
+	if err != nil {
+		return 0, 0, err
+	}
+	castedRes := res.Result().(*TaggedObjectsPagedResponse)
+	resp.Data = append(resp.Data, castedRes.Data...)
+	return castedRes.Pages, castedRes.Results, nil
+}
+
 // ListTags lists Tags
 func (c *Client) ListTags(ctx context.Context, opts *ListOptions) ([]Tag, error) {
-	return getPaginatedResults[Tag](ctx, c, "tags", opts)
+	response := TagsPagedResponse{}
+	err := c.listHelper(ctx, &response, opts)
+	if err != nil {
+		return nil, err
+	}
+	return response.Data, nil
 }
 
 // fixData stores an object of the type defined by Type in Data using RawData
@@ -63,35 +115,30 @@ func (i *TaggedObject) fixData() (*TaggedObject, error) {
 		if err := json.Unmarshal(i.RawData, &obj); err != nil {
 			return nil, err
 		}
-
 		i.Data = obj
 	case "lke_cluster":
 		obj := LKECluster{}
 		if err := json.Unmarshal(i.RawData, &obj); err != nil {
 			return nil, err
 		}
-
 		i.Data = obj
 	case "nodebalancer":
 		obj := NodeBalancer{}
 		if err := json.Unmarshal(i.RawData, &obj); err != nil {
 			return nil, err
 		}
-
 		i.Data = obj
 	case "domain":
 		obj := Domain{}
 		if err := json.Unmarshal(i.RawData, &obj); err != nil {
 			return nil, err
 		}
-
 		i.Data = obj
 	case "volume":
 		obj := Volume{}
 		if err := json.Unmarshal(i.RawData, &obj); err != nil {
 			return nil, err
 		}
-
 		i.Data = obj
 	}
 
@@ -100,18 +147,19 @@ func (i *TaggedObject) fixData() (*TaggedObject, error) {
 
 // ListTaggedObjects lists Tagged Objects
 func (c *Client) ListTaggedObjects(ctx context.Context, label string, opts *ListOptions) (TaggedObjectList, error) {
-	response, err := getPaginatedResults[TaggedObject](ctx, c, formatAPIPath("tags/%s", label), opts)
+	response := TaggedObjectsPagedResponse{}
+	label = url.PathEscape(label)
+	err := c.listHelper(ctx, &response, opts, label)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range response {
-		if _, err := response[i].fixData(); err != nil {
+	for i := range response.Data {
+		if _, err := response.Data[i].fixData(); err != nil {
 			return nil, err
 		}
 	}
-
-	return response, nil
+	return response.Data, nil
 }
 
 // SortedObjects converts a list of TaggedObjects into a Sorted Objects struct, for easier access
@@ -152,17 +200,29 @@ func (t TaggedObjectList) SortedObjects() (SortedObjects, error) {
 			}
 		}
 	}
-
 	return so, nil
 }
 
 // CreateTag creates a Tag
 func (c *Client) CreateTag(ctx context.Context, opts TagCreateOptions) (*Tag, error) {
-	return doPOSTRequest[Tag](ctx, c, "tags", opts)
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	e := "tags"
+	req := c.R(ctx).SetResult(&Tag{}).SetBody(string(body))
+	r, err := coupleAPIErrors(req.Post(e))
+	if err != nil {
+		return nil, err
+	}
+	return r.Result().(*Tag), nil
 }
 
 // DeleteTag deletes the Tag with the specified id
 func (c *Client) DeleteTag(ctx context.Context, label string) error {
-	e := formatAPIPath("tags/%s", label)
-	return doDELETERequest(ctx, c, e)
+	label = url.PathEscape(label)
+	e := fmt.Sprintf("tags/%s", label)
+	_, err := coupleAPIErrors(c.R(ctx).Delete(e))
+	return err
 }

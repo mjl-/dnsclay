@@ -1,8 +1,6 @@
 package netlify
 
 import (
-	"fmt"
-	"net/netip"
 	"time"
 
 	"github.com/libdns/libdns"
@@ -17,79 +15,28 @@ type netlifyDNSRecord struct {
 	*models.DNSRecord
 }
 
-func (r netlifyDNSRecord) libdnsRecord(zone string) (libdns.Record, error) {
-	name := libdns.RelativeName(r.Hostname, zone)
-	ttl := time.Duration(r.TTL) * time.Second
-	switch r.Type {
-	case "A", "AAAA":
-		addr, err := netip.ParseAddr(r.Value)
-		if err != nil {
-			return libdns.Address{}, fmt.Errorf("invalid IP address %q: %v", r.Value, err)
-		}
-		return libdns.Address{
-			Name: name,
-			TTL:  ttl,
-			IP:   addr,
-		}, nil
-	case "CNAME":
-		return libdns.CNAME{
-			Name:   name,
-			TTL:    ttl,
-			Target: r.Value,
-		}, nil
-	case "MX":
-		return libdns.MX{
-			Name:       name,
-			TTL:        ttl,
-			Preference: uint16(r.Priority),
-			Target:     r.Value,
-		}, nil
-	case "NS":
-		return libdns.NS{
-			Name:   name,
-			TTL:    ttl,
-			Target: r.Value,
-		}, nil
-	case "TXT":
-		return libdns.TXT{
-			Name: name,
-			TTL:  ttl,
-			Text: r.Value,
-		}, nil
-	default:
-		return libdns.RR{
-			Name: name,
-			TTL:  ttl,
-			Type: r.Type,
-			Data: r.Value,
-		}.Parse()
+func (r netlifyDNSRecord) libdnsRecord(zone string) libdns.Record {
+	return libdns.Record{
+		Type:     r.Type,
+		Name:     libdns.RelativeName(r.Hostname, zone),
+		Value:    r.Value,
+		TTL:      time.Duration(r.TTL) * time.Second,
+		ID:       r.ID,
+		Priority: uint(r.Priority),
 	}
 }
 
 func netlifyRecord(r libdns.Record) netlifyDNSRecord {
-	rr := r.RR()
-
-	netlifyRec := netlifyDNSRecord{
+	return netlifyDNSRecord{
 		&models.DNSRecord{
-			Type:     rr.Type,
-			Hostname: rr.Name,
-			TTL:      int64(rr.TTL),
-			Value:    rr.Data,
+			ID:       r.ID,
+			Type:     r.Type,
+			Hostname: r.Name,
+			Value:    r.Value,
+			TTL:      int64(r.TTL.Seconds()),
+			Priority: int64(r.Priority),
 		},
 	}
-
-	switch rec := r.(type) {
-	case libdns.MX:
-		netlifyRec.Priority = int64(rec.Preference)
-	case libdns.NS:
-		netlifyRec.Value = rec.Target
-	case libdns.CNAME:
-		netlifyRec.Value = rec.Target
-	case libdns.TXT:
-		netlifyRec.Value = rec.Text
-	}
-
-	return netlifyRec
 }
 
 type netlifyDNSDeleteError struct {

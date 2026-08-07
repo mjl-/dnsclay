@@ -2,9 +2,7 @@ package main
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/libdns/libdns"
@@ -98,79 +96,41 @@ type ZoneCredential struct {
 
 // Record is a DNS record that discovered through the API of the provider.
 type Record struct {
-	ID               int64
-	Zone             string    `bstore:"nonzero,ref Zone"` // Name of zone, lower-case.
-	SerialFirst      Serial    // Serial where this record first appeared. For SOA records, this is equal to its Serial field.
-	SerialDeleted    Serial    // Serial when record was removed. For future IXFR.
-	First            time.Time `bstore:"default now,nonzero"`
-	Deleted          *time.Time
-	AbsName          string // Fully qualified, in lower-case.
-	Type             Type   // eg A, etc.
-	Class            Class
-	TTL              TTL
-	DataHex          string
-	Value            string // Human-readable.
-	ProviderDataJSON string // If non-empty, the ProviderData from the libdns.Record type-specific struct.
+	ID            int64
+	Zone          string    `bstore:"nonzero,ref Zone"` // Name of zone, lower-case.
+	SerialFirst   Serial    // Serial where this record first appeared. For SOA records, this is equal to its Serial field.
+	SerialDeleted Serial    // Serial when record was removed. For future IXFR.
+	First         time.Time `bstore:"default now,nonzero"`
+	Deleted       *time.Time
+	AbsName       string // Fully qualified, in lower-case.
+	Type          Type   // eg A, etc.
+	Class         Class
+	TTL           TTL
+	DataHex       string
+	Value         string // Human-readable.
+	ProviderID    string // From libdns.
 }
 
-func (r Record) ProviderData() any {
-	if r.ProviderDataJSON == "" {
-		return nil
-	}
-
-	// todo: find better way to unmarshal any JSON value, without requiring it being an
-	// object.
-	var d struct {
-		Data any
-	}
-	err := json.Unmarshal([]byte(`{"Data":`+r.ProviderDataJSON+`}`), &d)
-	if err != nil {
-		// todo: log?
-		return nil
-	}
-	return d.Data
-}
-
-func (r Record) libdnsRR() (libdnsRR, error) {
+func (r Record) libdnsRecord() libdns.Record {
 	typ, ok := dns.TypeToString[uint16(r.Type)]
 	if !ok {
 		typ = fmt.Sprintf("%d", r.Type)
 	}
-
-	value := r.Value
-	if uint16(r.Type) == dns.TypeTXT {
-		// libdns expects one big unquoted string, not multiple quoted strings like in the
-		// zone format. So we convert. Breaks are not preserved.
-		rr, err := dns.NewRR(fmt.Sprintf("%s 1 TXT %s", r.Zone, r.Value))
-		if err != nil {
-			return libdnsRR{}, fmt.Errorf("parsing txt record: %v", err)
-		}
-
-		value = strings.Join(rr.(*dns.TXT).Txt, "")
+	return libdns.Record{
+		ID:    r.ProviderID,
+		Type:  typ,
+		Name:  libdns.RelativeName(r.AbsName, r.Zone),
+		Value: r.Value,
+		TTL:   time.Second * time.Duration(r.TTL),
 	}
-
-	rr := libdnsRR{
-		RR: libdns.RR{
-			Name: libdns.RelativeName(r.AbsName, r.Zone),
-			Type: typ,
-			TTL:  time.Second * time.Duration(r.TTL),
-			Data: value,
-		},
-		ProviderData: r.ProviderData(),
-	}
-	return rr, nil
 }
 
-func libdnsRRs(l []Record) ([]libdnsRR, error) {
-	x := make([]libdnsRR, 0, len(l))
+func libdnsRecords(l []Record) []libdns.Record {
+	x := make([]libdns.Record, 0, len(l))
 	for _, r := range l {
-		rr, err := r.libdnsRR()
-		if err != nil {
-			return nil, err
-		}
-		x = append(x, rr)
+		x = append(x, r.libdnsRecord())
 	}
-	return x, nil
+	return x
 }
 
 type rrsetKey struct {

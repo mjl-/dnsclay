@@ -7,5 +7,11 @@ import (
 type GrantsListResponse = UserGrants
 
 func (c *Client) GrantsList(ctx context.Context) (*GrantsListResponse, error) {
-	return doGETRequest[GrantsListResponse](ctx, c, "profile/grants")
+	e := "profile/grants"
+	r, err := coupleAPIErrors(c.R(ctx).SetResult(GrantsListResponse{}).Get(e))
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Result().(*GrantsListResponse), err
 }

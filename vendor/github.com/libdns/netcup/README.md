@@ -42,6 +42,4 @@ func main() {
 
 **:warning: The netcup API does not offer setting the TTL for individual records.**
 
-**:warning: As the ID attribute has been removed in the libdns record structs, using the ID field is not possible.**
-
-Updating and deleting records can be done by either filling all struct fields of the dnsRecord, or just Name and Type (+ Priority for MX records). Then the first record matching these criteria is updated/deleted.
+Updating and deleting records can be done by either filling all struct fields of the dnsRecord, including the ID, or just Name and Type (+ Priority for MX records). Then the first record matching these criteria is updated/deleted.
