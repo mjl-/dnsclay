@@ -246,7 +246,7 @@ const pageHome = async () => {
 					dom._kids(providerConfigBox,
 						style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
 						dom.label(
-							dom.div('Name'),
+							dom.div('Config name'),
 							dom.div(newProviderConfigName=dom.input(attr.required(''), attr.value(newProviderConfigName?.value || zone.value))),
 						),
 						dom.div(
@@ -317,35 +317,44 @@ const pageHome = async () => {
 									syncInterval=dom.input(attr.type('number'), attr.required(''), attr.value('86400')),
 								),
 								dom.div(
-									dom.div(dom.label('Create new provider config')),
+									dom.div(dom.label('Provider config')),
 									dom.div(
 										style({display: 'flex', gap: '1em'}),
-										chunked(providers, 10).map(plist =>
+										dom.div(
+											dom.label(
+												dom.div('Existing'),
+												dom.div(
+													existingProviderConfigName=dom.select(
+														dom.option('', attr.value('')),
+														providerConfigs.map(pc => dom.option(pc.Name)),
+													),
+												),
+											),
+										),
+										dom.div(
+											dom.label('New'),
 											dom.div(
-												plist.map(p => {
-													return dom.div(
-														dom.label(
-															dom.input(attr.type('radio'), attr.name('provider'), attr.value(trimPrefix(p.Name, 'Provider_')), function change() { updateProviderConfig() }),
-															' ', trimPrefix(p.Name, 'Provider_')
-														),
+												style({display: 'flex', gap: '1em'}),
+												chunked(providers, 10).map(plist =>
+													dom.div(
+														plist.map(p => {
+															return dom.div(
+																dom.label(
+																	dom.input(attr.type('radio'), attr.name('provider'), attr.value(trimPrefix(p.Name, 'Provider_')), function change() { updateProviderConfig() }),
+																	' ', trimPrefix(p.Name, 'Provider_')
+																),
+															)
+														})
 													)
-												})
-											)
-										)
+												)
+											),
+											dom.br(),
+											providerConfigBox=dom.div(),
+										),
 									)
 								),
-								providerConfigBox=dom.div(),
-								dom.label(
-									dom.div('Use existing provider config'),
-									dom.div(
-										existingProviderConfigName=dom.select(
-											dom.option('', attr.value('')),
-											providerConfigs.map(pc => dom.option(pc.Name)),
-										),
-									),
-								),
 								dom.div(
-									dom.submitbutton('Test config'), ' ',
+									dom.submitbutton('Test settings'), ' ',
 									testResult=dom.span(),
 								),
 								dom.div(
@@ -844,7 +853,7 @@ const pageZone = async (zonestr: string) => {
 							fieldset=dom.fieldset(
 								style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
 								dom.label(
-									dom.div('Name'),
+									dom.div('Config name'),
 									dom.div(dom.input(attr.value(providerConfig.Name), attr.disabled(''))),
 								),
 								dom.label(
@@ -866,7 +875,7 @@ const pageZone = async (zonestr: string) => {
 									),
 								),
 								dom.div(
-									dom.submitbutton('Test config'), ' ',
+									dom.submitbutton('Test settings'), ' ',
 									testResult=dom.span(),
 								),
 								dom.div(
