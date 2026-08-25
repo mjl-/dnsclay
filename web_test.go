@@ -71,6 +71,21 @@ func TestRecordSetAdd(t *testing.T) {
 		te.sherpaError("user:error", func() {
 			te.api.RecordSetAdd(ctxbg, z.Name, RecordSetChange{"testhost2", 600, Type(dns.TypeA), []string{"10.0.0.3"}})
 		}) // Already exists.
+
+		// Cannot have non-cname record and then add cname.
+		te.sherpaError("user:error", func() {
+			te.api.RecordSetAdd(ctxbg, z.Name, RecordSetChange{"testhost2", 600, Type(dns.TypeCNAME), []string{"cname.example."}})
+		})
+
+		tc = te.zoneChanged(func() {
+			rsn := RecordSetChange{"testname", 600, Type(dns.TypeCNAME), []string{"testhost2"}}
+			te.api.RecordSetAdd(ctxbg, z.Name, rsn)
+		})
+		tc.checkRecordDelta(typecounts{}, typecounts{"CNAME": 1})
+		// Cannot have cname record, and add non-cname.
+		te.sherpaError("user:error", func() {
+			te.api.RecordSetAdd(ctxbg, z.Name, RecordSetChange{"testname", 600, Type(dns.TypeA), []string{"10.0.0.3"}})
+		})
 	})
 }
 

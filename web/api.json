@@ -312,7 +312,7 @@
 		},
 		{
 			"Name": "RecordSetAdd",
-			"Docs": "RecordSetAdd adds a record set through the provider, then waits for it to\nsynchronize back to the local database.\n\nThe name and type must not already exist. Use RecordSetUpdate to add values to\nan existing record set.\n\nThe inserted records are returned.",
+			"Docs": "RecordSetAdd adds a record set through the provider, then waits for it to\nsynchronize back to the local database.\n\nThe name and type must not already exist. A record of type CNAME cannot coexist\nwith non-CNAME records under the same name. Use RecordSetUpdate to add values to\nan existing record set.\n\nThe inserted records are returned.",
 			"Params": [
 				{
 					"Name": "zone",

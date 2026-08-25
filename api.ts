@@ -1020,7 +1020,8 @@ export class Client {
 	// RecordSetAdd adds a record set through the provider, then waits for it to
 	// synchronize back to the local database.
 	// 
-	// The name and type must not already exist. Use RecordSetUpdate to add values to
+	// The name and type must not already exist. A record of type CNAME cannot coexist
+	// with non-CNAME records under the same name. Use RecordSetUpdate to add values to
 	// an existing record set.
 	// 
 	// The inserted records are returned.

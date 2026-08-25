@@ -594,7 +594,8 @@ func _parseNewSet(zone string, rsc RecordSetChange) []Record {
 // RecordSetAdd adds a record set through the provider, then waits for it to
 // synchronize back to the local database.
 //
-// The name and type must not already exist. Use RecordSetUpdate to add values to
+// The name and type must not already exist. A record of type CNAME cannot coexist
+// with non-CNAME records under the same name. Use RecordSetUpdate to add values to
 // an existing record set.
 //
 // The inserted records are returned.
@@ -635,6 +636,25 @@ func (x API) RecordSetAdd(ctx context.Context, zone string, rsc RecordSetChange)
 		_checkf(err, "listing current records for name and type")
 		if len(oset) != 0 {
 			_checkuserf(errors.New("already exists, edit the existing record set instead"), "checking for existing records with name and type")
+		}
+
+		// Check that there is no CNAME incompatibility.
+		q = bstore.QueryTx[Record](tx)
+		q.FilterFn(func(r Record) bool { return r.Deleted == nil })
+		if rsc.Type == Type(dns.TypeCNAME) {
+			q.FilterNonzero(Record{Zone: z.Name, AbsName: nset[0].AbsName})
+			exists, err := q.Exists()
+			_checkf(err, "checking for conflicting cname record")
+			if exists {
+				_checkuserf(errors.New("a record with this name already exists, conflicts with new cname record"), "checking for existing records")
+			}
+		} else {
+			q.FilterNonzero(Record{Zone: z.Name, AbsName: nset[0].AbsName, Type: Type(dns.TypeCNAME)})
+			exists, err := q.Exists()
+			_checkf(err, "checking for conflicting cname record")
+			if exists {
+				_checkuserf(errors.New("a cname record with this name already exists, conflicts with other record types"), "checking for existing record cname record")
+			}
 		}
 	})
 
