@@ -751,6 +751,11 @@ const pageZone = async (zonestr: string) => {
 	let showDNSSEC: HTMLInputElement
 	let recordsTbody: HTMLElement
 
+	let searchName: HTMLInputElement
+	let searchTTL: HTMLInputElement
+	let searchType: HTMLInputElement
+	let searchValue: HTMLInputElement
+
 	const refresh = async (elem: {disabled: boolean}) => {
 		const [nzone, npc, nnotifies, ncredentials, nsets] = await check(elem, () => client.Zone(zone.Name))
 		zone = nzone
@@ -1132,43 +1137,68 @@ const pageZone = async (zonestr: string) => {
 				render()
 			}), ' ',
 		),
-		dom.div(
-			dom.label(
-				showHistoric=dom.input(
-					attr.type('checkbox'),
-					localStorage.getItem('showHistoric') === 'yes' ? attr.checked('') : [],
-					function change() {
-						if (showHistoric.checked) {
-							localStorage.setItem('showHistoric', 'yes')
-						} else {
-							localStorage.removeItem('showHistoric')
-						}
-						render()
-					},
-				),
-				' Show historic records',
-			), ' ',
-			dom.label(
-				showDNSSEC=dom.input(
-					attr.type('checkbox'),
-					localStorage.getItem('showDNSSEC') === 'yes' ? attr.checked('') : [],
-					function change() {
-						if (showDNSSEC.checked) {
-							localStorage.setItem('showDNSSEC', 'yes')
-						} else {
-							localStorage.removeItem('showDNSSEC')
-						}
-						render()
-					},
-				),
-				' Show DNSSEC signature records',
-				attr.title('RRSIG, NSEC and NSEC3 records are hidden by default'),
-			),
-		),
+		dom.br(),
 		dom.table(
 			dom._class('hover'),
 			dom._class('striped'),
 			dom.thead(
+				style({position: 'sticky', top: '0', backgroundColor: 'white', boxShadow: '0px 2px 3px #ddd'}),
+				dom.tr(
+					dom.td(
+						style({textAlign: 'left'}),
+						attr.colspan('7'),
+						dom.div(
+							dom.label(
+								showHistoric=dom.input(
+									attr.type('checkbox'),
+									localStorage.getItem('showHistoric') === 'yes' ? attr.checked('') : [],
+									function change() {
+										if (showHistoric.checked) {
+											localStorage.setItem('showHistoric', 'yes')
+										} else {
+											localStorage.removeItem('showHistoric')
+										}
+										render()
+									},
+								),
+								' Show historic records',
+							), ' ',
+							dom.label(
+								showDNSSEC=dom.input(
+									attr.type('checkbox'),
+									localStorage.getItem('showDNSSEC') === 'yes' ? attr.checked('') : [],
+									function change() {
+										if (showDNSSEC.checked) {
+											localStorage.setItem('showDNSSEC', 'yes')
+										} else {
+											localStorage.removeItem('showDNSSEC')
+										}
+										render()
+									},
+								),
+								' Show DNSSEC signature records',
+								attr.title('RRSIG, NSEC and NSEC3 records are hidden by default'),
+							),
+						),
+					),
+				),
+				dom.tr(
+					dom.th(),
+					dom.th(),
+					dom.th(
+						searchName=dom.input(style({width: '100%', border: '1px solid #999', borderRadius: '2px'}), function keyup() { render() }, function change() { render() }),
+					),
+					dom.th(
+						searchTTL=dom.input(style({width: '3em', border: '1px solid #999', borderRadius: '2px'}), function keyup() { render() }, function change() { render() }),
+					),
+					dom.th(
+						searchType=dom.input(style({width: '5em', border: '1px solid #999', borderRadius: '2px'}), function keyup() { render() }, function change() { render() }),
+					),
+					dom.th(
+						searchValue=dom.input(style({width: '100%', border: '1px solid #999', borderRadius: '2px'}), function keyup() { render() }, function change() { render() }),
+					),
+					dom.th(),
+				),
 				dom.tr(
 					dom.th(),
 					dom.th('Age'),
@@ -1225,10 +1255,32 @@ const pageZone = async (zonestr: string) => {
 		const typeNSEC = 47
 		const typeNSEC3 = 50
 
+		let s = sets
+		s = s.filter(s => (showHistoric.checked || !s.Records![0]!.Deleted) && (showDNSSEC.checked || (s.Records![0].Type !== typeRRSIG && s.Records![0].Type !== typeNSEC && s.Records![0].Type !== typeNSEC3)))
+		const searchHighlight = (input: HTMLInputElement) => {
+			input.style.backgroundColor = input.value ? '#dff0ff' : 'white'
+		}
+		searchHighlight(searchName)
+		searchHighlight(searchTTL)
+		searchHighlight(searchType)
+		searchHighlight(searchValue)
+		if (searchName.value) {
+			const v = searchName.value.toLowerCase()
+			s = s.filter(s => relName(s.Records![0].AbsName).toLowerCase().includes(v))
+		}
+		if (searchTTL.value) {
+			s = s.filter(s => ''+s.Records![0].TTL === searchTTL.value)
+		}
+		if (searchType.value) {
+			const v = searchType.value.toUpperCase()
+			s = s.filter(s => (dnsTypeNames[s.Records![0].Type] || '').includes(v))
+		}
+		if (searchValue.value) {
+			const v = searchValue.value.toLowerCase()
+			s = s.filter(s => !!(s.Records || []).find(r => r.Value.toLowerCase().includes(v)))
+		}
 		dom._kids(recordsTbody,
-			sets
-			.filter(s => (showHistoric.checked || !s.Records![0]!.Deleted) && (showDNSSEC.checked || (s.Records![0].Type !== typeRRSIG && s.Records![0].Type !== typeNSEC && s.Records![0].Type !== typeNSEC3)))
-			.map(set => {
+			s.map(set => {
 				const r0 = set.Records![0]
 
 				const hasNegative = !!(set.States || []).find(state => state.Negative)
