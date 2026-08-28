@@ -385,8 +385,8 @@
 			]
 		},
 		{
-			"Name": "RecordSetDelete",
-			"Docs": "RecordSetDelete removes a record set through the provider and waits for the\nchange to be synced to the local database. The historic/deleted record is\nreturned.\n\nrecordIDs must be the current record ids the caller expects to invalidate.\n\nThe updated records, now marked as deleted, are returned.",
+			"Name": "ZoneParse",
+			"Docs": "ZoneParse parses records in a zonefile and records their recordsets.",
 			"Params": [
 				{
 					"Name": "zone",
@@ -395,22 +395,92 @@
 					]
 				},
 				{
-					"Name": "relName",
+					"Name": "zonefile",
+					"Typewords": [
+						"string"
+					]
+				}
+			],
+			"Returns": [
+				{
+					"Name": "r0",
+					"Typewords": [
+						"[]",
+						"[]",
+						"Record"
+					]
+				}
+			]
+		},
+		{
+			"Name": "RecordSetsUpdate",
+			"Docs": "RecordSetsUpdate replaces record sts from rrsetsOld with those in rrsetsNew. The\ncurrent records must exist with the specified record IDs, otherwise an error is\nreturned.\n\nRecord sets that are unchanged are ignored.",
+			"Params": [
+				{
+					"Name": "zone",
 					"Typewords": [
 						"string"
 					]
 				},
 				{
-					"Name": "typ",
+					"Name": "rrsetsOld",
 					"Typewords": [
-						"uint16"
+						"[]",
+						"RecordSetWithIDs"
 					]
 				},
 				{
-					"Name": "recordIDs",
+					"Name": "rrsetsNew",
 					"Typewords": [
 						"[]",
-						"int64"
+						"[]",
+						"Record"
+					]
+				}
+			],
+			"Returns": []
+		},
+		{
+			"Name": "RecordSetsUpdateTTL",
+			"Docs": "RecordSetsUpdateTTL removes one or more record sets through the provider and waits\nfor the changes to be synced to the local database.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "ttl",
+					"Typewords": [
+						"uint32"
+					]
+				},
+				{
+					"Name": "rrsetWithIDs",
+					"Typewords": [
+						"[]",
+						"RecordSetWithIDs"
+					]
+				}
+			],
+			"Returns": []
+		},
+		{
+			"Name": "RecordSetsDelete",
+			"Docs": "RecordSetsDelete updates the TTLs of one or more record sets and waits for\nthe changes to be synced to the local database.\n\nThe updated records, now marked as deleted, are returned.",
+			"Params": [
+				{
+					"Name": "zone",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "rrsetsWithIDs",
+					"Typewords": [
+						"[]",
+						"RecordSetWithIDs"
 					]
 				}
 			],
@@ -1034,6 +1104,34 @@
 					"Typewords": [
 						"[]",
 						"string"
+					]
+				}
+			]
+		},
+		{
+			"Name": "RecordSetWithIDs",
+			"Docs": "RecordSetWithIDs selects a record set by relative name and type, and all\nmatching records for that set in the database.",
+			"Fields": [
+				{
+					"Name": "RelName",
+					"Docs": "",
+					"Typewords": [
+						"string"
+					]
+				},
+				{
+					"Name": "Type",
+					"Docs": "",
+					"Typewords": [
+						"uint16"
+					]
+				},
+				{
+					"Name": "RecordIDs",
+					"Docs": "Must match all current records in database for RelName+Type.",
+					"Typewords": [
+						"[]",
+						"int64"
 					]
 				}
 			]

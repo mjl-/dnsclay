@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"os"
 	"reflect"
@@ -121,9 +122,9 @@ func (p *fakeProvider) find(r libdns.Record) int {
 	return -1
 }
 
-func (p *fakeProvider) findName(name string) (l []libdns.Record) {
+func (p *fakeProvider) findNameType(name, typ string) (l []libdns.Record) {
 	for _, r := range p.Records {
-		if strings.EqualFold(r.Name, name) {
+		if strings.EqualFold(r.Name, name) && r.Type == typ {
 			l = append(l, r)
 		}
 	}
@@ -183,7 +184,10 @@ func (pp *fakeProvider) AppendRecords(ctx context.Context, zone string, l []libd
 	}
 	p.Lock()
 	defer p.Unlock()
-	p.Records = append(p.Records, l...)
+	for _, r := range l {
+		r.Name = libdns.RelativeName(r.Name, zone)
+		p.Records = append(p.Records, r)
+	}
 	if len(l) > 0 {
 		p.changeSerial()
 	}
@@ -199,21 +203,48 @@ func (pp *fakeProvider) SetRecords(ctx context.Context, zone string, l []libdns.
 	p.Lock()
 	defer p.Unlock()
 	var changed bool
+
+	// Group by name+type
+	type key struct {
+		name string
+		typ  string
+	}
+	sets := map[key][]libdns.Record{}
 	for _, r := range l {
-		if r.Type == "CNAME" {
-			nl := p.findName(r.Name)
-			if len(nl) > 1 || nl[0].Type != "CNAME" {
-				continue
-			} else if len(nl) == 1 {
-				// Replace current cname.
-				p.remove(nl[0])
-			}
-			p.Records = append(p.Records, r)
-			changed = true
-		} else if p.find(r) < 0 {
-			p.Records = append(p.Records, r)
-			changed = true
+		r.Name = libdns.RelativeName(r.Name, zone)
+		k := key{r.Name, r.Type}
+		sets[k] = append(sets[k], r)
+	}
+
+	// Replace whole sets.
+	for k, set := range sets {
+		old := p.findNameType(k.name, k.typ)
+
+		// See if anything changed.
+		type libkey struct {
+			name, typ, value string
+			ttl              time.Duration
 		}
+		oldmap := map[libkey]struct{}{}
+		for _, r := range old {
+			xk := libkey{r.Name, r.Type, r.Value, r.TTL}
+			oldmap[xk] = struct{}{}
+		}
+		newmap := map[libkey]struct{}{}
+		for _, r := range set {
+			xk := libkey{r.Name, r.Type, r.Value, r.TTL}
+			newmap[xk] = struct{}{}
+		}
+
+		if maps.Equal(oldmap, newmap) {
+			continue
+		}
+
+		changed = true
+		for _, or := range old {
+			p.remove(or)
+		}
+		p.Records = append(p.Records, set...)
 	}
 	if changed {
 		p.changeSerial()

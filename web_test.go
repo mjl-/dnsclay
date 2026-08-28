@@ -89,7 +89,7 @@ func TestRecordSetAdd(t *testing.T) {
 	})
 }
 
-func TestRecordSetDelete(t *testing.T) {
+func TestRecordSetsDelete(t *testing.T) {
 	testDNS(t, func(te testEnv, z Zone) {
 		tc := te.zoneChanged(func() {
 			var prevRecords []int64
@@ -100,12 +100,18 @@ func TestRecordSetDelete(t *testing.T) {
 			}
 			tcompare(t, len(prevRecords), 2)
 
-			te.sherpaError("user:notFound", func() { te.api.RecordSetDelete(ctxbg, "bogus", "testhost", Type(dns.TypeA), prevRecords) })
-			te.sherpaError("user:error", func() { te.api.RecordSetDelete(ctxbg, z.Name, "testhost", Type(dns.TypeTLSA), prevRecords) })
-			te.sherpaError("user:error", func() { te.api.RecordSetDelete(ctxbg, z.Name, "testhost", Type(0), prevRecords) })
+			te.sherpaError("user:notFound", func() {
+				te.api.RecordSetsDelete(ctxbg, "bogus", []RecordSetWithIDs{{"testhost", Type(dns.TypeA), prevRecords}})
+			})
+			te.sherpaError("user:error", func() {
+				te.api.RecordSetsDelete(ctxbg, z.Name, []RecordSetWithIDs{{"testhost", Type(dns.TypeTLSA), prevRecords}})
+			})
+			te.sherpaError("user:error", func() { te.api.RecordSetsDelete(ctxbg, z.Name, []RecordSetWithIDs{{"testhost", Type(0), prevRecords}}) })
 
-			te.api.RecordSetDelete(ctxbg, z.Name, "testhost", Type(dns.TypeA), prevRecords)
-			te.sherpaError("user:error", func() { te.api.RecordSetDelete(ctxbg, z.Name, "testhost", Type(dns.TypeA), prevRecords) })
+			te.api.RecordSetsDelete(ctxbg, z.Name, []RecordSetWithIDs{{"testhost", Type(dns.TypeA), prevRecords}})
+			te.sherpaError("user:error", func() {
+				te.api.RecordSetsDelete(ctxbg, z.Name, []RecordSetWithIDs{{"testhost", Type(dns.TypeA), prevRecords}})
+			})
 		})
 		tc.checkRecordDelta(typecounts{"A": 2}, typecounts{})
 	})
@@ -156,6 +162,64 @@ func TestRecordSetUpdate(t *testing.T) {
 	})
 }
 
+func TestRecordSetsUpdateTTL(t *testing.T) {
+	testDNS(t, func(te testEnv, z Zone) {
+		tc := te.zoneChanged(func() {
+			var prevRecords []int64
+			for _, r := range te.z0.records {
+				if r.AbsName == "testhost."+z.Name && r.Type == Type(dns.TypeA) {
+					prevRecords = append(prevRecords, r.ID)
+				}
+			}
+			tcompare(t, len(prevRecords), 2)
+
+			te.sherpaError("user:notFound", func() {
+				te.api.RecordSetsUpdateTTL(ctxbg, "bogus", 300, []RecordSetWithIDs{{"testhost", Type(dns.TypeA), prevRecords}})
+			})
+			te.sherpaError("user:error", func() {
+				te.api.RecordSetsUpdateTTL(ctxbg, z.Name, 300, []RecordSetWithIDs{{"testhost", Type(dns.TypeTLSA), prevRecords}})
+			})
+			te.sherpaError("user:error", func() {
+				te.api.RecordSetsUpdateTTL(ctxbg, z.Name, 300, []RecordSetWithIDs{{"testhost", Type(0), prevRecords}})
+			})
+
+			te.api.RecordSetsUpdateTTL(ctxbg, z.Name, 123, []RecordSetWithIDs{{"testhost", Type(dns.TypeA), prevRecords}})
+		})
+		tc.checkRecordDelta(typecounts{"A": 2}, typecounts{"A": 2})
+	})
+}
+
+func TestRecordSetsUpdate(t *testing.T) {
+	testDNS(t, func(te testEnv, z Zone) {
+		tc := te.zoneChanged(func() {
+			var prevRecords []Record
+			var prevRecordIDs []int64
+			for _, r := range te.z0.records {
+				if r.AbsName == "testhost."+z.Name && r.Type == Type(dns.TypeA) {
+					prevRecords = append(prevRecords, r)
+					prevRecordIDs = append(prevRecordIDs, r.ID)
+				}
+			}
+			tcompare(t, len(prevRecordIDs), 2)
+			rrsetsWithIDsOld := []RecordSetWithIDs{{"testhost", Type(dns.TypeA), prevRecordIDs}}
+
+			rrsetsNew := [][]Record{
+				{
+					{AbsName: "testhost." + z.Name, TTL: 600, Type: Type(dns.TypeA), Class: Class(dns.ClassINET), DataHex: "0a000002", Value: "10.0.0.2"},
+				},
+				{
+					{AbsName: "testhost2." + z.Name, TTL: 300, Type: Type(dns.TypeTXT), Class: Class(dns.ClassINET), DataHex: "0474657374", Value: `"test"`},
+				},
+			}
+
+			te.sherpaError("user:notFound", func() { te.api.RecordSetsUpdate(ctxbg, "bogus", rrsetsWithIDsOld, rrsetsNew) })
+			te.sherpaError("user:error", func() { te.api.RecordSetsUpdate(ctxbg, z.Name, rrsetsWithIDsOld, [][]Record{prevRecords}) }) // No changes.
+			te.api.RecordSetsUpdate(ctxbg, z.Name, rrsetsWithIDsOld, rrsetsNew)
+		})
+		tc.checkRecordDelta(typecounts{"A": 2}, typecounts{"A": 1, "TXT": 1})
+	})
+}
+
 func TestZoneImportRecords(t *testing.T) {
 	testDNS(t, func(te testEnv, z Zone) {
 		te.sherpaError("user:notFound", func() { te.api.ZoneImportRecords(ctxbg, "bogus", "") })
@@ -169,6 +233,19 @@ testhost3 600 IN MX 10 testhost2
 			te.api.ZoneImportRecords(ctxbg, z.Name, zonefile)
 		})
 		tc.checkRecordDelta(typecounts{}, typecounts{"A": 1, "MX": 1})
+	})
+}
+
+func TestZoneParse(t *testing.T) {
+	testDNS(t, func(te testEnv, z Zone) {
+		te.sherpaError("user:notFound", func() { te.api.ZoneParse(ctxbg, "bogus", "") })
+		te.sherpaError("user:error", func() { te.api.ZoneParse(ctxbg, z.Name, "bad zone file") })
+
+		zonefile := `
+testhost2 300 IN A 10.0.0.4
+testhost3 600 IN MX 10 testhost2
+`
+		te.api.ZoneParse(ctxbg, z.Name, zonefile)
 	})
 }
 

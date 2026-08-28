@@ -57,11 +57,11 @@ func _checkuserf(err error, format string, args ...any) {
 	}
 
 	msg := fmt.Sprintf(format, args...)
-	m := msg + ": " + err.Error()
-	_userError(m)
+	_userErrorf("%s: %s", msg, err)
 }
 
-func _userError(m string) {
+func _userErrorf(format string, args ...any) {
+	m := fmt.Sprintf(format, args...)
 	slog.Debug("sherpa user error", "err", m)
 	panic(&sherpa.Error{Code: "user:error", Message: m})
 }

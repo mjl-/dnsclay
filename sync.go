@@ -35,7 +35,7 @@ func lockZone(zone string) (unlock func()) {
 		}
 		done = true
 		zoneCond.L.Lock()
-		zoneBusy[zone] = false
+		delete(zoneBusy, zone)
 		zoneCond.L.Unlock()
 		zoneCond.Broadcast()
 	}

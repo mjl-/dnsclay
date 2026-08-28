@@ -725,7 +725,26 @@ const pageZone = async (zonestr: string) => {
 	let [zone, providerConfig, notifies0, credentials0, sets0] = await client.Zone(zonestr+'.')
 	let notifies = notifies0 || []
 	let credentials = credentials0 || []
-	let sets = sets0 || []
+
+	class recordSetSelect {
+		rs: api.RecordSet
+		sel: HTMLInputElement // Checkbox.
+
+		constructor(rs: api.RecordSet) {
+			this.rs = rs
+			this.sel = dom.input(
+				attr.type('checkbox'),
+				function change() {
+					// Only allow actions on selection when at least 1 recordset is selected.
+					selectionFieldset.disabled = !(sets || []).find(e => e.sel.checked)
+				},
+				function click(e: MouseEvent) {
+					e.stopPropagation()
+				},
+			)
+		}
+	}
+	let sets = (sets0 || []).map(s => new recordSetSelect(s))
 
 	dom._kids(crumbElem,
 		dom.a(attr.href('#'), 'Home'), ' / ',
@@ -756,13 +775,24 @@ const pageZone = async (zonestr: string) => {
 	let searchType: HTMLInputElement
 	let searchValue: HTMLInputElement
 
+	let toggleAllCheckbox: HTMLInputElement
+
+	const toggleAll = (on: boolean) => {
+		for (const s of sets) {
+			s.sel.checked = on
+		}
+		render() // Ensure only visible records are selected.
+		selectionFieldset.disabled = !on // Only allow actions on selection when at least 1 recordset is selected.
+	}
+	let selectionFieldset: HTMLFieldSetElement
+
 	const refresh = async (elem: {disabled: boolean}) => {
 		const [nzone, npc, nnotifies, ncredentials, nsets] = await check(elem, () => client.Zone(zone.Name))
 		zone = nzone
 		providerConfig = npc
 		notifies = nnotifies || []
 		credentials = ncredentials || []
-		sets = nsets || []
+		sets = (nsets || []).map(s => new recordSetSelect(s))
 		render()
 	}
 
@@ -1112,7 +1142,7 @@ const pageZone = async (zonestr: string) => {
 							dom.div(
 								dom.label(
 									dom.div('Zone file'),
-									zonefile=dom.textarea('$TTL 300 ; default 5m\n$ORIGIN '+zone.Name+'\n\n; record syntax: name ttl type value\n; example:\n;relativename 300 A 1.2.3.4\n\n', style({width: '60em'}), attr.rows('10')),
+									zonefile=dom.textarea('$TTL 300 ; default 5m\n$ORIGIN '+zone.Name+'\n\n; record syntax: name [ttl] type value\n; example:\n;relativename 300 A 1.2.3.4\n\n', style({width: '60em'}), attr.rows('10')),
 								),
 							),
 							dom.div(
@@ -1125,7 +1155,7 @@ const pageZone = async (zonestr: string) => {
 			}), ' ',
 			dom.clickbutton('Fetch latest records', async function click(e: {target: HTMLButtonElement}) {
 				const [_, nsets] = await check(e.target, () => client.ZoneRefresh(zone.Name))
-				sets = nsets || []
+				sets = (nsets || []).map(s => new recordSetSelect(s))
 				render()
 			}), ' ',
 			dom.clickbutton('Purge history', attr.title('Remove history with previously existing but now removed records. History is used by IXFR for incremental zone transfers, but IXFR attempts will fall back to AXFR if history is not available.'), async function click(e: {target: HTMLButtonElement}) {
@@ -1133,7 +1163,7 @@ const pageZone = async (zonestr: string) => {
 					return
 				}
 				const [_, nsets] = await check(e.target, () => client.ZonePurgeHistory(zone.Name))
-				sets = nsets || []
+				sets = (nsets || []).map(s => new recordSetSelect(s))
 				render()
 			}), ' ',
 		),
@@ -1146,7 +1176,7 @@ const pageZone = async (zonestr: string) => {
 				dom.tr(
 					dom.td(
 						style({textAlign: 'left'}),
-						attr.colspan('7'),
+						attr.colspan('8'),
 						dom.div(
 							dom.label(
 								showHistoric=dom.input(
@@ -1183,29 +1213,50 @@ const pageZone = async (zonestr: string) => {
 					),
 				),
 				dom.tr(
-					dom.th(),
-					dom.th(),
-					dom.th(
+					dom.td(),
+					dom.td(),
+					dom.td(),
+					dom.td(
 						searchName=dom.input(style({width: '100%', border: '1px solid #999', borderRadius: '2px'}), function keyup() { render() }, function change() { render() }),
 					),
-					dom.th(
+					dom.td(
 						searchTTL=dom.input(style({width: '3em', border: '1px solid #999', borderRadius: '2px'}), function keyup() { render() }, function change() { render() }),
 					),
-					dom.th(
+					dom.td(
 						searchType=dom.input(style({width: '5em', border: '1px solid #999', borderRadius: '2px'}), function keyup() { render() }, function change() { render() }),
 					),
-					dom.th(
+					dom.td(
 						searchValue=dom.input(style({width: '100%', border: '1px solid #999', borderRadius: '2px'}), function keyup() { render() }, function change() { render() }),
 					),
-					dom.th(),
+					dom.td(
+						selectionFieldset=dom.fieldset(
+							prop({disabled: true}), // Toggled when rendering, based on whether a recordset is selected.
+							dom.clickbutton('Edit', attr.title('Edit record sets in zone syntax'), async function click(e: {target: HTMLButtonElement}) {
+								const rrsets = sets.filter(s => s.sel.checked).map(s => s.rs.Records || [])
+								await popupEditMultiple(zone, rrsets)
+								await refresh(e.target)
+							}), ' ',
+							dom.clickbutton('Edit TTL', async function click(e: {target: HTMLButtonElement}) {
+								const rrsets = sets.filter(s => s.sel.checked).map(s => s.rs)
+								await popupEditTTL(zone, rrsets)
+								await refresh(e.target)
+							}), ' ',
+							dom.clickbutton('Delete', async function click(e: {target: HTMLButtonElement}) {
+								const rrsets = sets.filter(s => s.sel.checked).map(s => s.rs)
+								await popupDelete(zone, rrsets)
+								await refresh(e.target)
+							}),
+						),
+					),
 				),
 				dom.tr(
+					dom.th(toggleAllCheckbox=dom.input(attr.type('checkbox'), function change() { toggleAll(toggleAllCheckbox.checked) })),
 					dom.th(),
 					dom.th('Age'),
 					dom.th('Name'),
 					dom.th('TTL'),
 					dom.th('Type'),
-					dom.th('Value'),
+					dom.th('Values'),
 					dom.th('Actions'),
 				),
 			),
@@ -1223,8 +1274,40 @@ const pageZone = async (zonestr: string) => {
 	)
 
 	const render = () => {
+		// todo: add mechanism to show history for an rrset (name + type). possibly a popup
+
+		const typeRRSIG = 46
+		const typeNSEC = 47
+		const typeNSEC3 = 50
+
+		let s = sets
+		s = s.filter(s => (showHistoric.checked || !s.rs.Records![0]!.Deleted) && (showDNSSEC.checked || (s.rs.Records![0].Type !== typeRRSIG && s.rs.Records![0].Type !== typeNSEC && s.rs.Records![0].Type !== typeNSEC3)))
+		const searchHighlight = (input: HTMLInputElement) => {
+			input.style.backgroundColor = input.value ? '#dff0ff' : 'white'
+		}
+		searchHighlight(searchName)
+		searchHighlight(searchTTL)
+		searchHighlight(searchType)
+		searchHighlight(searchValue)
+		if (searchName.value) {
+			const v = searchName.value.toLowerCase()
+			s = s.filter(s => relName(s.rs.Records![0].AbsName).toLowerCase().includes(v))
+		}
+		if (searchTTL.value) {
+			s = s.filter(s => ''+s.rs.Records![0].TTL === searchTTL.value)
+		}
+		if (searchType.value) {
+			const v = searchType.value.toUpperCase()
+			s = s.filter(s => (dnsTypeNames[s.rs.Records![0].Type] || '').includes(v))
+		}
+		if (searchValue.value) {
+			const v = searchValue.value.toLowerCase()
+			s = s.filter(s => !!(s.rs.Records || []).find(r => r.Value.toLowerCase().includes(v)))
+		}
 		// todo: implement sorting on other columns. at least type.
-		sets = sets.sort((sa, sb) => {
+		s = s.sort((xsa, xsb) => {
+			const sa = xsa.rs
+			const sb = xsb.rs
 			const a = sa.Records![0]
 			const b = sb.Records![0]
 			if (a.AbsName !== b.AbsName) {
@@ -1247,40 +1330,19 @@ const pageZone = async (zonestr: string) => {
 			let tmb = b.Deleted || b.First
 			return tma.getTime() > tmb.getTime() ? -1 : 1
 		})
+		// Clear selected status of recordsets that aren't visible.
+		for (const e of sets) {
+			if (!s.includes(e)) {
+				e.sel.checked = false
+			}
+		}
 
-		// todo: add checkboxes to select multiple/all records and do mass operations like changing TTL and deleting them.
-		// todo: add mechanism to show history for an rrset (name + type). possibly a popup
+		// Only allow actions on selection when at least 1 recordset is selected.
+		selectionFieldset.disabled = !s.find(e => e.sel.checked)
 
-		const typeRRSIG = 46
-		const typeNSEC = 47
-		const typeNSEC3 = 50
-
-		let s = sets
-		s = s.filter(s => (showHistoric.checked || !s.Records![0]!.Deleted) && (showDNSSEC.checked || (s.Records![0].Type !== typeRRSIG && s.Records![0].Type !== typeNSEC && s.Records![0].Type !== typeNSEC3)))
-		const searchHighlight = (input: HTMLInputElement) => {
-			input.style.backgroundColor = input.value ? '#dff0ff' : 'white'
-		}
-		searchHighlight(searchName)
-		searchHighlight(searchTTL)
-		searchHighlight(searchType)
-		searchHighlight(searchValue)
-		if (searchName.value) {
-			const v = searchName.value.toLowerCase()
-			s = s.filter(s => relName(s.Records![0].AbsName).toLowerCase().includes(v))
-		}
-		if (searchTTL.value) {
-			s = s.filter(s => ''+s.Records![0].TTL === searchTTL.value)
-		}
-		if (searchType.value) {
-			const v = searchType.value.toUpperCase()
-			s = s.filter(s => (dnsTypeNames[s.Records![0].Type] || '').includes(v))
-		}
-		if (searchValue.value) {
-			const v = searchValue.value.toLowerCase()
-			s = s.filter(s => !!(s.Records || []).find(r => r.Value.toLowerCase().includes(v)))
-		}
 		dom._kids(recordsTbody,
-			s.map(set => {
+			s.map(setsel => {
+				const set = setsel.rs
 				const r0 = set.Records![0]
 
 				const hasNegative = !!(set.States || []).find(state => state.Negative)
@@ -1294,7 +1356,14 @@ const pageZone = async (zonestr: string) => {
 				}
 
 				return dom.tr(
-					r0.Deleted ? [style({color: '#888'}), attr.title('Historic/deleted record')] : [],
+					r0.Deleted ?
+						[style({color: '#888'}), attr.title('Historic/deleted record')] :
+						function click() {
+							setsel.sel.checked = !setsel.sel.checked
+							// Only allow actions on selection when at least 1 recordset is selected.
+							selectionFieldset.disabled = !(sets || []).find(e => e.sel.checked)
+						},
+					dom.td(r0.Deleted ? [] : setsel.sel),
 					dom.td(
 						hasNegative && hasPrevious ? style({backgroundColor: 'orange', border: '3px solid #ffe300'}) : [],
 						hasNegative && !hasPrevious ? style({backgroundColor: '#ffe300'}) : [],
@@ -1332,11 +1401,7 @@ const pageZone = async (zonestr: string) => {
 									await refresh(e.target)
 								}), ' ',
 								dom.clickbutton('Delete', async function click(e: {target: HTMLButtonElement}) {
-									const text = (set.Records || []).map(r => [relName(r.AbsName), r.TTL, dnsTypeNames[r.Type], r.Value].join(' ')).join('\n')
-									if (!confirm('Are you sure you want to delete this record set?'+'\n\n'+text)) {
-										return
-									}
-									await check(e.target, () => client.RecordSetDelete(zone.Name, relName(r0.AbsName), r0.Type, set.Records!.map(r => r.ID)))
+									await popupDelete(zone, [set])
 									await refresh(e.target)
 								}),
 							],
@@ -1354,6 +1419,273 @@ const pageZone = async (zonestr: string) => {
 	render()
 
 	return root
+}
+
+const rrsetsTable = (rrsets: api.Record[][]) =>
+	dom.table(
+		dom._class('striped'),
+		dom.thead(
+			dom.tr(
+				dom.th('Name'),
+				dom.th('TTL'),
+				dom.th('Type'),
+				dom.th('Values'),
+			),
+		),
+		dom.tbody(
+			rrsets.map(l => {
+				const r0 = l[0]!
+				return dom.tr(
+					dom.td(r0.AbsName),
+					dom.td(''+r0.TTL),
+					dom.td(dnsTypeNames[r0.Type] || ''+r0.Type),
+					dom.td(dom.ul(style({marginBottom: '0', textAlign: 'left'}), l.map(r => dom.li(r.Value)))),
+				)
+			}),
+		),
+	)
+
+// open popup to edit multiple record sets, by editing in zone file syntax.
+// after editing, we show the changes (record sets to add/remove/modify), and ask
+// for confirmation before saving.
+const popupEditMultiple = async (zone: api.Zone, rrsetsOld: api.Record[][]) => {
+	const rrsetsZone = `$TTL 300 ; default 5m
+$ORIGIN ${zone.Name}
+
+; record syntax: name [ttl] type value
+; example:
+; relativename 300 A 1.2.3.4
+
+` + rrsetsOld.map(l =>
+		l.map(r =>
+			[r.AbsName, ''+r.TTL, dnsTypeNames[r.Type] || ''+r.Type, r.Value].join('\t')
+		).join('\n')
+	).join('\n\n') + '\n'
+
+	let rrsetsTextarea: HTMLTextAreaElement
+	let fieldset: HTMLFieldSetElement
+
+	await new Promise<void>((resolve, reject) => {
+		const [close, closed] = popup(
+			dom.h1('Edit selected record sets'),
+			dom.form(
+				async function submit(e: SubmitEvent) {
+					e.preventDefault()
+					e.stopPropagation()
+
+					const rrsetsNew0 = await check(fieldset, () => client.ZoneParse(zone.Name, rrsetsTextarea.value))
+					const rrsetsNew = (rrsetsNew0 || []).map(rrset => rrset || []) // Get rid of theorical nulls.
+
+					const rrsetsWithIDsOld = rrsetsOld.map(rrset => {
+						const r0 = rrset[0]!
+						let v: api.RecordSetWithIDs = {
+							RelName: zoneRelName(zone, r0.AbsName),
+							Type: r0.Type,
+							RecordIDs: rrset.map(r => r.ID),
+						}
+						return v
+					})
+
+					// Ask for confirmation.
+					await new Promise<void>((resolve, reject) => {
+						const [close, closed] = popup(
+							dom.h1('Save changes to records set?'),
+							dom.table(
+								dom._class('striped'),
+								dom.thead(
+									dom.tr(
+										dom.th(),
+										dom.th(attr.colspan('4'), style({textAlign: 'center'}), 'Old'),
+										dom.th('→', style({width: '3em'})),
+										dom.th(attr.colspan('4'), style({textAlign: 'center'}), 'New'),
+									),
+									dom.tr(
+										dom.th(),
+										dom.th('Name'),
+										dom.th('TTL'),
+										dom.th('Type'),
+										dom.th('Values'),
+										dom.th(),
+										dom.th('Name'),
+										dom.th('TTL'),
+										dom.th('Type'),
+										dom.th('Values'),
+									),
+								),
+								dom.tbody(
+									rrsetsNew.map(rrsetNew => {
+										const nr0 = rrsetNew[0]!
+										const rrsetOld = rrsetsOld.find(l => l[0]!.AbsName == nr0.AbsName && l[0]!.Type == nr0.Type)
+
+										if (rrsetOld && rrsetOld.length === rrsetNew.length) {
+											const o = rrsetOld.map(r => [r.AbsName, r.TTL, r.Type, r.Value].join('\t'))
+											const n = rrsetNew.map(r => [r.AbsName, r.TTL, r.Type, r.Value].join('\t'))
+											o.sort()
+											n.sort()
+											if (o.join('\n') === n.join('\n')) {
+												// Unchanged, don't show.
+												return []
+											}
+										}
+
+										return dom.tr(
+											rrsetOld ? [
+												style({backgroundColor: '#fed'}),
+												dom.td(style({fontStyle: 'italic'}), 'Modify'),
+												dom.td(rrsetOld[0]!.AbsName),
+												dom.td(''+rrsetOld[0]!.TTL),
+												dom.td(dnsTypeNames[rrsetOld[0]!.Type] || ''+rrsetOld[0]!.Type),
+												dom.td(style({textAlign: 'left'}), dom.ul(style({marginBottom: 0}), rrsetOld.map(r => dom.li(r.Value)))),
+												dom.td(),
+											] : [
+												style({backgroundColor: '#dfd'}),
+												dom.td(style({fontStyle: 'italic'}), 'Add'),
+												dom.td(attr.colspan('4')),
+												dom.td(),
+											],
+											dom.td(nr0.AbsName),
+											dom.td(''+nr0.TTL),
+											dom.td(dnsTypeNames[nr0.Type] || ''+nr0.Type),
+											dom.td(style({textAlign: 'left'}), dom.ul(style({marginBottom: 0}), rrsetNew.map(r => dom.li(r.Value)))),
+										)
+									}),
+									rrsetsOld.map(rrsetOld => {
+										const or0 = rrsetOld[0]!
+										const rrsetNew = rrsetsNew.find(l => l[0]!.AbsName == or0.AbsName && l[0]!.Type == or0.Type)
+										if (rrsetNew) {
+											return []
+										}
+										return dom.tr(
+											style({backgroundColor: '#fdd'}),
+											dom.td(style({fontStyle: 'italic'}), 'Remove'),
+											dom.td(or0.AbsName),
+											dom.td(''+or0.TTL),
+											dom.td(dnsTypeNames[or0.Type] || ''+or0.Type),
+											dom.td(style({textAlign: 'left'}), dom.ul(style({marginBottom: 0}), rrsetOld.map(r => dom.li(r.Value)))),
+											dom.td(),
+											dom.td(attr.colspan('4')),
+										)
+									}),
+								),
+							),
+							dom.br(),
+							dom.clickbutton('Save', function click() {
+								close()
+								resolve()
+							}), ' ',
+							dom.clickbutton('Cancel', function click() {
+								close()
+								reject()
+							}),
+						)
+						closed.then(undefined, reject)
+					})
+
+					await check(fieldset, () => client.RecordSetsUpdate(zone.Name, rrsetsWithIDsOld, rrsetsNew))
+					close()
+					resolve()
+				},
+				fieldset=dom.fieldset(
+					style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
+					dom.div(
+						dom.div(
+							dom.label('Record sets (zone file syntax)'),
+							' ',
+							dom.clickbutton('Reset', function click() { rrsetsTextarea.value = rrsetsZone })
+						),
+						rrsetsTextarea=dom.textarea(rrsetsZone, style({width: '60em'}), attr.rows('20')),
+					),
+					dom.div(
+						dom.submitbutton('Show differences and save')
+					),
+				),
+			),
+		)
+		closed.then(undefined, reject)
+	})
+}
+
+const popupEditTTL = async (zone: api.Zone, rrsets: api.RecordSet[]) => {
+	let fieldset: HTMLFieldSetElement
+	let ttl: HTMLInputElement
+
+	await new Promise<void>((resolve, reject) => {
+		const [close, closed] = popup(
+			dom.h1('Edit TTL'),
+			dom.form(
+				async function submit(e: SubmitEvent) {
+					e.preventDefault()
+					e.stopPropagation()
+
+					const rrsetsWithIDs = rrsets.map(s => {
+						const r0 = s.Records![0]
+						let v: api.RecordSetWithIDs = {
+							RelName: zoneRelName(zone, r0.AbsName),
+							Type: r0.Type,
+							RecordIDs: s.Records!.map(r => r.ID),
+						}
+						return v
+					})
+					await check(fieldset, () => client.RecordSetsUpdateTTL(zone.Name, parseInt(ttl.value), rrsetsWithIDs))
+					close()
+					resolve()
+				},
+				fieldset=dom.fieldset(
+					style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
+					dom.div(
+						dom.label(
+							dom.div('Record sets'),
+						),
+						rrsetsTable(rrsets.map(s => s.Records || [])),
+					),
+					dom.div(
+						dom.label(
+							dom.div('New TTL'),
+							ttl=dom.input(attr.type('number'), attr.required('')),
+						),
+					),
+					dom.div(
+						dom.submitbutton('Update TTL of record sets'),
+					),
+				),
+			),
+		)
+		closed.then(undefined, reject)
+	})
+}
+
+const popupDelete = async (zone: api.Zone, rrsets: api.RecordSet[]) => {
+	await new Promise<void>((resolve, reject) => {
+		const [close, closed] = popup(
+			dom.h1('Delete?'),
+			dom.div(
+				style({display: 'flex', flexDirection: 'column', gap: '2ex'}),
+				dom.div(
+					dom.label(
+						dom.div('Record sets'),
+					),
+					rrsetsTable(rrsets.map(s => s.Records || [])),
+				),
+				dom.div(
+					dom.clickbutton('Delete', async function click(e: {target: HTMLButtonElement}) {
+						const rrsetsWithIDs = rrsets.map(rrset => {
+							const r0 = rrset.Records![0]
+							let v: api.RecordSetWithIDs = {
+								RelName: zoneRelName(zone, r0.AbsName),
+								Type: r0.Type,
+								RecordIDs: rrset.Records!.map(r => r.ID),
+							}
+							return v
+						})
+						await check(e.target, () => client.RecordSetsDelete(zone.Name, rrsetsWithIDs))
+						close()
+						resolve()
+					}),
+				),
+			),
+		)
+		closed.then(undefined, reject)
+	})
 }
 
 const hashchange = async (e?: HashChangeEvent) => {
