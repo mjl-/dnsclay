@@ -20,7 +20,7 @@ func refreshKick() {
 
 // Refresher sleeps most of the time, until it is time to poll for a new SOA record
 // with a remote zone, or for a schedule full sync of the records.
-func refresher() {
+func refresher(acceptCtx context.Context) {
 	log := slog.Default()
 
 	sync := time.NewTimer(0)
@@ -28,6 +28,12 @@ func refresher() {
 
 	// Reschedule based on the first next time to check for a new SOA record or do a full sync.
 	reschedule := func() {
+		select {
+		case <-acceptCtx.Done():
+			return
+		default:
+		}
+
 		err := database.Read(shutdownCtx, func(tx *bstore.Tx) error {
 			if z, err := bstore.QueryTx[Zone](tx).SortAsc("NextSync").Limit(1).Get(); err == nil {
 				sync.Reset(time.Until(z.NextSync))
@@ -51,8 +57,13 @@ func refresher() {
 
 	reschedule()
 
+	defer slog.Info("refresher finished")
+
 	for {
 		select {
+		case <-acceptCtx.Done():
+			return
+
 		case <-sync.C:
 			// Should be time to do a sync. Multiple zones may be ready. Fetch them and update
 			// their next times to sync.

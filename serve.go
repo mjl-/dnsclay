@@ -24,6 +24,7 @@ import (
 	"os/signal"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -321,6 +322,12 @@ func cmdServe(args []string) {
 		log.Fatalf("reading adminpassword: %v", err)
 	}
 
+	// Canceled after a term/interrupt signal, to prevent starting new (background)
+	// operations.
+	acceptCtx, acceptCancel := context.WithCancel(context.Background())
+
+	// Canceled after http servers have been shutdown, to abort any pending operations.
+	// Most operations use this as base context.
 	shutdownCtx, shutdownCancel = context.WithCancel(context.Background())
 
 	if tlskeypem != "" {
@@ -406,10 +413,18 @@ func cmdServe(args []string) {
 			// We just read one packet, handle it writing a response, then read the next. We
 			// are only expecting NOTIFY messages and requests for authoritative SOA records.
 			go func() {
+				defer slog.Info("dns udp listener finished", "addr", addr)
+
 				// Larger than needed, but easy to for shared code with tcp handling.
 				buf := make([]byte, 2+64*1024)
 
 				for {
+					select {
+					case <-acceptCtx.Done():
+						return
+					default:
+					}
+
 					n, addr, err := lconn.ReadFrom(buf)
 					if err != nil {
 						slog.Error("read udp packet", "err", err)
@@ -438,7 +453,15 @@ func cmdServe(args []string) {
 		xcheckf(err, "listening on tcp %s", addr)
 
 		go func() {
+			defer slog.Info("dns tcp listener finished", "addr", addr)
+
 			for {
+				select {
+				case <-acceptCtx.Done():
+					return
+				default:
+				}
+
 				conn, err := lconn.Accept()
 				xcheckf(err, "accept")
 				go func() {
@@ -449,35 +472,49 @@ func cmdServe(args []string) {
 		}()
 	}
 
+	var servers []*http.Server
+
 	if adminAddr != "" && adminAddr == metricsAddr {
 		// Single web server for both admin and metrics.
 		conn, err := net.Listen("tcp", adminAddr)
 		xcheckf(err, "listen for webserver")
 
+		server := &http.Server{
+			Handler:     adminMux,
+			BaseContext: func(_ net.Listener) context.Context { return shutdownCtx },
+			ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+				return context.WithValue(ctx, ctxKeyCID, connID.Add(1))
+			},
+			ReadHeaderTimeout: 30 * time.Second,
+			IdleTimeout:       65 * time.Second,
+		}
+		servers = append(servers, server)
+
 		go func() {
-			server := http.Server{
-				Handler: adminMux,
-				ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-					return context.WithValue(ctx, ctxKeyCID, connID.Add(1))
-				},
+			if err := server.Serve(conn); err != http.ErrServerClosed {
+				xcheckf(err, "serve webserver")
 			}
-			err := server.Serve(conn)
-			xcheckf(err, "serve webserver")
 		}()
 	} else {
 		if adminAddr != "" {
 			adminconn, err := net.Listen("tcp", adminAddr)
 			xcheckf(err, "listen for admin webserver")
 
+			server := &http.Server{
+				Handler:     adminMux,
+				BaseContext: func(_ net.Listener) context.Context { return shutdownCtx },
+				ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+					return context.WithValue(ctx, ctxKeyCID, connID.Add(1))
+				},
+				ReadHeaderTimeout: 30 * time.Second,
+				IdleTimeout:       65 * time.Second,
+			}
+			servers = append(servers, server)
+
 			go func() {
-				server := http.Server{
-					Handler: adminMux,
-					ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-						return context.WithValue(ctx, ctxKeyCID, connID.Add(1))
-					},
+				if err := server.Serve(adminconn); err != http.ErrServerClosed {
+					xcheckf(err, "serve admin webserver")
 				}
-				err := server.Serve(adminconn)
-				xcheckf(err, "serve admin webserver")
 			}()
 		}
 
@@ -490,30 +527,53 @@ func cmdServe(args []string) {
 			metricsconn, err := net.Listen("tcp", metricsAddr)
 			xcheckf(err, "listening for metrics webserver")
 
+			server := &http.Server{
+				Handler:     metricsMux,
+				BaseContext: func(_ net.Listener) context.Context { return shutdownCtx },
+				ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+					return context.WithValue(ctx, ctxKeyCID, connID.Add(1))
+				},
+				ReadHeaderTimeout: 30 * time.Second,
+				IdleTimeout:       65 * time.Second,
+			}
+			servers = append(servers, server)
+
 			go func() {
-				server := http.Server{
-					Handler: metricsMux,
-					ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-						return context.WithValue(ctx, ctxKeyCID, connID.Add(1))
-					},
+				if err := server.Serve(metricsconn); err != http.ErrServerClosed {
+					xcheckf(err, "serving metrics webserver")
 				}
-				err := server.Serve(metricsconn)
-				xcheckf(err, "serving metrics webserver")
 			}()
 		}
 	}
 
 	go func() {
 		defer recoverPanic(slog.Default(), "periodic zone refresher")
-		refresher()
+		refresher(acceptCtx)
 	}()
 
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGTERM)
-	<-sigc
-	slog.Info("shutting down")
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	<-ctx.Done()
+	cancel() // Allow another interrupt/term to kill the process immediately.
+	slog.Info("shutting down...")
+
+	// Stop accepting new work.
+	acceptCancel()
+
+	// Gracefully shutdown http servers.
+	graceCtx, graceCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer graceCancel()
+	var wg sync.WaitGroup
+	for _, s := range servers {
+		wg.Go(func() {
+			if err := s.Shutdown(graceCtx); err != nil {
+				slog.Error("shutdown server", "err", err)
+			}
+		})
+	}
+	wg.Wait()
+	slog.Info("http servers shut down, aborting operations and waiting .5s before exit...")
+
 	shutdownCancel()
-	// todo: wait for all connections and operations to finish, then quit earlier if possible.
 	time.Sleep(time.Second / 2)
-	os.Exit(0)
+	slog.Info("exiting...")
 }
