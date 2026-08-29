@@ -20,7 +20,7 @@ them (like BIND, Knot), or talking to dnsclay which does the translating.
 
 For more information, see the documentation:
 
-https://pkg.go.dev/github.com/mjl-/dnsclay
+https://pkg.go.dev/xmjl.nl/dnsclay
 
 For additional context, see the announcement blog post:
 
@@ -31,11 +31,11 @@ https://www.ueber.net/who/mjl/blog/p/dnsclay-dns-update-axfr-notify-to-many-cust
 
 Get the latest binary:
 
-https://beta.gobuilds.org/github.com/mjl-/dnsclay@latest/linux-amd64-latest-stripped/
+https://beta.gobuilds.org/xmjl.nl/dnsclay@latest/linux-amd64-latest-stripped/
 
 Or compile it locally (requires a recent Go toolchain):
 
-	GOBIN=$PWD CGO_ENABLED=0 go install github.com/mjl-/dnsclay@latest
+	GOBIN=$PWD CGO_ENABLED=0 go install xmjl.nl/dnsclay@latest
 
 To start:
 

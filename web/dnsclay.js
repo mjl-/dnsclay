@@ -3411,7 +3411,7 @@ const init = async () => {
 		dom.div(
 			style({ display: 'flex', justifyContent: 'space-between', marginBottom: '1ex', padding: '.5em 1em', backgroundColor: '#f8f8f8' }),
 			crumbElem,
-			dom.div(dom.a(attr.href('https://github.com/mjl-/dnsclay'), 'dnsclay'), ' ', version, ' ', dom.a(attr.href('license'), 'license')),
+			dom.div(dom.a(attr.href('https://xmjl.nl/dnsclay'), 'dnsclay'), ' ', version, ' ', dom.a(attr.href('license'), 'license')),
 		),
 		dom.div(pageElem),
 	)

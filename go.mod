@@ -1,4 +1,4 @@
-module github.com/mjl-/dnsclay
+module xmjl.nl/dnsclay
 
 go 1.25.0
 
